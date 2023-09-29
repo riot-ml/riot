@@ -1,3 +1,10 @@
+(*
+type 'msg message = 
+  | Monitor of ...
+  | Link of ...
+  | User of 'msg
+  *)
+
 type 'msg t = {
   mailbox : 'msg Miou.Queue.t;
   is_alive : bool ref;
@@ -15,5 +22,9 @@ let recv t () =
   | msg -> Some msg
 
 let send t msg = Miou.Queue.enqueue t.mailbox msg
-let is_alive t = !t.is_alive
-let run (Pack (t, recv)) = t.fn ~recv
+
+let is_alive t = !(t.is_alive)
+
+let run (Pack (t, recv)) =
+  t.fn ~recv;
+  t.is_alive := false

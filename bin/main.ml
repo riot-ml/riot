@@ -7,19 +7,21 @@ let rec loop ~recv name count =
 
 let main () =
   let pids =
-    List.init 100_000 (fun i ->
+    List.init 1_000_000 (fun i ->
         Scheduler.spawn (fun ~recv ->
             let pid = "pid" ^ string_of_int i in
             loop ~recv pid 0))
   in
   Printf.printf "spawned %d processes\n%!" (List.length pids);
 
-  Process.send (List.nth pids (Random.int 230)) `kill;
-  Process.send (List.nth pids (Random.int 230)) `kill;
-  Process.send (List.nth pids (Random.int 230)) `kill;
-  Process.send (List.nth pids (Random.int 230)) `kill;
-  Process.send (List.nth pids (Random.int 230)) `kill;
-  Process.send (List.nth pids (Random.int 230)) `kill;
+  let pid = (List.nth pids (Random.int 230)) in
+  Process.send pid `kill;
+
+  while Process.is_alive pid do
+    Printf.printf "is alive!\n%!";
+  done;
+  Printf.printf "process was unalived!\n%!";
+
   ()
 
 let () =

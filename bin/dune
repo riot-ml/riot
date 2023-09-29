@@ -1,4 +1,4 @@
 (executable
  (public_name riot)
  (name main)
- (libraries riot miou))
+ (libraries riot miou miou.unix))

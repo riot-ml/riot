@@ -1,0 +1,3 @@
+(library
+ (name riot)
+ (libraries miou))

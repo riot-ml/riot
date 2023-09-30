@@ -30,12 +30,25 @@ let run_scheduler t () =
           let miou_task =
             Miou.call_cc (fun () ->
                 Miou.yield ();
-                let dead_pid, monitors = Process.run proc in
+                let dead_pid, monitors, links = Process.run proc in
+
+                (* notify monitors that we have died *)
                 monitors
                 |> List.iter (fun pid ->
                        let process = find_process pid |> Option.get in
                        Process.signal process
-                         (Process.Monitor_process_died dead_pid)))
+                         (Process.Monitor_process_died dead_pid));
+
+                (* bring down any linked processes *)
+                links
+                |> List.iter (fun pid ->
+                    (* NOTE(leostera): here's where not being able to interrupt
+                       the execution of a fiber gets in the way.
+                       to do links, we will need to go one level deeper.
+                     *)
+                    ())
+
+                )
           in
           Miou.Queue.enqueue t.run_procs miou_task;
           Miou.yield ();

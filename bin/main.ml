@@ -18,10 +18,14 @@ let main () =
 
   let pid1 = List.nth pids (Random.int 230) in
   let pid2 = List.nth pids (Random.int 230) in
+  let pid3 = List.nth pids (Random.int 230) in
+  let pid4 = List.nth pids (Random.int 230) in
 
   Process.monitor pid1 pid2;
+  Process.monitor pid2 pid3;
+  Process.monitor pid3 pid4;
 
-  Process.send pid2 `kill;
+  Process.send pid4 `kill;
 
   ()
 

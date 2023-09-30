@@ -1,10 +1,3 @@
-(*
-type 'msg message = 
-  | Monitor of ...
-  | Link of ...
-  | User of 'msg
-  *)
-
 type pid = int
 type system_msg = Monitor_process_died of pid
 
@@ -14,6 +7,7 @@ type 'msg t = {
   is_alive : bool ref;
   fn : recv:(unit -> 'msg option) -> unit;
   monitors : pid list ref;
+  links : pid list ref;
 }
   constraint 'msg = [> `system of system_msg ]
 
@@ -28,6 +22,7 @@ let make fn =
     is_alive = ref true;
     pid = make_pid ();
     monitors = ref [];
+    links = ref [];
     fn;
   }
 
@@ -44,9 +39,14 @@ let monitor a b =
   b.monitors := a.pid :: !(b.monitors);
   ()
 
+let link a b =
+  b.links := a.pid :: !(b.links);
+  a.links := b.pid :: !(a.links);
+  ()
+
 let _is_alive t = !(t.is_alive)
 
 let run (Pack (t, recv)) =
   t.fn ~recv;
   t.is_alive := false;
-  t.pid, !(t.monitors)
+  t.pid, !(t.monitors), !(t.links)

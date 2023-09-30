@@ -4,11 +4,19 @@ let empty = { domains = []; run_procs = Miou.Queue.create (); id = 0 }
 let make ~id = { empty with id }
 let __SHARED_PROC_QUEUE__ = Miou.Queue.create ()
 
+let __SHARED_PROC_MAP__ :
+    (Process.pid, Process.pack) Hashtbl.t =
+  Hashtbl.create 1024
+
 let spawn fn =
-  let pid = Process.make fn in
-  let pack = Process.Pack (pid, Process.recv pid) in
+  let proc = Process.make fn in
+  let pack = Process.Pack (proc, Process.recv proc) in
+  Hashtbl.add __SHARED_PROC_MAP__ proc.pid pack;
   Miou.Queue.enqueue __SHARED_PROC_QUEUE__ pack;
-  pid
+  proc
+
+let find_process pid = 
+  Hashtbl.find_opt __SHARED_PROC_MAP__ pid
 
 let run_scheduler t () =
   let spawn_task =
@@ -22,7 +30,12 @@ let run_scheduler t () =
           let miou_task =
             Miou.call_cc (fun () ->
                 Miou.yield ();
-                Process.run proc)
+                let dead_pid, monitors = Process.run proc in
+                monitors
+                |> List.iter (fun pid ->
+                       let process = find_process pid |> Option.get in
+                       Process.signal process
+                         (Process.Monitor_process_died dead_pid)))
           in
           Miou.Queue.enqueue t.run_procs miou_task;
           Miou.yield ();

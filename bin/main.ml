@@ -3,6 +3,8 @@ open Riot
 let rec loop ~recv name count =
   match recv () with
   | Some `kill -> Printf.printf "proc[%s]: dead at %d\n%!" name count
+  | Some (`system (Process.Monitor_process_died pid)) ->
+      Printf.printf "proc[%s]: oh no %d died!\n%!" name pid
   | None -> loop ~recv name (count + 1)
 
 let main () =
@@ -14,13 +16,12 @@ let main () =
   in
   Printf.printf "spawned %d processes\n%!" (List.length pids);
 
-  let pid = (List.nth pids (Random.int 230)) in
-  Process.send pid `kill;
+  let pid1 = List.nth pids (Random.int 230) in
+  let pid2 = List.nth pids (Random.int 230) in
 
-  while Process.is_alive pid do
-    Printf.printf "is alive!\n%!";
-  done;
-  Printf.printf "process was unalived!\n%!";
+  Process.monitor pid1 pid2;
+
+  Process.send pid2 `kill;
 
   ()
 

@@ -3,6 +3,7 @@ type ('a, 'b) continuation = ('a, 'b) Effect.Shallow.continuation
 type 'a t =
   | Finished of ('a, exn) result
   | Suspended : ('a, 'b) continuation * 'a Effect.t -> 'b t
+  | Unhandled : ('a, 'b) continuation * 'a -> 'b t
 
 let finished x = Finished x
 let suspended_with k e = Suspended (k, e)

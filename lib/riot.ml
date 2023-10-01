@@ -141,9 +141,10 @@ module Scheduler = struct
   module Task = struct
     let to_int = function
       | Terminated _ -> 0
-      | Arrived _ -> 1
-      | Suspended _ -> 2
-      | Tick -> 3
+      | Signaled _ -> 1
+      | Arrived _ -> 2
+      | Suspended _ -> 3
+      | Tick -> 4
 
     let compare a b = to_int a - to_int b
   end
@@ -173,11 +174,20 @@ module Scheduler = struct
     let tick = Atomic.fetch_and_add t.tick 1 in
     Heapq.add t.tasks (tick, task)
 
+  let perform pool scheduler (Pack proc) = 
+    let perform : type a b. (a, b) State.k =
+      fun k eff ->
+        eff
+    in
+    State.{ perform }
+
   let handle _pool scheduler proc proc_state = 
     match proc_state with
     | Proc_state.Finished reason ->
         add_task scheduler (Terminated (proc, reason))
     | Proc_state.Suspended _ as state ->
+        add_task scheduler (Suspended (proc, state))
+    | Proc_state.Unhandled _ as state ->
         add_task scheduler (Suspended (proc, state))
 
   let once pool scheduler task =
@@ -186,12 +196,10 @@ module Scheduler = struct
     | Arrived (proc, fn) -> handle pool scheduler proc (Proc_state.make fn)
     | Terminated _ -> ()
     | Signaled (_proc, _signal) -> ()
-    | Suspended (_proc, _proc_state) -> ()
-      (*
+    | Suspended (_proc, _proc_state) ->
         let perform = perform pool scheduler (Process.pack proc) in
         let state = Proc_state.run proc_state in
         handle pool scheduler proc state
-      *)
 
   let system_tasks_suspended t = Hashtbl.length t.system_tasks > 0
   let unblock_awaits_with_system_tasks _pool _t = ()

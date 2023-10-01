@@ -185,6 +185,7 @@ module Scheduler = struct
     | Tick -> Domain.cpu_relax ()
     | Arrived (proc, fn) -> handle pool scheduler proc (Proc_state.make fn)
     | Terminated _ -> ()
+    | Signaled (_proc, _signal) -> ()
     | Suspended (_proc, _proc_state) -> ()
       (*
         let perform = perform pool scheduler (Process.pack proc) in

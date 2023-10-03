@@ -1,30 +1,19 @@
-let rec loop ~recv name count =
-  match recv () with
-  | Some `kill -> Printf.printf "proc[%s]: dead at %d\n%!" name count
-  | Some (`system (Riot.Monitor_process_died pid)) ->
-      Printf.printf "proc[%s]: oh no %d died!\n%!" name pid
-  | None -> loop ~recv name (count + 1)
+let rec loop count =
+  let _pid = Riot.self () in
+  match count with
+  | 3 ->
+      (* Riot.Logs.log (fun f -> f "%a: dead at %d\n%!" Riot.Pid.pp pid count); *)
+      ()
+  | _ ->
+      (* Riot.Logs.log (fun f -> f "%a: count=%d\n%!" Riot.Pid.pp pid count); *)
+      loop (count + 1)
 
 let main () =
-  let pids =
-    List.init 1_000_000 (fun i ->
-        Riot.spawn (fun ~recv ->
-            let pid = "pid" ^ string_of_int i in
-            loop ~recv pid 0))
-  in
-  Printf.printf "spawned %d processes\n%!" (List.length pids);
-
-  let pid1 = List.nth pids (Random.int 230) in
-  let pid2 = List.nth pids (Random.int 230) in
-  let pid3 = List.nth pids (Random.int 230) in
-  let pid4 = List.nth pids (Random.int 230) in
-
-  Riot.monitor pid1 pid2;
-  Riot.monitor pid2 pid3;
-  Riot.monitor pid3 pid4;
-
-  Riot.send pid4 `kill;
-
+  Riot.Logs.log (fun f -> f "starting app");
+  let pids = List.init 1_000_000 (fun _i -> Riot.spawn (fun () -> loop 0)) in
+  Riot.Logs.log (fun f -> f "spawned %d process" (List.length pids));
   ()
 
-let () = Riot.run @@ main
+let () =
+  Result.get_ok @@ Riot.run @@ main;
+  Riot.Logs.info (fun f -> f "done!")

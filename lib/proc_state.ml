@@ -15,6 +15,7 @@ type 'a step =
   | Continue of 'a
   | Discontinue of exn
   | Reperform : 'a Effect.t -> 'a step
+  | Delay : 'a Effect.t -> 'a step
   | Yield : unit step
 
 let pp_step : type a. Format.formatter -> a step -> unit =
@@ -23,6 +24,7 @@ let pp_step : type a. Format.formatter -> a step -> unit =
   | Continue _ -> Format.fprintf ppf "Continue"
   | Discontinue _ -> Format.fprintf ppf "Discontinue"
   | Reperform _ -> Format.fprintf ppf "Reperform"
+  | Delay _ -> Format.fprintf ppf "Delay"
   | Yield -> Format.fprintf ppf "Yield"
 
 type ('a, 'b) step_callback = ('a step -> 'b t) -> 'a Effect.t -> 'b t
@@ -69,6 +71,7 @@ let run : type a. perform:perform -> a t -> a t =
        fun fn step ->
         Logs.trace (fun f -> f "stepping with %a" pp_step step);
         match step with
+        | Delay eff -> Suspended (fn, eff)
         | Continue v -> continue_with fn v
         | Discontinue exn -> discontinue_with fn exn
         | Reperform eff -> unhandled_with fn (Effect.perform eff)

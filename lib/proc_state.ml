@@ -56,9 +56,9 @@ let discontinue_with k exn =
 
 let unhandled_with k v = Unhandled (k, v)
 
-let make fn =
+let make fn eff =
   let k = Effect.Shallow.fiber fn in
-  continue_with k ()
+  Suspended (k, eff)
 
 (* NOTE(leostera): this behaves like Miou's `once` *)
 let run : type a. perform:perform -> a t -> a t =

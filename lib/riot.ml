@@ -16,17 +16,15 @@ module Scheduler_uid = struct
 end
 
 module Pid = struct
-  type t = Scheduler_uid.t * int
+  type t = int
 
   let __current__ = Atomic.make 0
   let equal (s1, p1) (s2, p2) = Scheduler_uid.equal s1 s2 && Int.equal p1 p2
   let newer (s1, p1) (s2, p2) = s1 == s2 && p1 > p2
-  let next sch () = (sch, Atomic.fetch_and_add __current__ 1)
-  let scheduler (sch, _) = sch
-  let proc_id (_, proc_id) = proc_id
+  let next () = Atomic.fetch_and_add __current__ 1
 
   let pp : Format.formatter -> t -> unit =
-   fun ppf (sch, pid) -> Format.fprintf ppf "<%d.%d>" sch pid
+   fun ppf pid -> Format.fprintf ppf "<0.%d.0>" pid
 end
 
 module Message = struct
@@ -53,7 +51,6 @@ type state = Pending | Waiting_receive | Running | Exited of exn
 
 type process = {
   pid : Pid.t;
-  runner : Scheduler_uid.t;
   state : state Atomic.t;
   mailbox : Mailbox.t;
   links : Pid.t list;
@@ -96,12 +93,18 @@ module Process = struct
     | Running | Waiting_receive -> true
     | _ -> false
 
-  let make ~runner =
-    let pid = Pid.next runner () in
+  let is_awaiting_message proc =
+    match Atomic.get proc.state with Waiting_receive -> true | _ -> false
+
+  let state t = Atomic.get t.state
+  let set_pending proc = Atomic.set proc.state Pending
+  let set_waiting_receive proc = Atomic.set proc.state Waiting_receive
+
+  let make () =
+    let pid = Pid.next () in
     Logs.debug (fun f -> f "Making process with pid: %a" Pid.pp pid);
     {
       pid;
-      runner;
       state = Atomic.make Pending;
       links = [];
       monitors = [];
@@ -141,7 +144,7 @@ type _ Effect.t +=
   | Self : Pid.t Effect.t
   | Send : (Message.t * Pid.t) -> unit Effect.t
   | Signal : Pid.t -> unit Effect.t
-  | Spawn : Scheduler_uid.t * (unit -> unit) -> Pid.t Effect.t
+  | Spawn : (unit -> exit_reason) -> Pid.t Effect.t
   | Yield : unit Effect.t
 
 let pp_effect : type a. Format.formatter -> a Effect.t -> unit =
@@ -185,13 +188,6 @@ end
 module Task_queue = struct
   type t = (int * task) Queue.t
 
-  (* NOTE(@ostera): we define this comparison function here to allow
-     scheduler tasks to be sorted automatically by the HeapQueue, so that if
-     2 tasks are the same, we use their (monotonic) tick to decide which
-     one goes further up.
-
-     This effectively sorts our tasks in the order we want to run them.
-  *)
   let compare (tick0, a) (tick1, b) =
     let order = Task.compare a b in
     if order = 0 then Int.compare tick0 tick1 else order
@@ -215,7 +211,7 @@ type scheduler = {
 }
 
 and pool_task =
-  | Remote_spawn : { proc : process; fn : unit -> unit } -> pool_task
+  | Remote_spawn : { proc : process; fn : unit -> exit_reason } -> pool_task
   | Remote_signal : { signal : signal; proc : Pid.t } -> pool_task
   | Deliver_message : { message : Message.t; proc : Pid.t } -> pool_task
 
@@ -240,9 +236,7 @@ let rec pp_task ppf (t : task) =
   | Deliver_message (pid, _) ->
       Format.fprintf ppf "Deliver_message(%a)" Pid.pp pid
 
-and pp_process ppf t =
-  let sch, pid = t.pid in
-  Format.fprintf ppf "pid=<%d.%d>" sch pid
+and pp_process ppf t = Format.fprintf ppf "pid=%a" Pid.pp t.pid
 
 let pp_pool_task ppf (t : pool_task) =
   match t with
@@ -252,13 +246,6 @@ let pp_pool_task ppf (t : pool_task) =
       Format.fprintf ppf "Remote_signal([%a]-> %a)" pp_signal signal Pid.pp proc
   | Deliver_message { proc; _ } ->
       Format.fprintf ppf "Deliver_message(%a)" Pid.pp proc
-
-let arrived proc fn =
-  Arrived
-    ( proc,
-      fun () ->
-        fn ();
-        Normal )
 
 module Scheduler = struct
   module Uid = Scheduler_uid
@@ -275,23 +262,27 @@ module Scheduler = struct
       processes = Process_table.create ();
     }
 
-  let add_into_pool pool scheduler (task : pool_task) =
-    let tick = Atomic.fetch_and_add scheduler.tick 1 in
-    Logs.debug (fun f ->
-        f "[tick=%d] Adding remote task: %a" tick pp_pool_task task);
-    Mutex.lock pool.mutex;
-    (match task with
-    | Deliver_message _ -> Sequence.add_r task pool.tasks
-    | Remote_signal _ -> Sequence.add_r task pool.tasks
-    | Remote_spawn _ -> Sequence.add_r task pool.tasks);
-    Condition.broadcast pool.condition_pending_work;
-    Mutex.unlock pool.mutex
-
   let add_task t task =
     let tick = Atomic.fetch_and_add t.tick 1 in
     Logs.debug (fun f ->
         f "[scheduler=%d,tick=%d] Adding task: %a" t.uid tick pp_task task);
     Task_queue.add t.tasks (tick, task)
+
+  let spawn_process scheduler fn =
+    let proc = Process.make () in
+    Process_table.register_process scheduler.processes proc;
+    let state = Proc_state.make fn Yield in
+    add_task scheduler (Suspended (proc, state));
+    proc
+
+  let send_message scheduler pid msg =
+    match Process_table.get scheduler.processes pid with
+    | Some proc ->
+        Logs.info (fun f -> f "delivering message to %a" Pid.pp pid);
+        Mailbox.queue proc.mailbox msg;
+        add_task scheduler (Signaled (pid, Message))
+    | None ->
+        Logs.info (fun f -> f "COULD NOT DELIVER message to %a" Pid.pp pid)
 
   let perform pool scheduler (Pack process) =
     let open Proc_state in
@@ -308,11 +299,7 @@ module Scheduler = struct
       | Scheduler_count -> k (Continue (List.length pool.schedulers))
       | Self -> k (Continue (Process.pid process))
       | Send (msg, pid) ->
-          if Pid.scheduler pid == scheduler.uid then
-            add_task scheduler (Deliver_message (pid, msg))
-          else
-            add_into_pool pool scheduler
-              (Deliver_message { message = msg; proc = pid });
+          send_message scheduler pid msg;
           k (Continue ())
       (* NOTE(leostera): the selective receive algorithm goes:
 
@@ -341,11 +328,8 @@ module Scheduler = struct
                     go ())
           in
           go ()
-      | Spawn (runner, fn) ->
-          let proc = Process.make ~runner in
-          if Scheduler_uid.equal runner scheduler.uid then
-            add_task scheduler (arrived proc fn)
-          else add_into_pool pool scheduler (Remote_spawn { proc; fn });
+      | Spawn fn ->
+          let proc = spawn_process scheduler fn in
           k (Continue proc.pid)
       | effect -> k (Reperform effect)
     in
@@ -366,130 +350,57 @@ module Scheduler = struct
     Logs.debug (fun f -> f "executing task: %a" pp_task task);
     match task with
     | Tick -> Domain.cpu_relax ()
-    | Arrived (proc, fn) ->
-        Process_table.register_process scheduler.processes proc;
-        handle pool scheduler proc (Proc_state.make fn)
+    | Arrived (_proc, _fn) -> ()
     | Terminated _ -> ()
-    | Signaled (_proc, _signal) -> ()
-    | Deliver_message (pid, msg) -> (
-        match Process_table.get scheduler.processes pid with
-        | Some proc ->
-            Logs.info (fun f -> f "delivering message to %a" Pid.pp pid);
-            Mailbox.queue proc.mailbox msg;
-            add_task scheduler (Signaled (pid, Message))
-        | None ->
-            Logs.info (fun f -> f "COULD NOT DELIVER message to %a" Pid.pp pid))
+    | Signaled (pid, signal) -> (
+        match (Process_table.get scheduler.processes pid, signal) with
+        | Some proc, Message -> Process.set_pending proc
+        | _ -> ())
+    | Deliver_message (_pid, _msg) -> ()
     | Suspended (proc, proc_state) ->
-        let perform = perform pool scheduler (Process.pack proc) in
-        let state = Proc_state.run ~perform proc_state in
+        let state =
+          match Process.state proc with
+          | Exited _ | Waiting_receive -> proc_state
+          | Running | Pending ->
+              let perform = perform pool scheduler (Process.pack proc) in
+              Proc_state.run ~perform proc_state
+        in
         handle pool scheduler proc state
-
-  let system_tasks_suspended t = Hashtbl.length t.system_tasks > 0
-  let unblock_awaits_with_system_tasks _pool _t = ()
-
-  let one_task_for (scheduler : scheduler) (pool : pool) =
-    let exception Yes in
-    let f : pool_task -> unit = function
-      | Remote_signal { proc; _ }
-        when Scheduler_uid.equal (Pid.scheduler proc) scheduler.uid ->
-          raise_notrace Yes
-      | Remote_spawn { proc; _ }
-        when Scheduler_uid.equal proc.runner scheduler.uid ->
-          raise_notrace Yes
-      | _ -> ()
-    in
-    try
-      Sequence.iter ~f pool.tasks;
-      false
-    with Yes -> true
 
   let is_idle t = Task_queue.is_empty t.tasks
 
-  let step pool t () =
-    match Task_queue.next t.tasks with
-    | None ->
-        Logs.debug (fun f -> f "no tasks");
-        if system_tasks_suspended t then unblock_awaits_with_system_tasks pool t
-    | Some (_tick, task) ->
-        Logs.debug (fun f -> f "found task: %a" pp_task task);
-        once pool t task;
-        if system_tasks_suspended t then unblock_awaits_with_system_tasks pool t
+  let run pool scheduler () =
+    Logs.debug (fun f -> f "> enter worker loop");
+    let exception Exit in
+    (try
+       while true do
+         Mutex.lock pool.mutex;
+         while is_idle scheduler && not pool.stop do
+           Condition.wait pool.condition_pending_work pool.mutex
+         done;
+         Mutex.unlock pool.mutex;
+
+         if pool.stop then raise_notrace Exit;
+
+         match Task_queue.next scheduler.tasks with
+         | None ->
+             Logs.debug (fun f -> f "no tasks");
+             ()
+         | Some (_tick, task) ->
+             Logs.debug (fun f -> f "found task: %a" pp_task task);
+             once pool scheduler task;
+             ()
+       done
+     with Exit -> Mutex.unlock pool.mutex);
+    Logs.debug (fun f -> f "< exit worker loop")
 
   let self () = Effect.perform Scheduler_self
   let count () = Effect.perform Scheduler_count
   let list () = Effect.perform Schedulers
 end
 
+(** handles spinning up several schedulers and synchronizing the shutdown *)
 module Pool = struct
-  let nothing_to_do (pool : pool) (scheduler : scheduler) =
-    Scheduler.is_idle scheduler
-    && Scheduler.system_tasks_suspended scheduler = false
-    && Scheduler.one_task_for scheduler pool = false
-
-  let rec transfer_all_tasks (pool : pool) (scheduler : scheduler) =
-    let exception Task of pool_task Sequence.node in
-    let f node =
-      match Sequence.data node with
-      | Remote_spawn { proc; _ }
-        when Scheduler_uid.equal proc.runner scheduler.uid ->
-          raise_notrace (Task node)
-      | (Deliver_message { proc; _ } | Remote_signal { proc; _ })
-        when Scheduler_uid.equal (Pid.scheduler proc) scheduler.uid ->
-          raise_notrace (Task node)
-      | _ -> ()
-    in
-
-    try Sequence.iter_node ~f pool.tasks
-    with Task node ->
-      let data = Sequence.data node in
-      Sequence.remove node;
-      Logs.debug (fun f -> f "transfering task: %a" pp_pool_task data);
-      (match data with
-      (* TODO(@leostera): should we do this inside the Scheduler instead? *)
-      | Deliver_message { message; proc = pid } ->
-          Scheduler.add_task scheduler (Deliver_message (pid, message));
-          Scheduler.add_task scheduler (Signaled (pid, Message))
-      | Remote_signal { proc; signal = Exit } -> (
-          match Process_table.get scheduler.processes proc with
-          | Some proc ->
-              Scheduler.add_task scheduler (Terminated (proc, Ok Exit_signal))
-          | None -> ())
-      | Remote_signal { proc; signal } ->
-          Scheduler.add_task scheduler (Signaled (proc, signal))
-      | Remote_spawn { proc; fn } ->
-          Scheduler.add_task scheduler (arrived proc fn));
-      transfer_all_tasks pool scheduler
-
-  let worker pool scheduler () =
-    Logs.debug (fun f -> f "> enter worker loop");
-    let exception Exit in
-    (try
-       while true do
-         Mutex.lock pool.mutex;
-
-         while nothing_to_do pool scheduler && not pool.stop do
-           Condition.wait pool.condition_pending_work pool.mutex
-         done;
-
-         if pool.stop then raise_notrace Exit;
-         transfer_all_tasks pool scheduler;
-         pool.working_counter <- pool.working_counter + 1;
-         Mutex.unlock pool.mutex;
-
-         Scheduler.step pool scheduler ();
-
-         Mutex.lock pool.mutex;
-         pool.working_counter <- pool.working_counter - 1;
-         if (not pool.stop) && Int.equal pool.working_counter 0 then
-           Condition.signal pool.condition_all_idle;
-         Mutex.unlock pool.mutex
-       done
-     with Exit ->
-       pool.working_counter <- pool.working_counter - 1;
-       Condition.signal pool.condition_all_idle;
-       Mutex.unlock pool.mutex);
-    Logs.debug (fun f -> f "< exit worker loop")
-
   let kill pool =
     Mutex.lock pool.mutex;
     pool.stop <- true;
@@ -513,43 +424,41 @@ module Pool = struct
       }
     in
     let spawn scheduler =
-      Stdlib.Domain.spawn (fun () -> worker pool scheduler ())
+      Stdlib.Domain.spawn (fun () -> Scheduler.run pool scheduler ())
     in
     Logs.debug (fun f -> f "Created %d schedulers" (List.length schedulers));
     (pool, List.map spawn schedulers)
 end
 
-let random () = Effect.perform Random
-
 (** Public API *)
 
 let self () = Effect.perform Self
-
-let receive ?(select = fun _ -> Message.Take) () =
-  Effect.perform (Receive { select })
-
 let send pid msg = Effect.perform (Send (msg, pid))
 let yield () = Effect.perform Yield
 
 let spawn fn =
-  let schedulers = Scheduler.list () in
-  if schedulers = [] then raise No_scheduler_available;
-  let scheduler_id =
-    let rnd = random () in
-    List.nth schedulers (Random.State.int rnd (List.length schedulers))
-  in
-  Effect.perform (Spawn (scheduler_id, fn))
+  Effect.perform
+    (Spawn
+       (fun () ->
+         fn ();
+         Normal))
+
+let receive ?(select = fun _ -> Message.Take) () =
+  Effect.perform (Receive { select })
 
 let run ?(rnd = Random.State.make_self_init ()) main =
   Logs.debug (fun f -> f "Initializing Riot runtime...");
   Scheduler.Uid.reset ();
   let sch0 = Scheduler.make ~rnd () in
-  let proc = Process.make ~runner:sch0.uid in
-  Scheduler.add_task sch0 (arrived proc main);
+  let _pid =
+    Scheduler.spawn_process sch0 (fun () ->
+        main ();
+        Normal)
+  in
   let pool, domains = Pool.make ~main:sch0 () in
-  Pool.worker pool sch0 ();
+  Scheduler.run pool sch0 ();
   Logs.debug (fun f -> f "Riot runtime shutting down...");
   Pool.kill pool;
   List.iter Stdlib.Domain.join domains;
   Logs.debug (fun f -> f "Riot runtime shutdown");
-  Ok ()
+  ()

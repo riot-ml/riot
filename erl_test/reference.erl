@@ -1,5 +1,5 @@
 -module(reference).
--export([start/1]).
+-export([main/1]).
 
 loop(N) ->
   receive
@@ -22,10 +22,7 @@ wait_pids([P|T]=Pids) ->
     false -> wait_pids(T)
   end.
 
-
-start(ProcCount) ->
+main(_Args) ->
+  ProcCount = 10_000,
   {Time, _} = timer:tc(fun () -> do_start(ProcCount) end),
   io:format("whole flow took ~p ms\n", [Time/1_000]).
-
-
-

@@ -6,9 +6,9 @@ module Logs = Logs
 module Scheduler_uid = struct
   type t = int
 
-  let equal = Int.equal
   let __current__ = Atomic.make 0
   let next () = Atomic.fetch_and_add __current__ 1
+  let equal = Int.equal
 
   let reset () =
     Logs.debug (fun f -> f "Resetting Scheduler Uids");
@@ -18,13 +18,10 @@ end
 module Pid = struct
   type t = int
 
+  let zero : t = 0
   let __current__ = Atomic.make 0
-  let equal (s1, p1) (s2, p2) = Scheduler_uid.equal s1 s2 && Int.equal p1 p2
-  let newer (s1, p1) (s2, p2) = s1 == s2 && p1 > p2
   let next () = Atomic.fetch_and_add __current__ 1
-
-  let pp : Format.formatter -> t -> unit =
-   fun ppf pid -> Format.fprintf ppf "<0.%d.0>" pid
+  let pp ppf pid = Format.fprintf ppf "<0.%d.0>" pid
 end
 
 module Message = struct
@@ -47,13 +44,17 @@ end
 
 exception Process_killed
 
-type state = 
-  | Runnable | Waiting | Running | Exited of exn | Suspended
+type state =
+  | Runnable
+  | Waiting
+  | Running
+  | Exited of (exit_reason, exn) result
+  | Suspended
 
-type process = {
+and process = {
   pid : Pid.t;
-  state : state Atomic.t;
-  cont : exit_reason Proc_state.t Atomic.t;
+  mutable state : state;
+  mutable cont : exit_reason Proc_state.t;
   mailbox : Mailbox.t;
   links : Pid.t list;
   monitors : Pid.t list;
@@ -98,8 +99,7 @@ let pp_effect : type a. Format.formatter -> a Effect.t -> unit =
   | Yield -> Format.fprintf ppf "Yield"
   | _effect -> Format.fprintf ppf "Unhandled effect"
 
-
-let pp_signal ppf (t: signal) =
+let pp_signal ppf (t : signal) =
   match t with
   | Link -> Format.fprintf ppf "Link"
   | Unlink -> Format.fprintf ppf "Unlink"
@@ -113,9 +113,16 @@ module Process = struct
 
   module Pid = Pid
 
-  let cont t = Atomic.get t.cont
-  let set_cont c t = Atomic.set t.cont c
-  let state t = Atomic.get t.state
+  let cont t = t.cont
+  let set_cont c t = t.cont <- c
+  let state t = t.state
+
+  let is_alive t =
+    match t.state with
+    | Runnable | Waiting | Running | Suspended -> true
+    | Exited _ -> false
+
+  let mark_as_dead t reason = t.state <- Exited reason
 
   let make fn =
     let cont = Proc_state.make fn Yield in
@@ -123,8 +130,8 @@ module Process = struct
     Logs.debug (fun f -> f "Making process with pid: %a" Pid.pp pid);
     {
       pid;
-      cont = Atomic.make cont;
-      state = Atomic.make Runnable;
+      cont;
+      state = Runnable;
       links = [];
       monitors = [];
       mailbox = Mailbox.create ();
@@ -136,7 +143,7 @@ end
 module Process_table = struct
   type t = { processes : (Pid.t, Process.t) Hashtbl.t }
 
-  let create () = { processes = Hashtbl.create 256_000 }
+  let create () = { processes = Hashtbl.create 16_000 }
   let register_process t proc = Hashtbl.add t.processes proc.pid proc
   let get t pid = Hashtbl.find_opt t.processes pid
 end
@@ -172,19 +179,30 @@ module Scheduler = struct
       processes = Process_table.create ();
     }
 
+  let current_scheduler : scheduler Domain.DLS.key option ref = ref None
+
+  let get_current_scheduler : unit -> scheduler =
+   fun () -> !current_scheduler |> Option.get |> Domain.DLS.get
+
+  let set_current_scheduler : scheduler -> unit =
+   fun scheduler ->
+    current_scheduler := Some (Domain.DLS.new_key (fun () -> scheduler))
+
+  let current_process_pid : Pid.t Domain.DLS.key ref =
+    ref (Domain.DLS.new_key (fun () -> Pid.zero))
+
+  let get_current_process_pid : unit -> Pid.t =
+   fun () -> !current_process_pid |> Domain.DLS.get
+
+  let set_current_process_pid : Pid.t -> unit =
+   fun process_pid ->
+    current_process_pid := Domain.DLS.new_key (fun () -> process_pid)
+
   let spawn_process scheduler fn =
     let proc = Process.make fn in
     Process_table.register_process scheduler.processes proc;
     Queue.add proc scheduler.ready_queue;
     proc
-
-  let send_message scheduler pid msg =
-    match Process_table.get scheduler.processes pid with
-    | Some proc ->
-        Logs.info (fun f -> f "delivering message to %a" Pid.pp pid);
-        Mailbox.queue proc.mailbox msg
-    | None ->
-        Logs.info (fun f -> f "COULD NOT DELIVER message to %a" Pid.pp pid)
 
   let perform scheduler process =
     let open Proc_state in
@@ -195,9 +213,10 @@ module Scheduler = struct
       | Random -> k (Continue scheduler.rnd)
       | Yield -> k Yield
       | Self -> k (Continue (Process.pid process))
-      | Send (msg, pid) ->
-          send_message scheduler pid msg;
-          k (Continue ())
+      (* NOTE(leostera): to send a message, we will find the receiver process
+         in the process table and queue at the back of their mailbox
+      *)
+      | Send (_msg, _pid) -> k (Continue ())
       (* NOTE(leostera): the selective receive algorithm goes:
 
          * is there a new message?
@@ -233,6 +252,7 @@ module Scheduler = struct
     { perform }
 
   let once scheduler proc =
+    set_current_process_pid proc.pid;
     match Process.state proc with
     | Suspended | Exited _ | Waiting -> ()
     | Running | Runnable -> (
@@ -240,7 +260,7 @@ module Scheduler = struct
         let cont = Proc_state.run ~perform (Process.cont proc) in
         Process.set_cont cont proc;
         match cont with
-        | Proc_state.Finished _reason -> ()
+        | Proc_state.Finished reason -> Process.mark_as_dead proc reason
         | Proc_state.Suspended _ | Proc_state.Unhandled _ ->
             Queue.add proc scheduler.ready_queue)
 
@@ -302,16 +322,39 @@ end
 
 (** Public API *)
 
-let self () = Effect.perform Self
-let send pid msg = Effect.perform (Send (msg, pid))
+let self () = Scheduler.get_current_process_pid ()
+
 let yield () = Effect.perform Yield
 
+let send pid msg =
+  let scheduler = Scheduler.get_current_scheduler () in
+  match Process_table.get scheduler.processes pid with
+  | Some proc ->
+      Logs.info (fun f -> f "delivering message to %a" Pid.pp pid);
+      Mailbox.queue proc.mailbox msg
+  | None ->
+      (* Effect.perform (Send (msg, pid)) *)
+      Logs.info (fun f -> f "COULD NOT DELIVER message to %a" Pid.pp pid)
+
 let spawn fn =
-  Effect.perform
-    (Spawn
-       (fun () ->
-         fn ();
-         Normal))
+  let scheduler = Scheduler.get_current_scheduler () in
+  let proc =
+    Process.make (fun () ->
+        fn ();
+        Normal)
+  in
+  Process_table.register_process scheduler.processes proc;
+  Queue.add proc scheduler.ready_queue;
+  proc.pid
+
+let is_process_alive pid =
+  yield ();
+  let scheduler = Scheduler.get_current_scheduler () in
+  match Process_table.get scheduler.processes pid with
+  | Some proc -> Process.is_alive proc
+  | None -> false
+
+let random () = Effect.perform Random
 
 let receive ?(select = fun _ -> Message.Take) () =
   Effect.perform (Receive { select })
@@ -320,11 +363,8 @@ let run ?(rnd = Random.State.make_self_init ()) main =
   Logs.debug (fun f -> f "Initializing Riot runtime...");
   Scheduler.Uid.reset ();
   let sch0 = Scheduler.make ~rnd () in
-  let _pid =
-    Scheduler.spawn_process sch0 (fun () ->
-        main ();
-        Normal)
-  in
+  Scheduler.set_current_scheduler sch0;
+  let _pid = spawn main in
   let pool, domains = Pool.make ~main:sch0 () in
   Scheduler.run pool sch0 ();
   Logs.debug (fun f -> f "Riot runtime shutting down...");

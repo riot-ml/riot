@@ -5,21 +5,25 @@
 (generate_opam_files true)
 
 (source
- (github username/reponame))
+ (github leostera/riot))
 
-(authors "Author Name")
+(authors "Leandro Ostera <leandro@abstractmachines.dev>")
 
-(maintainers "Maintainer Name")
+(maintainers "Leandro Ostera <leandro@abstractmachines.dev>")
 
 (license LICENSE)
 
-(documentation https://url/to/documentation)
+(documentation https://github.com/leostera/riot)
 
 (package
  (name riot)
  (synopsis "A short synopsis")
  (description "A longer description")
- (depends ocaml dune)
+ (depends
+   (ocaml (>= "5.0"))
+   dune
+   (logs (>= "0.7.0"))
+ )
  (tags
   (topics "to describe" your project)))
 

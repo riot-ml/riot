@@ -15,7 +15,6 @@ let rec loop count =
       loop (count + 1)
 
 let main () =
-  Logs.set_log_level Logs.Info;
   let t0 = Ptime_clock.now () in
 
   Logs.log (fun f -> f "starting app");
@@ -36,4 +35,6 @@ let main () =
       let delta = Ptime.Span.to_float_s delta in
       f "\n\n whole flow took %fs\n\n" delta)
 
-let () = Riot.run @@ main
+let () = 
+  Logs.set_log_level None;
+  Riot.run @@ main

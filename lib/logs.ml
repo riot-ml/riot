@@ -1,9 +1,12 @@
 type level = Debug | Info | Trace | Log
 
 let level_to_int = function Trace -> 5 | Debug -> 4 | Info -> 2 | Log -> 1
-let log_level = ref Debug
+let log_level = ref (Some Debug)
 let set_log_level x = log_level := x
-let should_log x = level_to_int x <= level_to_int !log_level
+let should_log x = 
+  match !log_level with
+  | None -> false
+  | Some log_level -> level_to_int x <= level_to_int log_level
 
 let pp_level ppf t =
   match t with
@@ -22,7 +25,6 @@ let stdout =
 
 let msg : type a. level -> (a, unit) message_format -> unit =
  fun level msgf ->
-  if should_log level then (
     msgf @@ fun fmt ->
     Mutex.lock log_lock;
     let domain = (Domain.self () :> int) in
@@ -31,10 +33,9 @@ let msg : type a. level -> (a, unit) message_format -> unit =
       stdout
       ("%a %a[thread=%d] @[" ^^ fmt ^^ "@]@.")
       (Ptime.pp_rfc3339 ~frac_s:5 ~space:true ~tz_offset_s:0 ())
-      (Ptime_clock.now ()) pp_level level domain)
-  else ()
+      (Ptime_clock.now ()) pp_level level domain
 
-let trace msgf = msg Trace msgf
-let debug msgf = msg Debug msgf
-let info msgf = msg Info msgf
-let log msgf = msg Log msgf
+let trace msgf = if should_log Trace then (msg Trace msgf)
+let debug msgf = if should_log Debug then (msg Debug msgf)
+let info msgf = if should_log Info then (msg Info msgf)
+let log msgf = (msg Log msgf)

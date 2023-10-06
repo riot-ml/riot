@@ -303,7 +303,7 @@ module Scheduler = struct
          if pool.stop then raise_notrace Exit;
          match Lf_queue.take_opt scheduler.ready_queue with
          | None ->
-             Logs.debug (fun f -> f "no ready processes");
+             Logs.trace (fun f -> f "no ready processes");
              ()
          | Some proc ->
              Logs.debug (fun f -> f "found process: %a" pp_process proc);
@@ -332,6 +332,7 @@ module Pool = struct
     let spawn scheduler =
       Stdlib.Domain.spawn (fun () ->
           set_pool pool;
+          Scheduler.set_current_scheduler scheduler;
           Scheduler.run pool scheduler ())
     in
     Logs.debug (fun f -> f "Created %d schedulers" (List.length schedulers));
@@ -450,3 +451,60 @@ let run ?(rnd = Random.State.make_self_init ())
   List.iter Stdlib.Domain.join domains;
   Logs.debug (fun f -> f "Riot runtime shutdown");
   ()
+
+module Supervisor = struct
+  type child_spec =
+    | Child : {
+        initial_state : 'state;
+        start_link : 'state -> (Pid.t, exn) result;
+      }
+        -> child_spec
+
+  let child_spec ~start_link initial_state = Child { start_link; initial_state }
+
+  type strategy =
+    | One_for_one
+    | One_for_all
+    | Rest_for_one
+    | Simple_one_for_one
+
+  type state = {
+    strategy : strategy;
+    restart_intensity : int;
+    restart_period : int;
+    child_specs : child_spec list;
+    children : Pid.t list;
+  }
+  [@@warning "-69"]
+
+  let init_children state =
+    let this = self () in
+    List.map
+      (fun (Child { start_link; initial_state }) ->
+        let pid = start_link initial_state |> Result.get_ok in
+        monitor this pid;
+        pid)
+      state.child_specs
+
+  let rec loop state = yield (); loop state
+
+  let start_supervisor state =
+    Logs.debug (fun f -> f "Initializing supervisor %a with %d child specs" Pid.pp (self ()) (List.length state.child_specs));
+    let state = { state with children = init_children state } in
+    loop state
+
+  let start_link ?(strategy = One_for_one) ?(restart_intensity = 1)
+      ?(restart_period = 5) ~child_specs () =
+    let state =
+      {
+        strategy;
+        restart_intensity;
+        restart_period;
+        child_specs;
+        children = [];
+      }
+    in
+    let sup_pid = spawn (fun () -> start_supervisor state) in
+    link sup_pid;
+    Ok sup_pid
+end

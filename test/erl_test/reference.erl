@@ -25,4 +25,4 @@ wait_pids([P|T]=Pids) ->
 main(_Args) ->
   ProcCount = 10_000,
   {Time, _} = timer:tc(fun () -> do_start(ProcCount) end),
-  io:format("whole flow took ~p ms\n", [Time/1_000]).
+  io:format("spawned/awaited ~p processes in ~p ms\n", [ProcCount, Time/1_000]).

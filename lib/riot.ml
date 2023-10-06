@@ -21,6 +21,7 @@ module Pid = struct
   let zero : t = 0
   let __current__ = Atomic.make 0
   let next () = Atomic.fetch_and_add __current__ 1
+  let equal = Int.equal
   let pp ppf pid = Format.fprintf ppf "<0.%d.0>" pid
 
   let reset () =
@@ -30,8 +31,9 @@ end
 
 module Message = struct
   type select_marker = Take | Skip
+  type monitor = Process_down of Pid.t
   type t = ..
-  type t += Exit_signal
+  type t += Exit_signal | Monitor of monitor
 end
 
 module Mailbox = struct
@@ -68,8 +70,8 @@ and process = {
   state : state Atomic.t;
   mutable cont : exit_reason Proc_state.t;
   mailbox : Mailbox.t;
-  links : Pid.t list;
-  monitors : Pid.t list;
+  links : Pid.t list Atomic.t;
+  monitors : Pid.t list Atomic.t;
 }
 (** ['msg process] an internal process descriptor. Represents a process in the runtime. *)
 
@@ -132,8 +134,8 @@ module Process = struct
       pid;
       cont;
       state = Atomic.make Runnable;
-      links = [];
-      monitors = [];
+      links = Atomic.make [];
+      monitors = Atomic.make [];
       mailbox = Mailbox.create ();
     }
 
@@ -252,7 +254,7 @@ module Scheduler = struct
     in
     { perform }
 
-  let step_process scheduler proc =
+  let step_process pool scheduler proc =
     set_current_process_pid proc.pid;
     match Process.state proc with
     | Suspended | Waiting -> Lf_queue.add proc scheduler.ready_queue
@@ -262,7 +264,21 @@ module Scheduler = struct
         let cont = Proc_state.run ~perform (Process.cont proc) in
         Process.set_cont cont proc;
         match cont with
-        | Proc_state.Finished reason -> Process.mark_as_dead proc reason
+        | Proc_state.Finished reason ->
+            Process.mark_as_dead proc reason;
+            let monitoring_pids = Atomic.get proc.monitors in
+            List.iter
+              (fun pid ->
+                match Process_table.get pool.processes pid with
+                | None -> ()
+                | Some mon_proc ->
+                    Logs.debug (fun f ->
+                        f "notified %a of %a terminating" Pid.pp pid Pid.pp
+                          proc.pid);
+                    Mailbox.queue mon_proc.mailbox
+                      Message.(Monitor (Process_down proc.pid));
+                    Process.mark_as_runnable mon_proc)
+              monitoring_pids
         | Proc_state.Suspended _ | Proc_state.Unhandled _ ->
             Lf_queue.add proc scheduler.ready_queue)
 
@@ -280,8 +296,8 @@ module Scheduler = struct
              Logs.debug (fun f -> f "no ready processes");
              ()
          | Some proc ->
-             Logs.info (fun f -> f "found process: %a" pp_process proc);
-             step_process scheduler proc;
+             Logs.debug (fun f -> f "found process: %a" pp_process proc);
+             step_process pool scheduler proc;
              ()
        done
      with Exit -> ());
@@ -353,6 +369,15 @@ let spawn fn =
   let pool = Pool.get_pool () in
   let scheduler = Scheduler.get_random_scheduler pool in
   _spawn pool scheduler fn
+
+let rec monitor pid1 pid2 =
+  let pool = Pool.get_pool () in
+  match Process_table.get pool.processes pid2 with
+  | Some proc ->
+      let pids = Atomic.get proc.monitors in
+      if Atomic.compare_and_set proc.monitors pids (pid1 :: pids) then ()
+      else monitor pid1 pid2
+  | None -> ()
 
 let processes () =
   yield ();

@@ -1,3 +1,4 @@
+open Riot
 (**
    NOTE(leostera): this tests that if you link a process to another, when
    that second process finished the first one is also terminated.
@@ -19,7 +20,6 @@
      9. we eventually fulfill `wait_pids` and shutdown
 
 *)
-open Riot
 
 type Message.t += Exit
 

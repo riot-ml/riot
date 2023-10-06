@@ -13,7 +13,7 @@ let pp_level ppf t =
   match t with
   | Log -> ()
   | Debug -> Format.fprintf ppf "DEBUG "
-  | Info -> Format.fprintf ppf "INFO "
+  | Info -> Format.fprintf ppf "INFO  "
   | Trace -> Format.fprintf ppf "TRACE "
 
 type ('a, 'b) message_format =

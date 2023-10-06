@@ -10,14 +10,17 @@ end
 
 module Message : sig
   type select_marker = Take | Skip
-  type monitor = Process_down of Pid.t
   type t = ..
-  type t += Exit_signal | Monitor of monitor
+  type monitor = Process_down of Pid.t
+  type t += Monitor of monitor
+  type t += Exit of Pid.t
 end
 
 module Process : sig
   type t
 end
+
+type process_flag = Trap_exit of bool
 
 type exit_reason =
   | Normal
@@ -26,24 +29,47 @@ type exit_reason =
   | Bad_link
   | Exception of exn
 
-type signal = Link | Unlink | Exit | Monitor | Demonitor | Message
-
 val yield : unit -> unit
+(** Suspends execution of the current process and returns control to the scheduler *)
+
 val self : unit -> Pid.t
+(** Returns the process identifier (pid) for the current process *)
+
+val process_flag : process_flag -> unit
+
 val exit : Pid.t -> exit_reason -> unit
+(** Sends an exit signal to the process [pid], to exit with reason [exit_reason] *)
+
 val send : Pid.t -> Message.t -> unit
+(** Sends a message to process with this pid. *)
+
 val spawn : (unit -> unit) -> Pid.t
+(** Spawns a new process. *)
+
+val spawn_link : (unit -> unit) -> Pid.t
+(** Spawns a new process and links it to the current process before returning. *)
 
 exception Link_no_process of Pid.t
 
 val link : Pid.t -> unit
+(** Links the current process and the process [pid] together. *)
+
 val monitor : Pid.t -> Pid.t -> unit
+(** Makes [pid1] a monitor of [pid2]. When [pid2] terminates, [pid1] will receive a message. *)
+
 val processes : unit -> (Pid.t * Process.t) Seq.t
+
 val is_process_alive : Pid.t -> bool
+(** Returns true if the process [pid] is still alive. *)
+
 val random : unit -> Random.State.t
 val receive : ?select:(Message.t -> Message.select_marker) -> unit -> Message.t
+
 val shutdown : unit -> unit
+(** Gracefully shuts down the runtime. Any non-yielding process will block this. *)
+
 val run : ?rnd:Random.State.t -> ?workers:int -> (unit -> unit) -> unit
+(** Start the Riot runtime using function [main] to boot the system *)
 
 module Supervisor : sig
   type child_spec
@@ -69,12 +95,14 @@ module Supervisor : sig
 
   val child_spec :
     start_link:('state -> (Pid.t, exn) result) -> 'state -> child_spec
+  (** Create a new child specification to be used with [start_link] *)
 
   val start_link :
     ?strategy:strategy ->
-    ?restart_intensity:int ->
+    ?restart_limit:int ->
     ?restart_period:int ->
     child_specs:child_spec list ->
     unit ->
     (Pid.t, [> `Supervisor_error ]) result
+  (** Describe and start a supervisor *)
 end

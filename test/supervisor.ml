@@ -1,44 +1,67 @@
 open Riot
 
-module Counter = struct
-  let rec loop n =
-    Logs.log (fun f -> f "%a: %d" Pid.pp (self ()) n);
-    if n = 0 then Logs.log (fun f -> f "%a: finished %d" Pid.pp (self ()) n)
-    else (
+type Message.t += Ping_me of Pid.t
+
+module Ping = struct
+  let loop reply =
+    send reply (Ping_me (self ()));
+    let rec loop () =
       yield ();
-      loop (n - 1))
+      loop ()
+    in
+    loop ()
 
   let start_link n =
-    let pid = spawn (fun () -> loop n) in
-    link pid;
-    Ok pid
-end
-
-module Printer = struct
-  let rec loop n =
-    if n mod 1000 = 0 then Logs.log (fun f -> f "%a: %d" Pid.pp (self ()) n);
-    yield ();
-    loop (n + 1)
-
-  let start_link n =
-    let pid = spawn (fun () -> loop n) in
-    link pid;
+    let pid = spawn_link (fun () -> loop n) in
     Ok pid
 end
 
 let main () =
-  let _sup =
-    Supervisor.start_link
-      ~child_specs:
-        [
-          Supervisor.child_spec ~start_link:Printer.start_link 0;
-          Supervisor.child_spec ~start_link:Counter.start_link 100;
-        ]
+  process_flag (Trap_exit true);
+  let this = self () in
+  let sup =
+    Supervisor.start_link ~restart_limit:2
+      ~child_specs:[ Supervisor.child_spec ~start_link:Ping.start_link this ]
       ()
+    |> Result.get_ok
   in
-  receive () |> ignore;
-  ()
+
+  let child_pid =
+    match receive () with
+    | Ping_me pid -> 
+        Logs.info (fun f -> f "%a received pid %a" Pid.pp this Pid.pp pid);
+        pid
+    | _ -> failwith "expected child pid"
+  in
+
+  exit child_pid Normal;
+
+  let child_pid =
+    match receive () with
+    | Ping_me pid -> 
+        Logs.info (fun f -> f "%a received pid %a" Pid.pp this Pid.pp pid);
+pid
+    | _ -> failwith "expected child pid"
+  in
+
+  exit child_pid Normal;
+
+  let child_pid =
+    match receive () with
+    | Ping_me pid ->
+        Logs.info (fun f -> f "%a received pid %a" Pid.pp this Pid.pp pid);
+pid
+    | _ -> failwith "expected child pid"
+  in
+
+  exit child_pid Normal;
+
+  match receive () with
+  | Message.Exit pid when Pid.equal pid sup ->
+      Logs.log (fun f -> f "supervisor finished as expected");
+      shutdown ()
+  | _ -> failwith "expected supervisor failure"
 
 let () =
-  Logs.set_log_level (Some Info);
+  Logs.set_log_level (Some Debug);
   Riot.run @@ main

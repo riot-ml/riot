@@ -32,9 +32,10 @@ end
 
 module Message = struct
   type select_marker = Take | Skip
-  type monitor = Process_down of Pid.t
   type t = ..
-  type t += Exit_signal | Monitor of monitor
+  type monitor = Process_down of Pid.t
+  type t += Monitor of monitor
+  type t += Exit of Pid.t
 end
 
 module Mailbox = struct
@@ -70,8 +71,12 @@ and process = {
   mailbox : Mailbox.t;
   links : Pid.t list Atomic.t;
   monitors : Pid.t list Atomic.t;
+  flags : process_flags;
 }
 (** ['msg process] an internal process descriptor. Represents a process in the runtime. *)
+
+and process_flags = { mutable trap_exits : bool }
+and process_flag = Trap_exit of bool
 
 (** [exit_reason] indicates why a process was terminated. *)
 and exit_reason =
@@ -80,9 +85,6 @@ and exit_reason =
   | Timeout_value
   | Bad_link
   | Exception of exn
-
-(** [signal]s are used to communicate to a process that a given action needs to be performed by it. They are low-level primitives used by the runtime. *)
-and signal = Link | Unlink | Exit | Monitor | Demonitor | Message
 
 (** Effects *)
 
@@ -110,6 +112,7 @@ module Process = struct
   let cont t = t.cont
   let set_cont c t = t.cont <- c
   let state t = Atomic.get t.state
+  let set_flag t flag = match flag with Trap_exit v -> t.flags.trap_exits <- v
 
   let is_alive t =
     match Atomic.get t.state with
@@ -118,9 +121,13 @@ module Process = struct
 
   let mark_as_running t = Atomic.set t.state Running
   let mark_as_dead t reason = Atomic.set t.state (Exited reason)
-  let mark_as_awaiting_message t = Atomic.set t.state Waiting
+
+  let mark_as_awaiting_message t =
+    if Mailbox.is_empty t.mailbox then Atomic.set t.state Waiting
+
   let mark_as_runnable t = Atomic.set t.state Runnable
   let add_link t pid = Atomic.set t.links (pid :: Atomic.get t.links)
+  let default_flags = { trap_exits = false }
 
   let make fn =
     let cont = Proc_state.make fn Yield in
@@ -133,6 +140,7 @@ module Process = struct
       links = Atomic.make [];
       monitors = Atomic.make [];
       mailbox = Mailbox.create ();
+      flags = default_flags;
     }
 end
 
@@ -207,7 +215,7 @@ module Scheduler = struct
     let open Proc_state in
     let perform : type a b. (a, b) step_callback =
      fun k eff ->
-      Logs.debug (fun f -> f "performing effect: %a" pp_effect eff);
+      Logs.trace (fun f -> f "performing effect: %a" pp_effect eff);
       match eff with
       | Yield -> k Yield
       (* NOTE(leostera): the selective receive algorithm goes:
@@ -275,6 +283,10 @@ module Scheduler = struct
           (fun pid ->
             match Process_table.get pool.processes pid with
             | None -> ()
+            | Some linked_proc when linked_proc.flags.trap_exits ->
+                Logs.info (fun f -> f "%a trapped exits" Pid.pp linked_proc.pid);
+                Mailbox.queue linked_proc.mailbox Message.(Exit proc.pid);
+                Process.mark_as_runnable linked_proc
             | Some linked_proc ->
                 Logs.debug (fun f ->
                     f "marking linked %a as dead" Pid.pp linked_proc.pid);
@@ -306,7 +318,7 @@ module Scheduler = struct
              Logs.trace (fun f -> f "no ready processes");
              ()
          | Some proc ->
-             Logs.debug (fun f -> f "found process: %a" pp_process proc);
+             Logs.trace (fun f -> f "found process: %a" pp_process proc);
              step_process pool scheduler proc;
              ()
        done
@@ -344,10 +356,17 @@ end
 let yield () = Effect.perform Yield
 let self () = Scheduler.get_current_process_pid ()
 
+let process_flag flag =
+  let pool = Pool.get_pool () in
+  let proc = Process_table.get pool.processes (self ()) |> Option.get in
+  Process.set_flag proc flag
+
 let exit pid reason =
   let pool = Pool.get_pool () in
   match Process_table.get pool.processes pid with
-  | Some proc -> Process.mark_as_dead proc (Ok reason)
+  | Some proc ->
+      Logs.debug (fun f -> f "%a exited by %a" Pid.pp proc.pid Pid.pp (self ()));
+      Process.mark_as_dead proc (Ok reason)
   | None -> ()
 
 (* NOTE(leostera): to send a message, we will find the receiver process
@@ -358,14 +377,31 @@ let send pid msg =
   match Process_table.get pool.processes pid with
   | Some proc ->
       Logs.debug (fun f ->
-          f "delivering message meant for %a to %a" Pid.pp pid Pid.pp proc.pid);
+          f "delivered message from %a to %a" Pid.pp (self ()) Pid.pp proc.pid);
       Mailbox.queue proc.mailbox msg;
       Process.mark_as_runnable proc
   | None ->
       (* Effect.perform (Send (msg, pid)) *)
       Logs.debug (fun f -> f "COULD NOT DELIVER message to %a" Pid.pp pid)
 
-let _spawn pool scheduler fn =
+exception Link_no_process of Pid.t
+
+let _link proc1 proc2 =
+  Process.add_link proc1 proc2.pid;
+  Process.add_link proc2 proc1.pid
+
+let link pid =
+  let this = self () in
+  Logs.debug (fun f -> f "linking %a <-> %a" Pid.pp this Pid.pp pid);
+  let pool = Pool.get_pool () in
+  let this_proc = Process_table.get pool.processes this |> Option.get in
+  match Process_table.get pool.processes pid with
+  | Some proc ->
+      if Process.is_alive proc then _link this_proc proc
+      else raise (Link_no_process pid)
+  | None -> ()
+
+let _spawn ?(do_link = false) pool scheduler fn =
   let proc =
     Process.make (fun () ->
         try
@@ -378,6 +414,15 @@ let _spawn pool scheduler fn =
                 (Printexc.get_backtrace ()));
           Exception exn)
   in
+
+  if do_link then (
+    let this = self () in
+    Logs.debug (fun f -> f "linking %a <-> %a" Pid.pp this Pid.pp proc.pid);
+    let pool = Pool.get_pool () in
+    let this_proc = Process_table.get pool.processes this |> Option.get in
+
+    _link this_proc proc);
+
   Process_table.register_process pool.processes proc;
   Lf_queue.add proc scheduler.ready_queue;
   proc.pid
@@ -387,20 +432,10 @@ let spawn fn =
   let scheduler = Scheduler.get_random_scheduler pool in
   _spawn pool scheduler fn
 
-exception Link_no_process of Pid.t
-
-let link pid =
-  let this = self () in
-  Logs.debug (fun f -> f "linking %a <-> %a" Pid.pp this Pid.pp pid);
+let spawn_link fn =
   let pool = Pool.get_pool () in
-  (match Process_table.get pool.processes this with
-  | Some proc -> Process.add_link proc pid
-  | None -> ());
-  match Process_table.get pool.processes pid with
-  | Some proc ->
-      if Process.is_alive proc then Process.add_link proc this
-      else raise (Link_no_process pid)
-  | None -> ()
+  let scheduler = Scheduler.get_random_scheduler pool in
+  _spawn ~do_link:true pool scheduler fn
 
 let rec monitor pid1 pid2 =
   let pool = Pool.get_pool () in
@@ -468,43 +503,78 @@ module Supervisor = struct
     | Rest_for_one
     | Simple_one_for_one
 
+  type timestamp = float
+
   type state = {
     strategy : strategy;
-    restart_intensity : int;
+    restart_limit : int;
     restart_period : int;
     child_specs : child_spec list;
-    children : Pid.t list;
+    children : (Pid.t * child_spec) list;
+    restarts : timestamp list;
   }
   [@@warning "-69"]
 
-  let init_children state =
-    let this = self () in
-    List.map
-      (fun (Child { start_link; initial_state }) ->
-        let pid = start_link initial_state |> Result.get_ok in
-        monitor this pid;
-        pid)
-      state.child_specs
+  let init_child spec =
+    let (Child { start_link; initial_state }) = spec in
+    let pid = start_link initial_state |> Result.get_ok in
+    Logs.info (fun f ->
+        let this = self () in
+        f "Supervisor %a started child %a" Pid.pp this Pid.pp pid);
+    (pid, spec)
 
-  let rec loop state = yield (); loop state
+  let init_children state = List.map init_child state.child_specs
+
+  let add_restart state =
+    let now = Unix.gettimeofday () in
+    { state with restarts = now :: state.restarts }
+
+  let max_restarts_reached state =
+    List.length state.restarts > state.restart_limit
+
+  let restart_child pid state =
+    let state = add_restart state in
+    if max_restarts_reached state then `terminate
+    else (
+      Logs.info (fun f -> f "child %a is down" Pid.pp pid);
+      let spec = List.assoc pid state.children in
+      let children = init_child spec :: List.remove_assoc pid state.children in
+      `continue { state with children })
+
+  let rec loop state =
+    match receive () with
+    | Message.Exit pid when List.mem_assoc pid state.children ->
+        handle_child_exit pid state
+    | _ -> loop state
+
+  and handle_child_exit pid state =
+    match restart_child pid state with
+    | `continue state -> loop state
+    | `terminate ->
+        Logs.info (fun f ->
+            f "Supervisor %a reached max restarts of %d" Pid.pp (self ())
+              state.restart_limit)
 
   let start_supervisor state =
-    Logs.debug (fun f -> f "Initializing supervisor %a with %d child specs" Pid.pp (self ()) (List.length state.child_specs));
+    Logs.info (fun f ->
+        f "Initializing supervisor %a with %d child specs" Pid.pp (self ())
+          (List.length state.child_specs));
+    process_flag (Trap_exit true);
     let state = { state with children = init_children state } in
     loop state
 
-  let start_link ?(strategy = One_for_one) ?(restart_intensity = 1)
+  let start_link ?(strategy = One_for_one) ?(restart_limit = 1)
       ?(restart_period = 5) ~child_specs () =
     let state =
       {
         strategy;
-        restart_intensity;
+        restart_limit;
         restart_period;
         child_specs;
         children = [];
+        restarts = [];
       }
     in
-    let sup_pid = spawn (fun () -> start_supervisor state) in
-    link sup_pid;
+    let sup_pid = spawn_link (fun () -> start_supervisor state) in
     Ok sup_pid
 end

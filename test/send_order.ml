@@ -23,7 +23,7 @@ let main () =
       Logs.log (fun f -> f "received messages in order");
       shutdown ()
   | _ -> 
-      Logs.log (fun f -> f "received messages in order");
+      Logs.log (fun f -> f "received messages out of order");
       exit 1
 
 let () =

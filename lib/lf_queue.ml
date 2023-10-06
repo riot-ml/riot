@@ -131,10 +131,11 @@ let merge a b =
   let rec go () =
     match pop b with
     | None -> ()
-    | Some x -> push a x; go ()
+    | Some x ->
+        push a x;
+        go ()
   in
   go ()
 
-
 let add x t = push t x
-let take_opt t = pop t 
+let take_opt t = pop t

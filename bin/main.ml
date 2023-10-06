@@ -1,6 +1,8 @@
 open Riot
 
-type Riot.Message.t += Loop_stop
+[@@@warning "-38"]
+
+type Riot.Message.t += Loop_stop | Count
 
 let rec loop count =
   let pid = self () in

@@ -35,25 +35,20 @@ module Message = struct
 end
 
 module Mailbox = struct
-  type t = {
-    size: int Atomic.t;
-    queue: Message.t Queue.t;
-  }
+  type t = { size : int Atomic.t; queue : Message.t Lf_queue.t }
 
-  let create () = { size = Atomic.make 0; queue = Queue.create () }
+  let create () = { size = Atomic.make 0; queue = Lf_queue.create () }
 
   let queue t msg =
     Atomic.incr t.size;
-    Queue.add msg t.queue
+    Lf_queue.add msg t.queue
 
-  let next (t : t) = 
+  let next (t : t) =
     Atomic.decr t.size;
-    Queue.take_opt t.queue
+    Lf_queue.take_opt t.queue
 
-  let is_empty (t : t) = Queue.is_empty t.queue
-
-  let merge (a : t) (b : t) = Queue.merge a.queue b.queue
-
+  let is_empty (t : t) = Lf_queue.is_empty t.queue
+  let merge (a : t) (b : t) = Lf_queue.merge a.queue b.queue
   let size (t : t) = Atomic.get t.size
 end
 
@@ -149,6 +144,7 @@ module Process_table = struct
   type t = { processes : (Pid.t, Process.t) Hashtbl.t; lock : Mutex.t }
 
   let create () = { lock = Mutex.create (); processes = Hashtbl.create 16_000 }
+
   let register_process t proc =
     Mutex.lock t.lock;
     Hashtbl.add t.processes proc.pid proc;
@@ -157,7 +153,6 @@ module Process_table = struct
   let get t pid = Hashtbl.find_opt t.processes pid
   let remove t pid = Hashtbl.remove t.processes pid
   let process_count t = Hashtbl.length t.processes
-
   let processes t = Hashtbl.to_seq t.processes
 end
 
@@ -166,7 +161,7 @@ end
 type scheduler = {
   uid : Scheduler_uid.t;
   rnd : Random.State.t;
-  ready_queue : process Queue.t;
+  ready_queue : process Lf_queue.t;
 }
 
 type pool = {
@@ -185,7 +180,7 @@ module Scheduler = struct
   let make ~rnd () =
     let uid = Uid.next () in
     Logs.debug (fun f -> f "Making scheduler with id: %d" uid);
-    { uid; rnd = Random.State.copy rnd; ready_queue = Queue.create () }
+    { uid; rnd = Random.State.copy rnd; ready_queue = Lf_queue.create () }
 
   let current_scheduler : scheduler Domain.DLS.key option ref = ref None
 
@@ -233,7 +228,7 @@ module Scheduler = struct
       | Receive { select } as effect ->
           if Mailbox.is_empty process.mailbox then (
             Logs.debug (fun f ->
-              f "%a is awaiting for new messages" Pid.pp process.pid);
+                f "%a is awaiting for new messages" Pid.pp process.pid);
             Process.mark_as_awaiting_message process;
             k (Delay effect))
           else
@@ -260,7 +255,7 @@ module Scheduler = struct
   let step_process scheduler proc =
     set_current_process_pid proc.pid;
     match Process.state proc with
-    | Suspended | Waiting -> Queue.add proc scheduler.ready_queue
+    | Suspended | Waiting -> Lf_queue.add proc scheduler.ready_queue
     | Exited _ -> ()
     | Running | Runnable -> (
         let perform = perform scheduler proc in
@@ -269,9 +264,9 @@ module Scheduler = struct
         match cont with
         | Proc_state.Finished reason -> Process.mark_as_dead proc reason
         | Proc_state.Suspended _ | Proc_state.Unhandled _ ->
-            Queue.add proc scheduler.ready_queue)
+            Lf_queue.add proc scheduler.ready_queue)
 
-  let is_idle t = Queue.is_empty t.ready_queue
+  let is_idle t = Lf_queue.is_empty t.ready_queue
 
   let run pool scheduler () =
     Logs.debug (fun f -> f "> enter worker loop");
@@ -280,7 +275,7 @@ module Scheduler = struct
        while true do
          Domain.cpu_relax ();
          if pool.stop then raise_notrace Exit;
-         match Queue.take_opt scheduler.ready_queue with
+         match Lf_queue.take_opt scheduler.ready_queue with
          | None ->
              Logs.debug (fun f -> f "no ready processes");
              ()
@@ -336,7 +331,8 @@ let send pid msg =
   let pool = Pool.get_pool () in
   match Process_table.get pool.processes pid with
   | Some proc ->
-      Logs.debug (fun f -> f "delivering message meant for %a to %a" Pid.pp pid Pid.pp proc.pid);
+      Logs.debug (fun f ->
+          f "delivering message meant for %a to %a" Pid.pp pid Pid.pp proc.pid);
       Mailbox.queue proc.mailbox msg;
       Process.mark_as_runnable proc
   | None ->
@@ -350,7 +346,7 @@ let _spawn pool scheduler fn =
         Normal)
   in
   Process_table.register_process pool.processes proc;
-  Queue.add proc scheduler.ready_queue;
+  Lf_queue.add proc scheduler.ready_queue;
   proc.pid
 
 let spawn fn =
@@ -367,8 +363,7 @@ let is_process_alive pid =
   yield ();
   let pool = Pool.get_pool () in
   match Process_table.get pool.processes pid with
-  | Some proc -> 
-      Process.is_alive proc
+  | Some proc -> Process.is_alive proc
   | None -> false
 
 let random () = (Scheduler.get_current_scheduler ()).rnd

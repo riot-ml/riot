@@ -12,7 +12,7 @@ let main () =
       shutdown ()
   | _ ->
       Logs.log (fun f -> f "was NOT notified of process death");
-      exit 1
+      Stdlib.exit 1
 
 let () =
   Logs.set_log_level (Some Info);

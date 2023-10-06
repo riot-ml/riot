@@ -27,7 +27,7 @@ let main () =
       shutdown ()
   | _ ->
       Logs.log (fun f -> f "received messages out of order");
-      exit 1
+      Stdlib.exit 1
 
 let () =
   Logs.set_log_level None;

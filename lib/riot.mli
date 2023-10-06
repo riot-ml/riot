@@ -72,26 +72,27 @@ val run : ?rnd:Random.State.t -> ?workers:int -> (unit -> unit) -> unit
 (** Start the Riot runtime using function [main] to boot the system *)
 
 module Supervisor : sig
-  type child_spec
-
   type strategy =
     | One_for_one
         (** If one child process terminates and is to be restarted, only that
-      child process is affected. This is the default restart strategy.*)
+            child process is affected. This is the default restart strategy.*)
     | One_for_all
         (** If one child process terminates and is to be restarted, all other
-      child processes are terminated and then all child processes are
-      restarted. *)
+            child processes are terminated and then all child processes are
+            restarted. *)
     | Rest_for_one
         (**  If one child process terminates and is to be restarted, the 'rest'
-       of the child processes (that is, the child processes after the
-       terminated child process in the start order) are terminated. Then
-       the terminated child process and all child processes after it are
-       restarted. *)
+             of the child processes (that is, the child processes after the
+             terminated child process in the start order) are terminated. Then
+             the terminated child process and all child processes after it are
+             restarted. *)
     | Simple_one_for_one
         (** A simplified one_for_one supervisor, where all child processes are
-      dynamically added instances of the same process type, that is,
-      running the same code. *)
+            dynamically added instances of the same process type, that is,
+            running the same code. *)
+
+  type child_spec
+  (* The type of a child specification *)
 
   val child_spec :
     start_link:('state -> (Pid.t, exn) result) -> 'state -> child_spec

@@ -1,4 +1,5 @@
 [@@@warning "-8"]
+
 open Riot
 
 type Message.t += Ping_me of Pid.t
@@ -29,7 +30,7 @@ let main () =
 
   let child_pid =
     match receive () with
-    | Ping_me pid -> 
+    | Ping_me pid ->
         Logs.info (fun f -> f "%a received pid %a" Pid.pp this Pid.pp pid);
         pid
     | _ -> failwith "expected child pid"
@@ -37,11 +38,11 @@ let main () =
 
   exit child_pid Normal;
 
-  let Ping_me child_pid = receive () in
+  let (Ping_me child_pid) = receive () in
 
   exit child_pid Normal;
 
-  let Ping_me child_pid = receive () in
+  let (Ping_me child_pid) = receive () in
 
   exit child_pid Normal;
 

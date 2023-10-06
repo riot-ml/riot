@@ -311,16 +311,14 @@ module Scheduler = struct
     let exception Exit in
     (try
        while true do
-         Domain.cpu_relax ();
          if pool.stop then raise_notrace Exit;
          match Lf_queue.take_opt scheduler.ready_queue with
          | None ->
              Logs.trace (fun f -> f "no ready processes");
-             ()
+             Domain.cpu_relax ()
          | Some proc ->
              Logs.trace (fun f -> f "found process: %a" pp_process proc);
-             step_process pool scheduler proc;
-             ()
+             step_process pool scheduler proc
        done
      with Exit -> ());
     Logs.debug (fun f -> f "< exit worker loop")

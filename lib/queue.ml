@@ -1,3 +1,6 @@
+(* Copyright (c) 2016 KC Sivaramakrishnan
+   Copyright (C) 2022 Thomas Leonard
+*)
 (* A lock-free multi-producer, single-consumer, thread-safe queue without support for cancellation.
    This makes a good data structure for a scheduler's run queue.
 

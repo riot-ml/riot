@@ -47,3 +47,4 @@ let () =
   let t0 = Ptime_clock.now () in
   Logs.set_log_level None;
   Riot.run @@ main t0
+

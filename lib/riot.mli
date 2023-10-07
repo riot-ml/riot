@@ -95,7 +95,9 @@ module Supervisor : sig
   (* The type of a child specification *)
 
   val child_spec :
-    start_link:('state -> (Pid.t, [> | `Exit of exn ]) result) -> 'state -> child_spec
+    start_link:('state -> (Pid.t, [> `Exit of exn ]) result) ->
+    'state ->
+    child_spec
   (** Create a new child specification to be used with [start_link] *)
 
   val start_link :

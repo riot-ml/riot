@@ -1,3 +1,9 @@
 (tests
- (names spawn_many send_order add_monitor link_processes supervisor)
+ (names
+  add_monitor
+  http_server
+  link_processes
+  send_order
+  spawn_many
+  supervisor_shutdown)
  (libraries riot))

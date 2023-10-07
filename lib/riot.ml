@@ -284,7 +284,7 @@ module Scheduler = struct
             match Process_table.get pool.processes pid with
             | None -> ()
             | Some linked_proc when linked_proc.flags.trap_exits ->
-                Logs.info (fun f -> f "%a trapped exits" Pid.pp linked_proc.pid);
+                Logs.info (fun f -> f "%a will trap exits" Pid.pp linked_proc.pid);
                 Mailbox.queue linked_proc.mailbox Message.(Exit proc.pid);
                 Process.mark_as_runnable linked_proc
             | Some linked_proc ->
@@ -489,7 +489,7 @@ module Supervisor = struct
   type child_spec =
     | Child : {
         initial_state : 'state;
-        start_link : 'state -> (Pid.t, exn) result;
+        start_link : 'state -> (Pid.t, [> | `Exit of exn ]) result;
       }
         -> child_spec
 

@@ -39,12 +39,21 @@ module Pid = struct
     Atomic.set __current__ 0
 end
 
+
+(** [exit_reason] indicates why a process was terminated. *)
+type exit_reason =
+  | Normal
+  | Exit_signal
+  | Timeout_value
+  | Bad_link
+  | Exception of exn
+
 module Message = struct
   type select_marker = Take | Skip | Drop
   type t = ..
   type monitor = Process_down of Pid.t
   type t += Monitor of monitor
-  type t += Exit of Pid.t
+  type t += Exit of Pid.t * exit_reason
 end
 
 module Mailbox = struct
@@ -71,7 +80,7 @@ type state =
   | Runnable
   | Waiting
   | Running
-  | Exited of (exit_reason, exn) result
+  | Exited of exit_reason
 
 and process = {
   pid : Pid.t;
@@ -86,14 +95,6 @@ and process = {
 
 and process_flags = { mutable trap_exits : bool }
 and process_flag = Trap_exit of bool
-
-(** [exit_reason] indicates why a process was terminated. *)
-and exit_reason =
-  | Normal
-  | Exit_signal
-  | Timeout_value
-  | Bad_link
-  | Exception of exn
 
 (** Effects *)
 
@@ -269,7 +270,7 @@ module Scheduler = struct
     set_current_process_pid proc.pid;
     match Process.state proc with
     | Waiting -> Lf_queue.add proc scheduler.ready_queue
-    | Exited _ ->
+    | Exited reason ->
         (* send monitors a process-down message *)
         let monitoring_pids = Atomic.get proc.monitors in
         List.iter
@@ -296,12 +297,12 @@ module Scheduler = struct
             | Some linked_proc when linked_proc.flags.trap_exits ->
                 Logs.debug (fun f ->
                     f "%a will trap exits" Pid.pp linked_proc.pid);
-                Mailbox.queue linked_proc.mailbox Message.(Exit proc.pid);
+                Mailbox.queue linked_proc.mailbox Message.(Exit (proc.pid, reason));
                 Process.mark_as_runnable linked_proc
             | Some linked_proc ->
                 Logs.debug (fun f ->
                     f "marking linked %a as dead" Pid.pp linked_proc.pid);
-                Process.mark_as_dead linked_proc (Ok Exit_signal))
+                Process.mark_as_dead linked_proc Exit_signal)
           linked_pids
     | Running | Runnable -> (
         Process.mark_as_running proc;
@@ -310,6 +311,10 @@ module Scheduler = struct
         Process.set_cont cont proc;
         match cont with
         | Proc_state.Finished reason ->
+            let reason = match reason with
+            | Ok reason -> reason
+            | Error exn -> Exception exn
+                in
             Process.mark_as_dead proc reason;
             Lf_queue.add proc scheduler.ready_queue
         | Proc_state.Suspended _ | Proc_state.Unhandled _ ->
@@ -322,7 +327,6 @@ module Scheduler = struct
     let exception Exit in
     (try
        while true do
-         Unix.sleepf 0.001;
          if pool.stop then raise_notrace Exit;
          match Lf_queue.take_opt scheduler.ready_queue with
          | None ->
@@ -378,7 +382,7 @@ let exit pid reason =
   match Process_table.get pool.processes pid with
   | Some proc ->
       Logs.debug (fun f -> f "%a exited by %a" Pid.pp proc.pid Pid.pp (self ()));
-      Process.mark_as_dead proc (Ok reason)
+      Process.mark_as_dead proc reason
   | None -> ()
 
 (* NOTE(leostera): to send a message, we will find the receiver process
@@ -389,7 +393,8 @@ let send pid msg =
   match Process_table.get pool.processes pid with
   | Some proc ->
       Logs.debug (fun f ->
-          f "delivered message from %a to %a" Pid.pp (self ()) Pid.pp proc.pid);
+          f "delivered message from %a to %a: %s" Pid.pp (self ()) Pid.pp
+            proc.pid (Marshal.to_string msg []));
       Mailbox.queue proc.mailbox msg;
       Process.mark_as_runnable proc
   | None ->
@@ -555,11 +560,13 @@ module Supervisor = struct
 
   let rec loop state =
     match receive () with
-    | Message.Exit pid when List.mem_assoc pid state.children ->
-        handle_child_exit pid state
+    | Message.Exit (pid, Normal) when List.mem_assoc pid state.children ->
+        loop state
+    | Message.Exit (pid, reason) when List.mem_assoc pid state.children ->
+        handle_child_exit pid reason state
     | _ -> loop state
 
-  and handle_child_exit pid state =
+  and handle_child_exit pid reason state =
     match restart_child pid state with
     | `continue state -> loop state
     | `terminate ->

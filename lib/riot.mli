@@ -16,6 +16,13 @@ module Pid : sig
   val pp : Format.formatter -> t -> unit
 end
 
+type exit_reason =
+  | Normal
+  | Exit_signal
+  | Timeout_value
+  | Bad_link
+  | Exception of exn
+
 module Message : sig
   type select_marker =
     | Take  (** use [Take] to mark a message as selected *)
@@ -25,7 +32,7 @@ module Message : sig
   type t = ..
   type monitor = Process_down of Pid.t
   type t += Monitor of monitor
-  type t += Exit of Pid.t
+  type t += Exit of Pid.t * exit_reason
 end
 
 module Process : sig
@@ -33,13 +40,6 @@ module Process : sig
 end
 
 type process_flag = Trap_exit of bool
-
-type exit_reason =
-  | Normal
-  | Exit_signal
-  | Timeout_value
-  | Bad_link
-  | Exception of exn
 
 val yield : unit -> unit
 (** Suspends execution of the current process and returns control to the scheduler *)

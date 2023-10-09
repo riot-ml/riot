@@ -1,5 +1,13 @@
 module Logs = Logs
 
+module Uid : sig
+  type t
+
+  val next : unit -> t
+  val equal : t -> t -> bool
+  val pp : Format.formatter -> t -> unit
+end
+
 module Pid : sig
   type t
 
@@ -9,7 +17,11 @@ module Pid : sig
 end
 
 module Message : sig
-  type select_marker = Take | Skip
+  type select_marker =
+    | Take  (** use [Take] to mark a message as selected *)
+    | Skip  (** use [Skip] to requeue for later consumption *)
+    | Drop  (** use [Drop] to remove this message while selecting *)
+
   type t = ..
   type monitor = Process_down of Pid.t
   type t += Monitor of monitor

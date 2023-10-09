@@ -5,6 +5,15 @@ module Logs = Logs
 
 (** Uid Modules *)
 
+module Uid = struct
+  type t = int
+
+  let __current__ = Atomic.make 0
+  let next () = Atomic.fetch_and_add __current__ 1
+  let equal a b = Int.equal a b
+  let pp ppf pid = Format.fprintf ppf "%d" pid
+end
+
 module Scheduler_uid = struct
   type t = int
 
@@ -31,7 +40,7 @@ module Pid = struct
 end
 
 module Message = struct
-  type select_marker = Take | Skip
+  type select_marker = Take | Skip | Drop
   type t = ..
   type monitor = Process_down of Pid.t
   type t += Monitor of monitor
@@ -245,6 +254,7 @@ module Scheduler = struct
                   k (Delay effect)
               | Some msg -> (
                   match select msg with
+                  | Drop -> go ()
                   | Take -> k (Continue msg)
                   | Skip ->
                       Mailbox.queue skipped msg;
@@ -284,7 +294,7 @@ module Scheduler = struct
             match Process_table.get pool.processes pid with
             | None -> ()
             | Some linked_proc when linked_proc.flags.trap_exits ->
-                Logs.info (fun f ->
+                Logs.debug (fun f ->
                     f "%a will trap exits" Pid.pp linked_proc.pid);
                 Mailbox.queue linked_proc.mailbox Message.(Exit proc.pid);
                 Process.mark_as_runnable linked_proc
@@ -312,6 +322,7 @@ module Scheduler = struct
     let exception Exit in
     (try
        while true do
+         Unix.sleepf 0.001;
          if pool.stop then raise_notrace Exit;
          match Lf_queue.take_opt scheduler.ready_queue with
          | None ->

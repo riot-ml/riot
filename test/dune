@@ -6,4 +6,4 @@
   send_order
   spawn_many
   supervisor_shutdown)
- (libraries riot))
+ (libraries riot httpaf))

@@ -1,5 +1,6 @@
 open Riot
 
+[@@@warning "-8"]
 [@@@warning "-38"]
 
 type Riot.Message.t += Loop_stop | Count
@@ -20,6 +21,8 @@ let rec wait_pids pids =
   | pid :: tail -> wait_pids (if is_process_alive pid then pids else tail)
 
 let main t0 () =
+  let (Ok ()) = Logger.start () in
+
   let pids =
     List.init 10_000 (fun _i ->
         let pid = spawn (fun () -> loop 0) in

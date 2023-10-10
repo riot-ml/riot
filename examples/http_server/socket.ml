@@ -66,7 +66,9 @@ module Flow = struct
 
   and do_yield conn flow =
     let writer_pid = self () in
-    flow.yield_writer (fun () -> send writer_pid Wakeup_writer);
+    flow.yield_writer (fun () ->
+        send writer_pid Wakeup_writer;
+        yield ());
     let Wakeup_writer = receive () in
     write conn flow
 
@@ -97,7 +99,9 @@ module Flow = struct
 
   and do_yield conn flow =
     let reader_pid = self () in
-    flow.yield_reader (fun () -> send reader_pid Wakeup_reader);
+    flow.yield_reader (fun () ->
+        send reader_pid Wakeup_reader;
+        yield ());
     let Wakeup_reader = receive () in
     read conn flow
 

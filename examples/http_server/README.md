@@ -79,3 +79,36 @@ was the only requirement this example had.
 
 
 [ranch]: https://github.com/ninenines/ranch
+
+## Benchmarking
+
+To load-test this little server we used [vegeta][vegeta] and the following command:
+
+```
+; echo "GET http://localhost:2112" | vegeta attack -duration=10s -workers=5 | tee result.bin | vegeta report
+```
+
+Here's a few runs of this on a Mac Studio (20-cores, 128GB RAM):
+
+```
+; echo "GET http://localhost:2112" | vegeta attack -duration=5s -workers=10 | tee result.bin | vegeta report
+Requests      [total, rate, throughput]         250, 50.20, 50.20
+Duration      [total, attack, wait]             4.98s, 4.98s, 268.375µs
+Latencies     [min, mean, 50, 90, 95, 99, max]  222.125µs, 712.787µs, 427.729µs, 872.27µs, 2.335ms, 6.48ms, 7.741ms
+Bytes In      [total, mean]                     500, 2.00
+Bytes Out     [total, mean]                     0, 0.00
+Success       [ratio]                           100.00%
+Status Codes  [code:count]                      200:250
+Error Set:
+
+; echo "GET http://localhost:2112" | vegeta attack -duration=10s -workers=5 | tee result.bin | vegeta report
+Requests      [total, rate, throughput]         500, 50.10, 14.38
+Duration      [total, attack, wait]             34.501s, 9.981s, 24.521s
+Latencies     [min, mean, 50, 90, 95, 99, max]  172.25µs, 240.897ms, 525.931µs, 1.252ms, 2.331ms, 16.944ms, 30.001s
+Bytes In      [total, mean]                     992, 1.98
+Bytes Out     [total, mean]                     0, 0.00
+Success       [ratio]                           99.20%
+Status Codes  [code:count]                      0:4  200:496
+Error Set:
+
+```

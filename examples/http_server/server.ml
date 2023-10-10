@@ -14,8 +14,7 @@ let trace, info, debug, warn, error = Logger.(trace, info, debug, warn, error)
 module type Connector = sig
   type Message.t += Handshake of Socket.connection
 
-  val start_link : unit -> (Pid.t, [> `Connector_error ]) result
-  val handshake : conn:Socket.connection -> Pid.t -> unit
+  val start_link : Socket.connection -> (Pid.t, [> `Connector_error ]) result
 end
 
 module type Protocol = sig
@@ -25,7 +24,7 @@ end
 module Tcp_connector (P : Protocol) : Connector = struct
   type Message.t += Handshake of Socket.connection
 
-  let handle_handshake conn _state =
+  let handle_handshake conn =
     debug (fun f -> f "Protocol handshake initiated");
     let flow = P.create_flow () in
     let _writer =
@@ -45,18 +44,10 @@ module Tcp_connector (P : Protocol) : Connector = struct
     in
     loop ()
 
-  let rec await_handshake state =
-    debug (fun f -> f "Awaiting protocol handshake...");
-    let select = function Handshake _ -> Message.Take | _ -> Drop in
-    match receive ~select () with
-    | Handshake conn -> handle_handshake conn state
-    | _ -> await_handshake state
-
-  let start_link () =
-    let pid = spawn_link (fun () -> await_handshake ()) in
+  let start_link conn =
+    let pid = spawn_link (fun () -> handle_handshake conn) in
+    debug (fun f -> f "spawned tcp_conenctor %a" Pid.pp pid);
     Ok pid
-
-  let handshake ~conn pid = send pid (Handshake conn)
 end
 
 module Acceptor = struct
@@ -70,9 +61,8 @@ module Acceptor = struct
     info (fun f -> f "Awaiting connection...");
     let conn = Socket.accept state.socket in
     let (module Connector) = state.connector in
-    info (fun f -> f "Accepted connection...");
-    let (Ok pid) = Connector.start_link () in
-    Connector.handshake ~conn pid;
+    let (Ok pid) = Connector.start_link conn in
+    debug (fun f -> f "Started connector at %a" Pid.pp pid);
     let state =
       { state with open_connections = (conn, pid) :: state.open_connections }
     in

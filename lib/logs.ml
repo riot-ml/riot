@@ -1,7 +1,20 @@
-type level = Debug | Info | Trace | Log
+(** Low-level mutex-coordinated logs for the Riot engine. 
+    These are super slow, and are intended for usage within the engine alone.
 
-let level_to_int = function Trace -> 5 | Debug -> 4 | Info -> 2 | Log -> 1
-let log_level = ref (Some Debug)
+    If you're looking for logs for your application, look into
+    {!module:Riot.Logger} instead.
+*)
+
+type level = Debug | Error | Info | Trace | Warn
+
+let level_to_int = function
+  | Trace -> 5
+  | Debug -> 4
+  | Info -> 2
+  | Warn -> 1
+  | Error -> 0
+
+let log_level = ref (Some Error)
 let set_log_level x = log_level := x
 
 let should_log x =
@@ -11,9 +24,10 @@ let should_log x =
 
 let pp_level ppf t =
   match t with
-  | Log -> ()
+  | Error -> Format.fprintf ppf "ERROR "
+  | Warn -> Format.fprintf ppf "WARN "
   | Debug -> Format.fprintf ppf "DEBUG "
-  | Info -> Format.fprintf ppf "INFO  "
+  | Info -> Format.fprintf ppf "INFO "
   | Trace -> Format.fprintf ppf "TRACE "
 
 type ('a, 'b) message_format =
@@ -39,4 +53,5 @@ let msg : type a. level -> (a, unit) message_format -> unit =
 let trace msgf = if should_log Trace then msg Trace msgf
 let debug msgf = if should_log Debug then msg Debug msgf
 let info msgf = if should_log Info then msg Info msgf
-let log msgf = msg Log msgf
+let warn msgf = if should_log Warn then msg Warn msgf
+let error msgf = if should_log Error then msg Error msgf

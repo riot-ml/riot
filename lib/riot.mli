@@ -1,5 +1,3 @@
-module Logs = Logs
-
 module Uid : sig
   type t
 
@@ -16,13 +14,6 @@ module Pid : sig
   val pp : Format.formatter -> t -> unit
 end
 
-type exit_reason =
-  | Normal
-  | Exit_signal
-  | Timeout_value
-  | Bad_link
-  | Exception of exn
-
 module Message : sig
   type select_marker =
     | Take  (** use [Take] to mark a message as selected *)
@@ -30,16 +21,24 @@ module Message : sig
     | Drop  (** use [Drop] to remove this message while selecting *)
 
   type t = ..
-  type monitor = Process_down of Pid.t
-  type t += Monitor of monitor
-  type t += Exit of Pid.t * exit_reason
 end
 
 module Process : sig
   type t
-end
+  type process_flag = Trap_exit of bool
 
-type process_flag = Trap_exit of bool
+  type exit_reason =
+    | Normal
+    | Exit_signal
+    | Timeout_value
+    | Bad_link
+    | Exception of exn
+
+  module Messages : sig
+    type monitor = Process_down of Pid.t
+    type Message.t += Monitor of monitor | Exit of Pid.t * exit_reason
+  end
+end
 
 val yield : unit -> unit
 (** Suspends execution of the current process and returns control to the scheduler *)
@@ -47,9 +46,9 @@ val yield : unit -> unit
 val self : unit -> Pid.t
 (** Returns the process identifier (pid) for the current process *)
 
-val process_flag : process_flag -> unit
+val process_flag : Process.process_flag -> unit
 
-val exit : Pid.t -> exit_reason -> unit
+val exit : Pid.t -> Process.exit_reason -> unit
 (** Sends an exit signal to the process [pid], to exit with reason [exit_reason] *)
 
 val send : Pid.t -> Message.t -> unit
@@ -120,4 +119,35 @@ module Supervisor : sig
     unit ->
     (Pid.t, [> `Supervisor_error ]) result
   (** Describe and start a supervisor *)
+end
+
+type ('a, 'b) logger_format =
+  (('a, Format.formatter, unit, 'b) format4 -> 'a) -> 'b
+
+module type Logger = sig
+  val set_log_level : Logger.level option -> unit
+  val debug : ('a, unit) logger_format -> unit
+  val error : ('a, unit) logger_format -> unit
+  val info : ('a, unit) logger_format -> unit
+  val trace : ('a, unit) logger_format -> unit
+  val warn : ('a, unit) logger_format -> unit
+end
+
+module Logger : sig
+  type namespace = string list
+
+  val start :
+    ?print_time:bool ->
+    ?print_source:bool ->
+    ?color_output:bool ->
+    unit ->
+    (unit, [> `Supervisor_error ]) result
+  (** Start the logger application. *)
+
+  module type Namespace = sig
+    val namespace : namespace
+  end
+
+  module Make (_ : Namespace) : Logger
+  include Logger.Intf
 end

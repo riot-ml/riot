@@ -4,7 +4,7 @@
 An actor-model multi-core scheduler for OCaml 5.
 </p>
 
-Riot is an actor-model multi-core scheduler for OCaml 5. It brings Erlang-style
+Riot is an [actor-model][actors] multi-core scheduler for OCaml 5. It brings [Erlang][erlang]-style
 concurrency to the language, where lighweight process communicate via message
 passing.
 
@@ -23,14 +23,23 @@ let () =
   send pid Hello_world
 ```
 
-It **features**:
+At its core Riot offers:
 
-* Dirt-cheap processes – spawn them by the millions
-* Fast, type-safe message passing
-* Selective receive expressions
-* Process linking and monitoring
-* Supervisors
-* Async logging
+* **Automatic multi-core fair-scheduling** 
+
+* **Lightweight processes** to spawn by the millions
+
+* **Fast, type-safe message passing**
+
+* **Selective receive expressions**
+
+* **Process links and monitors** to keep track of the lifecycle of processes
+
+Riot also includes:
+
+* **Supervisors** to build process hierarchies
+
+* **Logging** designed to be multicore friendly
 
 ### Non-goals
 
@@ -51,7 +60,7 @@ cd riot
 opam install .
 ```
 
-After that, you can use any of the [examples][tutorial] as a base for your app, and run them:
+After that, you can use any of the [examples](./examples) as a base for your app, and run them:
 
 ```
 dune exec ./my_app.exe
@@ -69,5 +78,7 @@ And a thousand thanks to [Calascibetta Romain](https://twitter.com/Dinoosaure)
 and [Antonio Monteiro](https://twitter.com/_anmonteiro) for the discussions and
 feedback.
 
+[actors]: https://en.wikipedia.org/wiki/Actor_model
+[erlang]: https://erlang.org
 [eio]: https://github.com/ocaml-multicore/eio
 [miou]: https://github.com/robur-coop/miou

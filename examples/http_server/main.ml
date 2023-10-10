@@ -18,6 +18,7 @@ let main () =
   Riot.Logger.start () |> Result.get_ok;
 
   Logger.info (fun f -> f "Starting server on port %d" port);
+
   let (Ok _server) =
     Http_server.start_link ~port @@ fun reqd ->
     let req = Httpaf.Reqd.request reqd in

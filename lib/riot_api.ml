@@ -105,6 +105,11 @@ let is_process_alive pid =
   | Some proc -> Process.is_alive proc
   | None -> false
 
+let rec wait_pids pids =
+  match pids with
+  | [] -> ()
+  | pid :: tail -> wait_pids (if is_process_alive pid then pids else tail)
+
 let random () = (Scheduler.get_current_scheduler ()).rnd
 
 let receive ?(select = fun _ -> Message.Take) () =

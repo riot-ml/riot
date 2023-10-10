@@ -73,6 +73,9 @@ val processes : unit -> (Pid.t * Process.t) Seq.t
 val is_process_alive : Pid.t -> bool
 (** Returns true if the process [pid] is still alive. *)
 
+val wait_pids: Pid.t list -> unit
+(** Await all processes in the list to termimante. *)
+
 val random : unit -> Random.State.t
 val receive : ?select:(Message.t -> Message.select_marker) -> unit -> Message.t
 

@@ -23,12 +23,12 @@ let main () =
 
   match receive () with
   | Collected_messages [ A 1; A 2; A 3 ] ->
-      Logs.log (fun f -> f "received messages in order");
+      Logger.info (fun f -> f "received messages in order");
       shutdown ()
   | _ ->
-      Logs.log (fun f -> f "received messages out of order");
+      Logger.info (fun f -> f "received messages out of order");
       Stdlib.exit 1
 
 let () =
-  Logs.set_log_level None;
+  Logger.set_log_level (Some Info);
   Riot.run @@ main

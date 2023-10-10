@@ -5,7 +5,11 @@
 
 open Riot
 
-let log, info, debug = Logs.(log, info, debug)
+module Logger = Logger.Make (struct
+  let namespace = [ "http_server" ]
+end)
+
+let trace, info, debug, warn, error = Logger.(trace, info, debug, warn, error)
 
 module Socket = struct
   type t = {
@@ -54,22 +58,20 @@ module Socket = struct
       yield_writer : (unit -> unit) -> unit;
     }
 
+    (** Write flow. Drives http/af to write to a Unix socket. *)
     let rec write (conn : connection) flow =
-      info (fun f -> f "write loop");
       match flow.next_write_operation () with
       | `Write io_vecs -> do_write conn flow io_vecs
       | `Close len -> do_close_write conn flow len
       | `Yield -> do_yield conn flow
 
     and do_yield conn flow =
-      info (fun f -> f "yield writer");
-      flow.yield_writer (fun () -> send (self ()) Wakeup_writer);
+      let writer_pid = self () in
+      flow.yield_writer (fun () -> send writer_pid Wakeup_writer);
       let Wakeup_writer = receive () in
-      info (fun f -> f "awake writer");
       write conn flow
 
     and do_write conn flow io_vecs =
-      info (fun f -> f "do write op");
       let rec write_all iovs total =
         match iovs with
         | [] -> `Ok total
@@ -77,19 +79,17 @@ module Socket = struct
             let bytes = Bytes.create len in
             Bigstringaf.blit_to_bytes buffer ~src_off:off bytes ~dst_off:0 ~len;
             let len = Unix.write conn.fd bytes 0 len in
-            info (fun f -> f "wrote %d bytes: %s" len (Bytes.to_string bytes));
+            debug (fun f -> f "wrote %d bytes: %s" len (Bytes.to_string bytes));
             write_all iovs (total + len)
       in
       let result = try write_all io_vecs 0 with End_of_file -> `Closed in
-      info (fun f -> f "finished writing, reporting...");
       flow.report_write_result result;
       write conn flow
 
-    and do_close_write conn _flow len =
-      info (fun f -> f "do write op");
-      Logs.info (fun f -> f "wrote %d bytes" len);
-      Unix.shutdown conn.fd Unix.SHUTDOWN_SEND
+    and do_close_write _conn _flow _len =
+      debug (fun f -> f "closing %a" Pid.pp (self ()))
 
+    (** Read flow. Drives http/af to read from a Unix socket. *)
     let rec read (conn : connection) flow =
       match flow.next_read_operation () with
       | `Read -> do_read conn flow
@@ -97,15 +97,16 @@ module Socket = struct
       | `Yield -> do_yield conn flow
 
     and do_yield conn flow =
-      flow.yield_reader (fun () -> send (self ()) Wakeup_reader);
+      let reader_pid = self () in
+      flow.yield_reader (fun () -> send reader_pid Wakeup_reader);
       let Wakeup_reader = receive () in
       read conn flow
 
     and do_read conn flow =
       let bytes = Bytes.create 1024 in
       match Unix.read conn.fd bytes 0 (Bytes.length bytes) with
-      | exception Unix.(Unix_error (EINTR, _, _))
-      | exception Unix.(Unix_error ((EAGAIN | EWOULDBLOCK), _, _)) ->
+      | (exception Unix.(Unix_error (EINTR, _, _)))
+      | (exception Unix.(Unix_error ((EAGAIN | EWOULDBLOCK), _, _))) ->
           yield ();
           read conn flow
       | exception _exn -> do_close conn flow
@@ -115,7 +116,7 @@ module Socket = struct
       | len ->
           let buf = Bigstringaf.create len in
           Bigstringaf.blit_from_bytes bytes ~src_off:0 buf ~dst_off:0 ~len;
-          Logs.info (fun f -> f "read %d bytes" len);
+          debug (fun f -> f "read %d bytes" len);
           flow.read ~buf ~len;
           read conn flow
 
@@ -139,12 +140,27 @@ module Server = struct
     type Message.t += Handshake of Socket.connection
 
     let handle_handshake conn _state =
-      info (fun f -> f "handling handshake");
+      debug (fun f -> f "Protocol handshake initiated");
       let flow = P.create_flow () in
-      let _writer_pid = spawn_link (fun () -> Socket.Flow.write conn flow) in
-      Socket.Flow.read conn flow
+      let _writer =
+        spawn_link (fun () ->
+            debug (fun f -> f "spawned writer %a" Pid.pp (self ()));
+            Socket.Flow.write conn flow)
+      in
+      let _reader =
+        spawn_link (fun () ->
+            debug (fun f -> f "spawned reader %a" Pid.pp (self ()));
+            Socket.Flow.read conn flow)
+      in
+      (* TODO(leostera): impl hibernate() this process should just sleep *)
+      let rec loop () =
+        yield ();
+        loop ()
+      in
+      loop ()
 
     let rec await_handshake state =
+      debug (fun f -> f "Awaiting protocol handshake...");
       let select = function Handshake _ -> Message.Take | _ -> Drop in
       match receive ~select () with
       | Handshake conn -> handle_handshake conn state
@@ -162,14 +178,13 @@ module Server = struct
 
     let handler reqd =
       let req = Httpaf.Reqd.request reqd in
-      Logs.info (fun f -> f "request: %a" Httpaf.Request.pp_hum req);
-      let headers = Httpaf.Headers.of_list ["Content-Length", "3"] in
+      debug (fun f -> f "request: %a" Httpaf.Request.pp_hum req);
+      let headers = Httpaf.Headers.of_list [ ("Content-Length", "2") ] in
       let res = Httpaf.Response.create ~headers `OK in
-      Logs.info (fun f -> f "response: %a" Httpaf.Response.pp_hum res);
-      Httpaf.Reqd.respond_with_string reqd res "ok\n"
+      Httpaf.Reqd.respond_with_string reqd res "ok";
+      debug (fun f -> f "response: %a" Httpaf.Response.pp_hum res)
 
     let create_flow () =
-      Logs.info (fun f -> f "creating http flow");
       let module S = Httpaf.Server_connection in
       let conn = S.create handler in
 
@@ -194,11 +209,10 @@ module Server = struct
     }
 
     let rec accept_loop state =
-      let this = self () in
-      info (fun f -> f "[acceptor=%a] Awaiting connection..." Pid.pp this);
+      info (fun f -> f "Awaiting connection...");
       let conn = Socket.accept state.socket in
       let (module Connector) = state.connector in
-      info (fun f -> f "[acceptor=%a] Accepted connection..." Pid.pp this);
+    info (fun f -> f "Accepted connection...");
       let (Ok pid) = Connector.start_link () in
       Connector.handshake ~conn pid;
       let state =
@@ -244,6 +258,8 @@ module Server = struct
 end
 
 let main () =
+  Logger.set_log_level (Some Info);
+  let (Ok ()) = Riot.Logger.start ~print_time:true () in
   let port = 2112 in
   info (fun f -> f "Starting server on port %d" port);
   let _server = Server.start_link ~port () in
@@ -253,6 +269,4 @@ let main () =
   in
   loop ()
 
-let () =
-  Logs.set_log_level (Some Debug);
-  Riot.run @@ main
+let () = Riot.run ~workers:4 @@ main

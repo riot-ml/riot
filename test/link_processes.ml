@@ -21,6 +21,10 @@ open Riot
 
 *)
 
+module Logs = Logger.Make (struct
+  let namespace = [ "http_server" ]
+end)
+
 type Message.t += Exit
 
 let rec loop i =
@@ -46,7 +50,7 @@ let main () =
   send pid1 Exit;
 
   wait_pids [ pid1; pid2 ];
-  Logs.log (fun f -> f "linked processes terminated");
+  Logs.info (fun f -> f "linked processes terminated");
   shutdown ()
 
 let () =

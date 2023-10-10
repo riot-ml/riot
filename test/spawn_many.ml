@@ -8,10 +8,10 @@ let rec loop count =
   let pid = self () in
   match receive () with
   | Loop_stop ->
-      Logs.info (fun f -> f "%a: dead at %d%!" Pid.pp pid count);
+      Logger.warn (fun f -> f "%a: dead at %d%!" Pid.pp pid count);
       ()
   | _ ->
-      Logs.info (fun f -> f "%a: count=%d%!" Pid.pp pid count);
+      Logger.warn (fun f -> f "%a: count=%d%!" Pid.pp pid count);
       loop (count + 1)
 
 let rec wait_pids pids =
@@ -23,7 +23,7 @@ let main t0 () =
   let pids =
     List.init 10_000 (fun _i ->
         let pid = spawn (fun () -> loop 0) in
-        Logs.info (fun f -> f "spawned %a" Pid.pp pid);
+        Logger.info (fun f -> f "spawned %a" Pid.pp pid);
         pid)
   in
 
@@ -32,7 +32,7 @@ let main t0 () =
   wait_pids pids;
 
   let t1 = Ptime_clock.now () in
-  Logs.log (fun f ->
+  Logger.info (fun f ->
       let delta = Ptime.diff t1 t0 in
       let delta = Ptime.Span.to_float_s delta in
       f "spawned/awaited %d processes in %fs" (List.length pids) delta);
@@ -41,5 +41,5 @@ let main t0 () =
 
 let () =
   let t0 = Ptime_clock.now () in
-  Logs.set_log_level None;
+  Logger.set_log_level (Some Info);
   Riot.run @@ main t0

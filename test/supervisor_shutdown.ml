@@ -19,6 +19,7 @@ module Ping = struct
 end
 
 let main () =
+  let (Ok ()) = Logger.start () in
   process_flag (Trap_exit true);
   let this = self () in
   let sup =
@@ -28,30 +29,27 @@ let main () =
     |> Result.get_ok
   in
 
-  let child_pid =
-    match receive () with
-    | Ping_me pid ->
-        Logs.info (fun f -> f "%a received pid %a" Pid.pp this Pid.pp pid);
-        pid
-    | _ -> failwith "expected child pid"
-  in
+  let (Ping_me child_pid) = receive () in
+  Logger.debug (fun f -> f "received pid %a" Pid.pp child_pid);
 
-  exit child_pid Normal;
+  exit child_pid Process.Exit_signal;
 
   let (Ping_me child_pid) = receive () in
+  Logger.debug (fun f -> f "received pid %a" Pid.pp child_pid);
 
-  exit child_pid Normal;
+  exit child_pid Process.Exit_signal;
 
   let (Ping_me child_pid) = receive () in
+  Logger.debug (fun f -> f "received pid %a" Pid.pp child_pid);
 
-  exit child_pid Normal;
+  exit child_pid Process.Exit_signal;
 
   match receive () with
-  | Message.Exit pid when Pid.equal pid sup ->
-      Logs.log (fun f -> f "supervisor finished as expected");
+  | Process.Messages.Exit (pid, _reason) when Pid.equal pid sup ->
+      Logger.info (fun f -> f "supervisor finished as expected");
       shutdown ()
   | _ -> failwith "expected supervisor failure"
 
 let () =
-  Logs.set_log_level None;
+  Logger.set_log_level (Some Info);
   Riot.run @@ main

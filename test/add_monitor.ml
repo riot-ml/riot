@@ -5,15 +5,14 @@ let main () =
   let pid = spawn (fun () -> ()) in
   monitor this pid;
 
-  let open Riot.Message in
   match receive () with
-  | Monitor (Process_down pid2) when Pid.equal pid pid2 ->
-      Logs.log (fun f -> f "was notified of process death");
+  | Process.Messages.Monitor (Process_down pid2) when Pid.equal pid pid2 ->
+      Logger.info (fun f -> f "was notified of process death");
       shutdown ()
   | _ ->
-      Logs.log (fun f -> f "was NOT notified of process death");
+      Logger.info (fun f -> f "was NOT notified of process death");
       Stdlib.exit 1
 
 let () =
-  Logs.set_log_level (Some Info);
+  Logger.set_log_level (Some Info);
   Riot.run @@ main

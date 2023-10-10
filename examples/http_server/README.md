@@ -11,18 +11,22 @@ Our simple server is then started from the `main.ml` file just like any other pr
 let (Ok _server) = Http_server.start_link ~port @@ fun reqd -> ... in
 ```
 
+The `Http_server` module configured the more interesteing `Server` module to use a `Tcp_connector` configured to handle requests using `http/af`. That bit of configuration is crucial, otherwise our server wouldn't know what protocol the client is trying to talk to, but it is irrelevant to how the application is designed.
+
+In fact, the entire Server itself would work for any protocol as long as we can
+implements a `Socket.Flow.t` value to read/write it.
+
 ## The Server Supervision Tree
 
-For this example, I used the [ranch][ranch] Erlang library as a base. In Ranch,
-the supervision tree is rather complex and relies on features that Riot
-supervisors don't yet have (namely dynamic children).
+For this web server, I modeled the supervision tree after the [ranch][ranch]
+Erlang library. It looks roughly like this
 
 ```mermaid
 graph TD
     Main
 
-    Server_sup(Server.Sup)
-    Acceptor_sup(Acceptor.Sup)
+    Server_sup(Server.Supervisor)
+    Acceptor_sup(Acceptor.Supervisor)
     Acceptor_wrk[Acceptor.Worker]
     Connector_wrk[Connector]
     Writer([Writer])
@@ -46,15 +50,17 @@ graph TD
     Writer --> |write| Socket
 ```
 
-It starts with the _Server supervisor_, which spins up 1 _Acceptor supervisor_.
-The _Acceptor supervisor_ binds to the TCP socket and creates N _Acceptor
+It all starts with the _Server supervisor_, which spins up 1 _Acceptor supervisor_.
+This pattern of supervisors supervising supervisors is very common for structuring applications in Erlang.
+
+The _Acceptor supervisor_ binds to a fresh TCP socket and creates N _Acceptor
 workers_. Every worker enters an _accept loop_ where they await for new
 connections on the shared TCP socket.
 
-Once a client connects and the socket's accept call is resolved, the acceptor
-will spawn a new _Connector process_, link it, initiates the Connector's
-handshake process, add its pid to the list of connections, and continue
-awaiting for the next client by recursing over `accept_loop`.
+Once a client connects, the acceptor will spawn a new _Connector process_, link
+it, initiates the Connector's handshake process, add its pid to the list of
+connections, and continue awaiting for the next client by recursing over
+`accept_loop`.
 
 This loop lets us immediately offload the work of handling a connection to a
 new process (potentially in a separate scheduler thread), and instantly resume
@@ -72,3 +78,4 @@ API of `Socket.Flow.t` is modeled very close to how `http/af` works, since that
 was the only requirement this example had. 
 
 
+[ranch]: https://github.com/ninenines/ranch

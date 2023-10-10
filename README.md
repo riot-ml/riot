@@ -4,9 +4,9 @@
 An actor-model multi-core scheduler for OCaml 5.
 </p>
 
-Riot is an [actor-model][actors] multi-core scheduler for OCaml 5. It brings [Erlang][erlang]-style
-concurrency to the language, where lighweight process communicate via message
-passing.
+Riot is an [actor-model][actors] multi-core scheduler for OCaml 5. It brings
+[Erlang][erlang]-style concurrency to the language, where lighweight process
+communicate via message passing.
 
 ```ocaml
 open Riot
@@ -23,15 +23,17 @@ let () =
   send pid Hello_world
 ```
 
-At its core Riot offers:
+At its core Riot aims to offer:
 
-* **Automatic multi-core fair-scheduling** 
+* **Automatic multi-core scheduling** – when you spawn a new Riot process, it
+  will automatically get allocated on a random scheduler.
 
-* **Lightweight processes** to spawn by the millions
+* **Lightweight processes** – spawn 10 or 10,000 processes as you see fit.
 
 * **Fast, type-safe message passing**
 
-* **Selective receive expressions**
+* **Selective receive expressions** – when receiving messages, you can skim
+  through a process mailbox to consume them in arbitrary order.
 
 * **Process links and monitors** to keep track of the lifecycle of processes
 

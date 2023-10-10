@@ -63,7 +63,11 @@ Riot is the continuation of the work I started with [Caramel](https://github.com
 
 It was heavily inspired by [eio][eio] by the OCaml Multicore team and
 [miou][miou] by [Calascibetta Romain](https://twitter.com/Dinoosaure) and the
-[Robur team](https://robur.coop/), as I learned more about Algebraic Effects.
+[Robur team](https://robur.coop/), as I learned more about Algebraic Effects. In particular the `Proc_state` is based on the `State` module in Miou.
+
+And a thousand thanks to [Calascibetta Romain](https://twitter.com/Dinoosaure)
+and [Antonio Monteiro](https://twitter.com/_anmonteiro) for the discussions and
+feedback.
 
 [eio]: https://github.com/ocaml-multicore/eio
 [miou]: https://github.com/robur-coop/miou

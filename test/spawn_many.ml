@@ -9,10 +9,10 @@ let rec loop count =
   let pid = self () in
   match receive () with
   | Loop_stop ->
-      Logger.warn (fun f -> f "%a: dead at %d%!" Pid.pp pid count);
+      Logger.debug (fun f -> f "%a: dead at %d%!" Pid.pp pid count);
       ()
   | _ ->
-      Logger.warn (fun f -> f "%a: count=%d%!" Pid.pp pid count);
+      Logger.debug (fun f -> f "%a: count=%d%!" Pid.pp pid count);
       loop (count + 1)
 
 let rec wait_pids pids =
@@ -26,7 +26,7 @@ let main t0 () =
   let pids =
     List.init 10_000 (fun _i ->
         let pid = spawn (fun () -> loop 0) in
-        Logger.info (fun f -> f "spawned %a" Pid.pp pid);
+        Logger.debug (fun f -> f "spawned %a" Pid.pp pid);
         pid)
   in
 
@@ -38,7 +38,7 @@ let main t0 () =
   Logger.info (fun f ->
       let delta = Ptime.diff t1 t0 in
       let delta = Ptime.Span.to_float_s delta in
-      f "spawned/awaited %d processes in %fs" (List.length pids) delta);
+      f "spawned/awaited %d processes in %.3fs" (List.length pids) delta);
 
   shutdown ()
 

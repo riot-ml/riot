@@ -1,3 +1,3 @@
 (executable
-  (name hello_world)
-  (libraries riot))
+ (name hello_world)
+ (libraries riot))

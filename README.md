@@ -8,10 +8,25 @@ Riot is an actor-model multi-core scheduler for OCaml 5. It brings Erlang-style
 concurrency to the language, where lighweight process communicate via message
 passing.
 
+```ocaml
+open Riot
+type Message.t += Hello_world
+
+let () =
+  Riot.run @@ fun () ->
+  let pid =
+    spawn (fun () ->
+        match receive () with
+        | Hello_world ->
+            Logger.info (fun f -> f "hello world from %a!" Pid.pp (self ())))
+  in
+  send pid Hello_world
+```
+
 It **features**:
 
 * Dirt-cheap processes – spawn them by the millions
-* Fast message passing
+* Fast, type-safe message passing
 * Selective receive expressions
 * Process linking and monitoring
 * Supervisors

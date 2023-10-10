@@ -1,42 +1,64 @@
-module Uid : sig
-  type t
-
-  val next : unit -> t
-  val equal : t -> t -> bool
-  val pp : Format.formatter -> t -> unit
-end
-
 module Pid : sig
   type t
+  (** A process identifier. Use values of this type to check if processes are still alive, to send them messages, to link to them, to monitor them, and to send them exit signals. *)
 
   val zero : t
+  (** [zero] is the empty pid. It represents the first process created by the runtime. This is typically the `main` function passed to `Riot.run` *)
+
   val equal : t -> t -> bool
   val pp : Format.formatter -> t -> unit
 end
 
 module Message : sig
+  (** [select_marker] is used in a _selective receive_ call to match the exact
+      messages you are looking for. This is useful to skip ahead in your
+      mailbox without having to consume all the messages in it.
+  *)
   type select_marker =
     | Take  (** use [Take] to mark a message as selected *)
     | Skip  (** use [Skip] to requeue for later consumption *)
     | Drop  (** use [Drop] to remove this message while selecting *)
 
   type t = ..
+  (** [t] is the type of all messages in a Riot program.
+
+      Since this type is extensible, you can make sure different parts of your
+      program can see the constructors that are relevant for them.
+    *)
 end
 
 module Process : sig
   type t
-  type process_flag = Trap_exit of bool
+  (** [t] is the type of all processes in the Riot runtime.
 
+      A process is a lightweight unit of work that has a lifecycle and a mailbox.
+
+      You rarely work directly with this type, and usually handle {!type:Pid.t}
+      values instead.
+   *)
+
+  (** A process flag is a configuration for the behavior of a process. *)
+  type process_flag =
+    | Trap_exit of bool
+        (** [Trap_exit true] makes sure this process does not exit when it receives an Exit message (see {!module:Process.Messages}) from a linked process that has died. *)
+
+  (* An [exit_reason] describes why a process finished. *)
   type exit_reason =
-    | Normal
-    | Exit_signal
-    | Timeout_value
-    | Bad_link
+    | Normal  (** The process ended normally. *)
+    | Exit_signal  (** The process received an exit signal *)
+    | Bad_link  (** The process tried to establish a bad link *)
     | Exception of exn
+        (** The process terminated due to an unhandled exception *)
 
   module Messages : sig
-    type monitor = Process_down of Pid.t
-    type Message.t += Monitor of monitor | Exit of Pid.t * exit_reason
+    type monitor =
+      | Process_down of Pid.t
+          (** This monitor message reports that a monitored process has terminated. *)
+
+    type Message.t +=
+      | Monitor of monitor  (** Monitor related messages *)
+      | Exit of Pid.t * exit_reason
+            (** Exit signal. If you want this message make sure to set the [Trap_exit] flag to true with the `process_flag` function. *)
   end
 end
 
@@ -73,7 +95,7 @@ val processes : unit -> (Pid.t * Process.t) Seq.t
 val is_process_alive : Pid.t -> bool
 (** Returns true if the process [pid] is still alive. *)
 
-val wait_pids: Pid.t list -> unit
+val wait_pids : Pid.t list -> unit
 (** Await all processes in the list to termimante. *)
 
 val random : unit -> Random.State.t
@@ -84,6 +106,8 @@ val shutdown : unit -> unit
 
 val run : ?rnd:Random.State.t -> ?workers:int -> (unit -> unit) -> unit
 (** Start the Riot runtime using function [main] to boot the system *)
+
+(* Supervisor *)
 
 module Supervisor : sig
   type strategy =
@@ -123,6 +147,8 @@ module Supervisor : sig
     (Pid.t, [> `Supervisor_error ]) result
   (** Describe and start a supervisor *)
 end
+
+(* Logger *)
 
 type ('a, 'b) logger_format =
   (('a, Format.formatter, unit, 'b) format4 -> 'a) -> 'b

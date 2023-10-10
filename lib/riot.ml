@@ -1,6 +1,5 @@
 [@@@warning "-32"]
 
-module Uid = Uid
 module Pid = Pid
 module Process = Process
 module Message = Message

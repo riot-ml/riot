@@ -1,15 +1,9 @@
-type exit_reason =
-  | Normal
-  | Exit_signal
-  | Timeout_value
-  | Bad_link
-  | Exception of exn
+type exit_reason = Normal | Exit_signal | Bad_link | Exception of exn
 
 let pp_reason ppf (t : exit_reason) =
   match t with
   | Normal -> Format.fprintf ppf "Normal"
   | Exit_signal -> Format.fprintf ppf "Exit_signal"
-  | Timeout_value -> Format.fprintf ppf "Timeout"
   | Bad_link -> Format.fprintf ppf "Bad_link"
   | Exception exn -> Format.fprintf ppf "Exception: %s" (Printexc.to_string exn)
 

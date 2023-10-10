@@ -212,7 +212,7 @@ module Server = struct
       info (fun f -> f "Awaiting connection...");
       let conn = Socket.accept state.socket in
       let (module Connector) = state.connector in
-    info (fun f -> f "Accepted connection...");
+      info (fun f -> f "Accepted connection...");
       let (Ok pid) = Connector.start_link () in
       Connector.handshake ~conn pid;
       let state =

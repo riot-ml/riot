@@ -1,6 +1,6 @@
 open Riot_api
 
-type config = { print_source : bool; print_time : bool; color_output: bool }
+type config = { print_source : bool; print_time : bool; color_output : bool }
 
 type ('a, 'b) logger_format =
   (('a, Format.formatter, unit, 'b) format4 -> 'a) -> 'b
@@ -68,16 +68,18 @@ module Logger = struct
             Ptime.pp_rfc3339 ~frac_s:5 ~space:true ~tz_offset_s:0 ()
           in
 
-      let ns_str =
-        match ns with [] -> "" | _ -> String.concat "." ns ^ "::"
-      in
+          let ns_str =
+            match ns with [] -> "" | _ -> String.concat "." ns ^ "::"
+          in
 
-          if config.color_output then Format.fprintf stdout "%s" (Level.to_color_string level);
+          if config.color_output then
+            Format.fprintf stdout "%s" (Level.to_color_string level);
           if config.print_time then Format.fprintf stdout "%a " pp_now ts;
           if config.print_source then
             Format.fprintf stdout "[thread=%a,pid=%a] " Scheduler_uid.pp sch
               Pid.pp pid;
-          Format.fprintf stdout "[%s%a] %s\x1b[0m\n%!" ns_str Level.pp level message;
+          Format.fprintf stdout "[%s%a] %s\x1b[0m\n%!" ns_str Level.pp level
+            message;
 
           formatter_loop config
       | _ -> formatter_loop config
@@ -108,7 +110,7 @@ module Logger = struct
 
           ())
         (Format.formatter_of_buffer buf)
-        (fmt ^^"%!")
+        (fmt ^^ "%!")
   end
 
   let start_link config =
@@ -150,6 +152,7 @@ include Make (struct
   let namespace = []
 end)
 
-let start ?(print_time = false) ?(print_source = false) ?(color_output = true) () =
+let start ?(print_time = false) ?(print_source = false) ?(color_output = true)
+    () =
   let state = { print_time; print_source; color_output } in
   Logger.start_link state |> Result.map (fun _ -> ())

@@ -1,6 +1,12 @@
-type t = int
+type t = int64
 
-let __current__ = Atomic.make 0
-let next () = Atomic.fetch_and_add __current__ 1
-let equal a b = Int.equal a b
-let pp ppf pid = Format.fprintf ppf "%d" pid
+let __current__ = Atomic.make 0L
+
+let next () =
+  let last = Atomic.get __current__ in
+  let current = last |> Int64.succ in
+  Atomic.set __current__ current;
+  last
+
+let equal a b = Int64.equal a b
+let pp ppf t = Format.fprintf ppf "%s" (Int64.to_string t)

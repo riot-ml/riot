@@ -1,11 +1,20 @@
-type t = int
+type t = { _id : int64 } [@@unboxed]
 
-let zero : t = 0
-let __current__ = Atomic.make 0
-let next () = Atomic.fetch_and_add __current__ 1
-let equal a b = Int.equal a b
-let pp ppf pid = Format.fprintf ppf "<0.%d.0>" pid
+let pp ppf pid = Format.fprintf ppf "<0.%s.0>" (Int64.to_string pid._id)
+let make _id = { _id }
+let zero : t = make 0L
+let __current__ = Atomic.make 0L
+
+let next () =
+  let last = Atomic.get __current__ in
+  let current = last |> Int64.succ in
+  Atomic.set __current__ current;
+  make last
+
+let equal a b = Int64.equal a._id b._id
+let compare a b = Int64.compare a._id b._id
+let hash t = Int64.hash t._id
 
 let reset () =
   Logs.debug (fun f -> f "Resetting Process Ids");
-  Atomic.set __current__ 0
+  Atomic.set __current__ 0L

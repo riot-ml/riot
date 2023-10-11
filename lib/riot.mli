@@ -113,7 +113,15 @@ val wait_pids : Pid.t list -> unit
 (** Await all processes in the list to termimante. *)
 
 val random : unit -> Random.State.t
+
 val receive : ?select:(Message.t -> Message.select_marker) -> unit -> Message.t
+(** [receive select ()] will block the current process until a message that
+    matches the [select] function is found in the mailbox, and then will pop it
+    and return it.
+
+    This function will suspend a process that has an empty mailbox, and the
+    process will remain asleep until a message is delivered to it.
+*)
 
 val shutdown : unit -> unit
 (** Gracefully shuts down the runtime. Any non-yielding process will block this. *)

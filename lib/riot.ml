@@ -1,10 +1,10 @@
-[@@@warning "-32"]
-
+module Gen_server = Gen_server
+module Logger = Logger
+module Message = Message
 module Pid = Pid
 module Process = Process
-module Message = Message
+module Ref = Ref
 module Supervisor = Supervisor
-module Logger = Logger
 
 module type Logger = Logger.Intf
 

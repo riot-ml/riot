@@ -1,3 +1,11 @@
+module Ref : sig
+  type 'a t
+
+  val make : unit -> 'a t
+  val pp : Format.formatter -> 'a t -> unit
+  val equal : 'a 'b. 'a t -> 'b t -> ('a, 'b) Type.eq option
+end
+
 module Pid : sig
   type t
   (** A process identifier. Use values of this type to check if processes are still alive, to send them messages, to link to them, to monitor them, and to send them exit signals. *)
@@ -106,6 +114,73 @@ val shutdown : unit -> unit
 
 val run : ?rnd:Random.State.t -> ?workers:int -> (unit -> unit) -> unit
 (** Start the Riot runtime using function [main] to boot the system *)
+
+(* Generic Servers *)
+
+module Gen_server : sig
+  type 'res req = ..
+  (** [req] is the type of all generic server requests and responses.
+
+      When defining a new generic server you want to extend this with the your
+      custom request types, including the response type in its type variable.
+      Like this: 
+
+      ```ocaml
+      open Riot
+      type _ Gen_server.req +=
+        | Is_connected : bool Gen_server.req
+        | Profile : profile_req -> profile_res Gen_server.req
+      ```
+    *)
+
+  (** [state init_result] is used to initialize a new generic server. *)
+  type 'state init_result =
+    | Ok of 'state
+        (** use this value to enter the main loop with state ['state] *)
+    | Error
+        (** use this value to crash the process and notify a supervisor of it *)
+    | Ignore  (** use this value to exit the process normally *)
+
+  (** [Impl] is the module type of the generic server base implementations. You can use this type when defining new gen servers like this:
+
+      ```ocaml
+      type args = int
+      module Server : Gen_server.Impl with type args = args = struct
+        type nonrec args = args
+        type state = { status : int }
+
+        let init _args = Gen_server.Ok { status = 1 }
+
+        (* ... *)
+      end
+      ```
+  *)
+  module type Impl = sig
+    type args
+    type state
+
+    val init : args -> state init_result
+    val handle_call : 'res. 'res req -> Pid.t -> state -> 'res
+  end
+
+  type ('args, 'state) impl =
+    (module Impl with type args = 'args and type state = 'state)
+
+  val call : Pid.t -> 'res req -> 'res
+  (** [call pid req] will send a type-safe request [req] to the generic server behind [pid]
+      that is guaranteed to return a respone with type `'res`
+
+      This function will block the current process until a response arrives.
+
+      TODO(leostera): add ?timeout param
+    *)
+
+  val start_link : ('args, 'state) impl -> 'args -> (Pid.t, exn) result
+  (** [start_link (module S) args] will spawn and link a new process that will
+      act as a generic server over the server implementation of [S],
+      initialized with [args] arguments.
+  *)
+end
 
 (* Supervisor *)
 

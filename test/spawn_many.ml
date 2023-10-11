@@ -24,7 +24,7 @@ let main t0 () =
   let (Ok ()) = Logger.start () in
 
   let pids =
-    List.init 10_000 (fun _i ->
+    List.init 1_000_000 (fun _i ->
         let pid = spawn (fun () -> loop 0) in
         Logger.debug (fun f -> f "spawned %a" Pid.pp pid);
         pid)

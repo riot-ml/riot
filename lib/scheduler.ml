@@ -53,7 +53,7 @@ module Scheduler = struct
             Logs.debug (fun f ->
                 f "%a is awaiting for new messages" Pid.pp process.pid);
             Process.mark_as_awaiting_message process;
-            k (Delay effect))
+            k Delay)
           else
             let skipped = Mailbox.create () in
             let rec go () =
@@ -62,7 +62,7 @@ module Scheduler = struct
               match Mailbox.next process.mailbox with
               | None ->
                   Mailbox.merge process.mailbox skipped;
-                  k (Delay effect)
+                  k Delay
               | Some msg -> (
                   match select msg with
                   | Drop -> go ()

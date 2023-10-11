@@ -2,6 +2,17 @@ let _get_pool = Scheduler.Pool.get_pool
 let yield () = Effect.perform Proc_effect.Yield
 let self () = Scheduler.get_current_process_pid ()
 
+let sleep time =
+  let now = Unix.gettimeofday () in
+  let rec go finish =
+    yield ();
+    let now = Unix.gettimeofday () in
+    if now > finish
+    then ()
+    else go finish
+  in 
+  go (now+.time)
+
 let process_flag flag =
   let pool = _get_pool () in
   let proc = Proc_table.get pool.processes (self ()) |> Option.get in
@@ -22,11 +33,11 @@ let send pid msg =
   let pool = _get_pool () in
   match Proc_table.get pool.processes pid with
   | Some proc ->
-      Logs.debug (fun f ->
+      Process.send_message proc msg;
+      Logs.trace (fun f ->
           f "delivered message from %a to %a: %s" Pid.pp (self ()) Pid.pp
             proc.pid (Marshal.to_string msg []));
-      Mailbox.queue proc.mailbox msg;
-      Process.mark_as_runnable proc
+      Scheduler.Pool.awake_process pool proc
   | None ->
       (* Effect.perform (Send (msg, pid)) *)
       Logs.debug (fun f -> f "COULD NOT DELIVER message to %a" Pid.pp pid)
@@ -70,8 +81,8 @@ let _spawn ?(do_link = false) (pool : Scheduler.pool) (scheduler : Scheduler.t)
 
     _link this_proc proc);
 
-  Proc_table.register_process pool.processes proc;
-  Lf_queue.add proc scheduler.ready_queue;
+  Scheduler.Pool.register_process pool proc;
+  Scheduler.add_to_ready_queue scheduler proc.pid;
   proc.pid
 
 let spawn fn =

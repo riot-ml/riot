@@ -79,6 +79,11 @@ end
 val yield : unit -> unit
 (** Suspends execution of the current process and returns control to the scheduler *)
 
+val sleep : float -> unit
+(** [sleep t] Suspends execution of the current process for at least `t` seconds.
+    `t` is a float so it supports subsecond values: `0.001` is 1 millisecond.
+  *)
+
 val self : unit -> Pid.t
 (** Returns the process identifier (pid) for the current process *)
 

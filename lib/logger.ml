@@ -56,6 +56,7 @@ module Logger = struct
         ns : namespace;
         message : string;
       }
+    [@@unboxed]
 
   module Formatter = struct
     let stdout =

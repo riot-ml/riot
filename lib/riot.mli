@@ -8,10 +8,13 @@ end
 
 module Pid : sig
   type t
-  (** A process identifier. Use values of this type to check if processes are still alive, to send them messages, to link to them, to monitor them, and to send them exit signals. *)
+  (** A process identifier. Use values of this type to check if processes are
+      still alive, to send them messages, to link to them, to monitor them, and
+      to send them exit signals. *)
 
   val zero : t
-  (** [zero] is the empty pid. It represents the first process created by the runtime. This is typically the `main` function passed to `Riot.run` *)
+  (** [zero] is the empty pid. It represents the first process created by the
+      runtime. This is typically the `main` function passed to `Riot.run` *)
 
   val equal : t -> t -> bool
   val pp : Format.formatter -> t -> unit
@@ -48,7 +51,9 @@ module Process : sig
   (** A process flag is a configuration for the behavior of a process. *)
   type process_flag =
     | Trap_exit of bool
-        (** [Trap_exit true] makes sure this process does not exit when it receives an Exit message (see {!module:Process.Messages}) from a linked process that has died. *)
+        (** [Trap_exit true] makes sure this process does not exit when it
+            receives an Exit message (see {!module:Process.Messages}) from a
+            linked process that has died. *)
 
   (* An [exit_reason] describes why a process finished. *)
   type exit_reason =
@@ -66,7 +71,8 @@ module Process : sig
     type Message.t +=
       | Monitor of monitor  (** Monitor related messages *)
       | Exit of Pid.t * exit_reason
-            (** Exit signal. If you want this message make sure to set the [Trap_exit] flag to true with the `process_flag` function. *)
+            (** Exit signal. If you want this message make sure to set the
+                [Trap_exit] flag to true with the `process_flag` function. *)
   end
 end
 
@@ -141,7 +147,8 @@ module Gen_server : sig
         (** use this value to crash the process and notify a supervisor of it *)
     | Ignore  (** use this value to exit the process normally *)
 
-  (** [Impl] is the module type of the generic server base implementations. You can use this type when defining new gen servers like this:
+  (** [Impl] is the module type of the generic server base implementations. You
+      can use this type when defining new gen servers like this:
 
       ```ocaml
       type args = int

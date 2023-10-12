@@ -26,7 +26,7 @@ let main t0 () =
   let (Ok ()) = Logger.start ~print_source:true () in
 
   let pids =
-    List.init 1_000 (fun _i ->
+    List.init 1_000_000 (fun _i ->
         let pid =
           spawn (fun () ->
               Logger.debug (fun f -> f "spawned %a" Pid.pp (self ()));
@@ -48,10 +48,10 @@ let main t0 () =
       let delta = Ptime.diff t1 t0 in
       let delta = Ptime.Span.to_float_s delta in
       f "spawned/awaited %d processes in %.3fs" (List.length pids) delta);
-  sleep 1.001;
+  sleep 0.001;
   shutdown ()
 
 let () =
   let t0 = Ptime_clock.now () in
-  Logger.set_log_level (Some Debug);
+  Logger.set_log_level (Some Info);
   Riot.run @@ main t0

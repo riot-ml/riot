@@ -7,7 +7,6 @@ let sleep time =
   let rec go finish =
     yield ();
     let now = Unix.gettimeofday () in
-    Logs.trace (fun f -> f "%a sleep %f" Pid.pp (self ()) now);
     if now > finish then () else go finish
   in
   go (now +. time)

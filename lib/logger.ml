@@ -97,9 +97,9 @@ module Logger = struct
     let write : type a. level -> namespace -> (a, unit) logger_format -> unit =
      fun level ns msgf ->
       let ts = Ptime_clock.now () in
-      let domain = (Domain.self () :> int) in
+      let sch = Scheduler.get_current_scheduler () in
       let pid = self () in
-      let src = (domain, pid) in
+      let src = (sch.uid, pid) in
       let buf = Buffer.create 128 in
 
       msgf @@ fun fmt ->

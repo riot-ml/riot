@@ -1,3 +1,5 @@
+[@@@warning "-8"]
+
 open Riot
 (**
    NOTE(leostera): this tests that if you link a process to another, when
@@ -21,17 +23,11 @@ open Riot
 
 *)
 
-module Logs = Logger.Make (struct
-  let namespace = [ "http_server" ]
-end)
-
 type Message.t += Exit
 
-let rec loop i =
-  if i > 0 then (
-    yield ();
-    loop (i - 1))
-  else receive () |> ignore
+let loop () =
+  sleep 1.;
+  receive () |> ignore
 
 let rec wait_pids pids =
   match pids with
@@ -39,20 +35,22 @@ let rec wait_pids pids =
   | pid :: tail -> wait_pids (if is_process_alive pid then pids else tail)
 
 let main () =
-  let pid1 = spawn (fun () -> loop 100) in
+  let (Ok ()) = Logger.start () in
+
+  let pid1 = spawn (fun () -> loop ()) in
 
   let pid2 =
     spawn (fun () ->
         link pid1;
-        loop 0)
+        loop ())
   in
 
   send pid1 Exit;
 
   wait_pids [ pid1; pid2 ];
-  Logs.info (fun f -> f "linked processes terminated");
+  Logger.info (fun f -> f "linked processes terminated");
   shutdown ()
 
 let () =
-  Logs.set_log_level (Some Info);
+  Logger.set_log_level (Some Info);
   Riot.run @@ main

@@ -7,11 +7,10 @@ let sleep time =
   let rec go finish =
     yield ();
     let now = Unix.gettimeofday () in
-    if now > finish
-    then ()
-    else go finish
-  in 
-  go (now+.time)
+    Logs.trace (fun f -> f "%a sleep %f" Pid.pp (self ()) now);
+    if now > finish then () else go finish
+  in
+  go (now +. time)
 
 let process_flag flag =
   let pool = _get_pool () in
@@ -34,10 +33,9 @@ let send pid msg =
   match Proc_table.get pool.processes pid with
   | Some proc ->
       Process.send_message proc msg;
+      Scheduler.awake_process pool proc;
       Logs.trace (fun f ->
-          f "delivered message from %a to %a: %s" Pid.pp (self ()) Pid.pp
-            proc.pid (Marshal.to_string msg []));
-      Scheduler.Pool.awake_process pool proc
+          f "sent message from %a to %a" Pid.pp (self ()) Process.pp proc)
   | None ->
       (* Effect.perform (Send (msg, pid)) *)
       Logs.debug (fun f -> f "COULD NOT DELIVER message to %a" Pid.pp pid)
@@ -62,7 +60,7 @@ let link pid =
 let _spawn ?(do_link = false) (pool : Scheduler.pool) (scheduler : Scheduler.t)
     fn =
   let proc =
-    Process.make (fun () ->
+    Process.make scheduler.uid (fun () ->
         try
           fn ();
           Normal
@@ -81,8 +79,8 @@ let _spawn ?(do_link = false) (pool : Scheduler.pool) (scheduler : Scheduler.t)
 
     _link this_proc proc);
 
-  Scheduler.Pool.register_process pool proc;
-  Scheduler.add_to_ready_queue scheduler proc.pid;
+  Scheduler.Pool.register_process pool scheduler proc;
+  Scheduler.awake_process pool proc;
   proc.pid
 
 let spawn fn =
@@ -112,9 +110,15 @@ let processes () =
 let is_process_alive pid =
   yield ();
   let pool = _get_pool () in
-  match Proc_table.get pool.processes pid with
-  | Some proc -> Process.is_alive proc
-  | None -> false
+  let result =
+    match Proc_table.get pool.processes pid with
+    | Some proc ->
+        Logs.trace (fun f -> f "Proc: %a" Process.pp proc);
+        Process.is_alive proc
+    | None -> false
+  in
+  Logs.trace (fun f -> f "is_process_alive(%a) -> %b" Pid.pp pid result);
+  result
 
 let rec wait_pids pids =
   match pids with

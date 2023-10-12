@@ -105,6 +105,8 @@ let rec close (t : 'a t) =
         (* Retry *)
         close t)
 
+let peek t = t.head.value
+
 let pop t =
   let p = t.head in
   (* [p] is the previously-popped item. *)

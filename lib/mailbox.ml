@@ -10,6 +10,6 @@ let next (t : t) =
   Atomic.decr t.size;
   Lf_queue.take_opt t.queue
 
-let is_empty (t : t) = Lf_queue.is_empty t.queue
-let merge (a : t) (b : t) = Lf_queue.merge a.queue b.queue
 let size (t : t) = Atomic.get t.size
+let is_empty (t : t) = size t = 0
+let merge (a : t) (b : t) = Lf_queue.merge a.queue b.queue

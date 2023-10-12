@@ -106,7 +106,7 @@ module Logger = struct
       Format.kfprintf
         (fun _ ->
           let message = Buffer.contents buf in
-          Logs.info (fun f -> f "%a send message: %s" Pid.pp pid message);
+          Logs.debug (fun f -> f "%a logging: %s" Pid.pp pid message);
           send !__main_formatter_ (Log { ts; level; ns; src; message });
 
           ())

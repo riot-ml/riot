@@ -61,9 +61,14 @@ module Scheduler = struct
     let open Proc_effect in
     let perform : type a b. (a, b) step_callback =
      fun k eff ->
-      Logs.trace (fun f -> f "performing effect: %a" Proc_effect.pp eff);
+      Logs.trace (fun f ->
+          f "Process %a: performing effect: %a" Pid.pp (Process.pid proc)
+            Proc_effect.pp eff);
       match eff with
-      | Yield -> k Yield
+      | Yield ->
+          Logs.trace (fun f ->
+              f "Process %a: yielding" Pid.pp (Process.pid proc));
+          k Yield
       (* NOTE(leostera): the selective receive algorithm goes:
 
          * is there a new message?
@@ -75,9 +80,12 @@ module Scheduler = struct
          * loop until the mailbox is
       *)
       | Receive { select } ->
+          Logs.trace (fun f ->
+              f "Process %a: receiving messages" Pid.pp (Process.pid proc));
           if Process.has_empty_mailbox proc then (
             Logs.debug (fun f ->
-                f "%a is awaiting for new messages" Pid.pp (Process.pid proc));
+                f "Process %a is awaiting for new messages" Pid.pp
+                  (Process.pid proc));
             Process.mark_as_awaiting_message proc;
             k Delay)
           else
@@ -87,7 +95,14 @@ module Scheduler = struct
                  the case above checks for an empty mailbox. *)
               match Process.next_message proc with
               | None ->
-                  Process.append_mailbox proc skipped;
+                  let rec go () =
+                    match Mailbox.next skipped with
+                    | Some msg ->
+                        Mailbox.queue proc.locked.mailbox msg;
+                        go ()
+                    | None -> ()
+                  in
+                  go ();
                   k Delay
               | Some msg -> (
                   match select msg with
@@ -98,17 +113,23 @@ module Scheduler = struct
                       go ())
             in
             go ()
-      | effect -> k (Reperform effect)
+      | effect ->
+          Logs.trace (fun f ->
+              f "Process %a: unhandled effect" Pid.pp (Process.pid proc));
+          k (Reperform effect)
     in
     { perform }
 
   let step_process pool sch (proc : Process.t_locked) =
+    Logs.trace (fun f -> f "Stepping process %a" Process.pp proc.locked);
     let pid = Process.pid proc in
-    set_current_process_pid pid;
     match Process.state proc with
+    | Waiting when Process.has_messages proc ->
+        Logs.debug (fun f -> f "waking up process %a" Pid.pp pid);
+        add_to_run_queue sch proc.locked
     | Waiting ->
         Proc_set.add sch.sleep_set proc.locked;
-        Logs.debug (fun f -> f "hibernated process %a" Pid.pp pid);
+        Logs.error (fun f -> f "hibernated process %a" Pid.pp pid);
         Logs.trace (fun f -> f "sleep_set: %d" (Proc_set.size sch.sleep_set))
     | Exited reason ->
         (* send monitors a process-down message *)
@@ -148,6 +169,7 @@ module Scheduler = struct
                 awake_process pool linked_proc)
           linked_pids
     | Running | Runnable -> (
+        Logs.trace (fun f -> f "Running process %a" Process.pp proc.locked);
         Process.mark_as_running proc;
         let perform = perform sch proc in
         let cont = Proc_state.run ~perform (Process.cont proc) in
@@ -160,8 +182,13 @@ module Scheduler = struct
               | Error exn -> Exception exn
             in
             Process.mark_as_dead proc reason;
+            Logs.trace (fun f -> f "Process %a finished" Pid.pp pid);
             add_to_run_queue sch proc.locked
         | Proc_state.Suspended _ | Proc_state.Unhandled _ ->
+            Process.mark_as_runnable proc;
+            Logs.trace (fun f ->
+                f "Process %a suspended (will resume): %a" Pid.pp pid Process.pp
+                  proc.locked);
             add_to_run_queue sch proc.locked)
 
   let run pool sch () =
@@ -171,13 +198,13 @@ module Scheduler = struct
        while true do
          if pool.stop then raise_notrace Exit;
 
-         (match Proc_queue.next sch.run_queue with
-         | None -> Logs.trace (fun f -> f "no ready processes")
+         match Proc_queue.next sch.run_queue with
          | Some proc ->
-             Logs.trace (fun f -> f "found process: %a" Process.pp proc);
+             set_current_process_pid proc.pid;
              let proc = Process.lock proc in
              step_process pool sch proc;
-             Process.unlock proc);
+             Process.unlock proc
+         | None -> ()
        done
      with Exit -> ());
     Logs.trace (fun f -> f "< exit worker loop")

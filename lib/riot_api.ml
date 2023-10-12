@@ -2,6 +2,11 @@ let _get_pool = Scheduler.Pool.get_pool
 let yield () = Effect.perform Proc_effect.Yield
 let self () = Scheduler.get_current_process_pid ()
 
+let get_proc pid = 
+  let pool = _get_pool () in
+  let proc = Proc_table.get pool.processes pid |> Option.get in
+  proc
+
 let sleep time =
   let now = Unix.gettimeofday () in
   let rec go finish =
@@ -33,8 +38,7 @@ let send pid msg =
   | Some proc ->
       Process.send_message proc msg;
       Scheduler.awake_process pool proc;
-      Logs.trace (fun f ->
-          f "sent message from %a to %a" Pid.pp (self ()) Process.pp proc)
+      Logs.trace (fun f -> f "sent message from %a to %a" Pid.pp (self ()) Process.pp proc)
   | None ->
       (* Effect.perform (Send (msg, pid)) *)
       Logs.debug (fun f -> f "COULD NOT DELIVER message to %a" Pid.pp pid)
@@ -121,10 +125,12 @@ let is_process_alive pid =
   Logs.trace (fun f -> f "is_process_alive(%a) -> %b" Pid.pp pid result);
   result
 
-let rec wait_pids pids =
+let rec wait_pids ?(cb = fun _ -> ()) pids =
   match pids with
   | [] -> ()
-  | pid :: tail -> wait_pids (if is_process_alive pid then pids else tail)
+  | pid :: tail ->
+      cb pids;
+      wait_pids (if is_process_alive pid then pids else tail)
 
 let random () = (Scheduler.get_current_scheduler ()).rnd
 

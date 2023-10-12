@@ -14,7 +14,7 @@ let level_to_int = function
   | Warn -> 1
   | Error -> 0
 
-let log_level = ref (Some Trace)
+let log_level = ref (Some Error)
 let set_log_level x = log_level := x
 
 let should_log x =

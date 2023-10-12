@@ -12,4 +12,3 @@ let next (t : t) =
 
 let size (t : t) = Atomic.get t.size
 let is_empty (t : t) = size t = 0
-let merge (a : t) (b : t) = Lf_queue.merge a.queue b.queue

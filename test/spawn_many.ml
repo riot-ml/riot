@@ -3,7 +3,7 @@ open Riot
 [@@@warning "-8"]
 [@@@warning "-38"]
 
-type Riot.Message.t += Loop_stop | Count
+type Riot.Message.t += Loop_stop
 
 let rec loop count =
   match receive () with
@@ -14,25 +14,14 @@ let rec loop count =
       Logger.debug (fun f -> f "count=%d%!" count);
       loop (count + 1)
 
-let rec _wait_pids ?(max = 5_000_000) pids =
-  if max = 0 then ()
-  else
-    match pids with
-    | [] -> ()
-    | pid :: tail ->
-        _wait_pids ~max:(max - 1) (if is_process_alive pid then pids else tail)
-
 let main t0 () =
   let (Ok ()) = Logger.start ~print_source:true () in
 
   let pids =
-    List.init 1_000_000 (fun _i ->
-        let pid =
-          spawn (fun () ->
-              Logger.debug (fun f -> f "spawned %a" Pid.pp (self ()));
-              loop 0)
-        in
-        pid)
+    List.init 2 (fun _i ->
+        spawn (fun () ->
+            Logger.debug (fun f -> f "spawned %a" Pid.pp (self ()));
+            loop 0))
   in
 
   List.iter
@@ -53,5 +42,5 @@ let main t0 () =
 
 let () =
   let t0 = Ptime_clock.now () in
-  Logger.set_log_level (Some Info);
-  Riot.run @@ main t0
+  Logger.set_log_level (Some Debug);
+  Riot.run ~workers:0 @@ main t0

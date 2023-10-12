@@ -40,29 +40,23 @@ module Scheduler = struct
 
   let get_random_scheduler : pool -> t =
    fun { schedulers = all_schedulers; _ } ->
-    let scheduler = get_current_scheduler () in
-    let rnd_idx = Random.State.int scheduler.rnd (List.length all_schedulers) in
+    let sch = get_current_scheduler () in
+    let rnd_idx = Random.State.int sch.rnd (List.length all_schedulers) in
     List.nth all_schedulers rnd_idx
 
-  let add_to_run_queue sch pid =
-    Mutex.lock sch.idle_lock;
-    Logs.trace (fun f -> f "Adding process to run_queue queue: %a" Pid.pp pid);
-    Proc_queue.queue sch.run_queue pid;
-    Condition.signal sch.idle_cond;
-    Mutex.unlock sch.idle_lock
-
-  let awake_process sch (proc : Process.t) =
-    Logs.trace (fun f -> f "Awaking process %a" Process.pp proc);
-    Proc_set.remove sch.sleep_set proc.pid;
-    add_to_run_queue sch proc.pid
+  let add_to_run_queue sch (proc : Process.t) =
+    Proc_set.remove sch.sleep_set proc;
+    Proc_queue.queue sch.run_queue proc;
+    Logs.trace (fun f ->
+        f "Adding process to run_queue queue: %a" Pid.pp proc.pid)
 
   let awake_process pool (proc : Process.t) =
     List.iter
       (fun sch ->
-        if Scheduler_uid.equal sch.uid proc.sid then awake_process sch proc)
+        if Scheduler_uid.equal sch.uid proc.sid then add_to_run_queue sch proc)
       pool.schedulers
 
-  let perform _scheduler (process : Process.t) =
+  let perform _sch (proc : Process.t_locked) =
     let open Proc_state in
     let open Proc_effect in
     let perform : type a b. (a, b) step_callback =
@@ -81,19 +75,19 @@ module Scheduler = struct
          * loop until the mailbox is
       *)
       | Receive { select } ->
-          if Process.has_empty_mailbox process then (
+          if Process.has_empty_mailbox proc then (
             Logs.debug (fun f ->
-                f "%a is awaiting for new messages" Pid.pp process.pid);
-            Process.mark_as_awaiting_message process;
+                f "%a is awaiting for new messages" Pid.pp (Process.pid proc));
+            Process.mark_as_awaiting_message proc;
             k Delay)
           else
             let skipped = Mailbox.create () in
             let rec go () =
               (* NOTE(leostera): we can get the value out of the option because
                  the case above checks for an empty mailbox. *)
-              match Mailbox.next process.mailbox with
+              match Process.next_message proc with
               | None ->
-                  Mailbox.merge process.mailbox skipped;
+                  Process.append_mailbox proc skipped;
                   k Delay
               | Some msg -> (
                   match select msg with
@@ -108,55 +102,56 @@ module Scheduler = struct
     in
     { perform }
 
-  let step_process pool scheduler (proc : Process.t) =
-    set_current_process_pid proc.pid;
+  let step_process pool sch (proc : Process.t_locked) =
+    let pid = Process.pid proc in
+    set_current_process_pid pid;
     match Process.state proc with
     | Waiting ->
-        Proc_set.add scheduler.sleep_set proc.pid;
-        Logs.debug (fun f -> f "hibernated process %a" Pid.pp proc.pid);
-        Logs.trace (fun f ->
-            f "sleep_set: %d" (Proc_set.size scheduler.sleep_set))
+        Proc_set.add sch.sleep_set proc.locked;
+        Logs.debug (fun f -> f "hibernated process %a" Pid.pp pid);
+        Logs.trace (fun f -> f "sleep_set: %d" (Proc_set.size sch.sleep_set))
     | Exited reason ->
         (* send monitors a process-down message *)
-        let monitoring_pids = Atomic.get proc.monitors in
+        let monitoring_pids = Process.monitors proc in
         List.iter
-          (fun pid ->
-            match Proc_table.get pool.processes pid with
+          (fun mon_pid ->
+            match Proc_table.get pool.processes mon_pid with
             | None -> ()
             | Some mon_proc ->
                 Logs.debug (fun f ->
-                    f "notified %a of %a terminating" Pid.pp pid Pid.pp proc.pid);
-                let msg = Process.Messages.(Monitor (Process_down proc.pid)) in
+                    f "notified %a of %a terminating" Pid.pp mon_pid Pid.pp pid);
+                let msg = Process.Messages.(Monitor (Process_down pid)) in
                 Process.send_message mon_proc msg;
                 awake_process pool mon_proc)
           monitoring_pids;
 
         (* mark linked processes as dead *)
-        let linked_pids = Atomic.get proc.links in
+        let linked_pids = Process.links proc in
         Logs.debug (fun f ->
             f "terminating %d processes linked to %a" (List.length linked_pids)
-              Pid.pp proc.pid);
+              Pid.pp pid);
         List.iter
-          (fun pid ->
-            match Proc_table.get pool.processes pid with
+          (fun link_pid ->
+            match Proc_table.get pool.processes link_pid with
             | None -> ()
             | Some linked_proc when linked_proc.flags.trap_exits ->
                 Logs.debug (fun f ->
                     f "%a will trap exits" Pid.pp linked_proc.pid);
-                let msg = Process.Messages.(Exit (proc.pid, reason)) in
-                Process.send_message proc msg;
+                let msg = Process.Messages.(Exit (pid, reason)) in
+                Process.send_message linked_proc msg;
                 awake_process pool linked_proc
             | Some linked_proc ->
                 Logs.debug (fun f ->
                     f "marking linked %a as dead" Pid.pp linked_proc.pid);
-                Process.mark_as_dead linked_proc Exit_signal;
+                Process.add_signal linked_proc
+                  (Exit (Link_down linked_proc.pid));
                 awake_process pool linked_proc)
           linked_pids
     | Running | Runnable -> (
         Process.mark_as_running proc;
-        let perform = perform scheduler proc in
+        let perform = perform sch proc in
         let cont = Proc_state.run ~perform (Process.cont proc) in
-        Process.set_cont cont proc;
+        Process.set_cont proc cont;
         match cont with
         | Proc_state.Finished reason ->
             let reason =
@@ -165,38 +160,24 @@ module Scheduler = struct
               | Error exn -> Exception exn
             in
             Process.mark_as_dead proc reason;
-            add_to_run_queue scheduler proc.pid
+            add_to_run_queue sch proc.locked
         | Proc_state.Suspended _ | Proc_state.Unhandled _ ->
-            add_to_run_queue scheduler proc.pid)
+            add_to_run_queue sch proc.locked)
 
-  let should_wait pool scheduler =
-    Proc_queue.is_empty scheduler.run_queue && not pool.stop
-
-  let run pool scheduler () =
+  let run pool sch () =
     Logs.trace (fun f -> f "> enter worker loop");
     let exception Exit in
     (try
        while true do
-         Mutex.lock scheduler.idle_lock;
-
-         while should_wait pool scheduler do
-           Logs.trace (fun f -> f "idle scheduler");
-           scheduler.sleep <- true;
-           Condition.wait scheduler.idle_cond scheduler.idle_lock
-         done;
-         scheduler.sleep <- false;
-
          if pool.stop then raise_notrace Exit;
-         Mutex.unlock scheduler.idle_lock;
 
-         (match Proc_queue.next scheduler.run_queue with
+         (match Proc_queue.next sch.run_queue with
          | None -> Logs.trace (fun f -> f "no ready processes")
-         | Some pid ->
-             let proc = Proc_table.get pool.processes pid |> Option.get in
+         | Some proc ->
              Logs.trace (fun f -> f "found process: %a" Process.pp proc);
-             step_process pool scheduler proc);
-
-         ()
+             let proc = Process.lock proc in
+             step_process pool sch proc;
+             Process.unlock proc);
        done
      with Exit -> ());
     Logs.trace (fun f -> f "< exit worker loop")
@@ -214,7 +195,7 @@ module Pool = struct
 
   let register_process pool scheduler proc =
     Proc_table.register_process pool.processes proc;
-    Proc_set.add scheduler.proc_set proc.pid
+    Proc_set.add scheduler.proc_set proc
 
   let make ?(rnd = Random.State.make_self_init ()) ~domains ~main () =
     Logs.debug (fun f -> f "Making scheduler pool...");

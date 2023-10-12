@@ -23,32 +23,35 @@ open Riot
 
 *)
 
-type Message.t += Exit
-
-let loop () =
-  sleep 1.;
-  receive () |> ignore
-
-let rec wait_pids pids =
-  match pids with
-  | [] -> ()
-  | pid :: tail -> wait_pids (if is_process_alive pid then pids else tail)
+let rec loop () =
+  yield ();
+  loop ()
 
 let main () =
   let (Ok ()) = Logger.start () in
 
-  let pid1 = spawn (fun () -> loop ()) in
+  (* spin up and wait for 1 second before terminating *)
+  let pid1 =
+    spawn (fun () ->
+        sleep 1.;
+        loop ())
+  in
 
+  (* spin up, link to pid1, and then loop infinitely *)
   let pid2 =
     spawn (fun () ->
         link pid1;
         loop ())
   in
 
-  send pid1 Exit;
+  (* once we send this exit signal to pid1, and it dies, it should take pid2 down with it *)
+  exit pid1 Normal;
 
+  (* so we'll wait for both pids to be dead *)
   wait_pids [ pid1; pid2 ];
+
   Logger.info (fun f -> f "linked processes terminated");
+  sleep 0.001;
   shutdown ()
 
 let () =

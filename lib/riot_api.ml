@@ -21,7 +21,7 @@ let exit pid reason =
   match Proc_table.get pool.processes pid with
   | Some proc ->
       Logs.debug (fun f -> f "%a exited by %a" Pid.pp proc.pid Pid.pp (self ()));
-      Process.mark_as_dead proc reason
+      Process.add_signal proc Process.(Exit reason)
   | None -> ()
 
 (* NOTE(leostera): to send a message, we will find the receiver process
@@ -42,8 +42,8 @@ let send pid msg =
 exception Link_no_process of Pid.t
 
 let _link proc1 proc2 =
-  Process.add_link proc1 (Process.pid proc2);
-  Process.add_link proc2 (Process.pid proc1)
+  Process.add_signal proc1 (Link (Process.pid proc2));
+  Process.add_signal proc2.locked (Link proc1.pid)
 
 let link pid =
   let this = self () in
@@ -52,7 +52,10 @@ let link pid =
   let this_proc = Proc_table.get pool.processes this |> Option.get in
   match Proc_table.get pool.processes pid with
   | Some proc ->
-      if Process.is_alive proc then _link this_proc proc
+      if Process.is_alive proc then (
+        let proc = Process.lock proc in
+        _link this_proc proc;
+        Process.unlock proc)
       else raise (Link_no_process pid)
   | None -> ()
 
@@ -76,7 +79,9 @@ let _spawn ?(do_link = false) (pool : Scheduler.pool) (scheduler : Scheduler.t)
     Logs.debug (fun f -> f "linking %a <-> %a" Pid.pp this Pid.pp proc.pid);
     let this_proc = Proc_table.get pool.processes this |> Option.get in
 
-    _link this_proc proc);
+    let proc = Process.lock proc in
+    _link this_proc proc;
+    Process.unlock proc);
 
   Scheduler.Pool.register_process pool scheduler proc;
   Scheduler.awake_process pool proc;
@@ -92,13 +97,10 @@ let spawn_link fn =
   let scheduler = Scheduler.get_random_scheduler pool in
   _spawn ~do_link:true pool scheduler fn
 
-let rec monitor pid1 pid2 =
+let monitor pid1 pid2 =
   let pool = _get_pool () in
   match Proc_table.get pool.processes pid2 with
-  | Some proc ->
-      let pids = Atomic.get proc.monitors in
-      if Atomic.compare_and_set proc.monitors pids (pid1 :: pids) then ()
-      else monitor pid1 pid2
+  | Some proc -> Process.add_signal proc (Monitor pid1)
   | None -> ()
 
 let processes () =

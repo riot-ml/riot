@@ -60,6 +60,8 @@ module Process : sig
     | Normal  (** The process ended normally. *)
     | Exit_signal  (** The process received an exit signal *)
     | Bad_link  (** The process tried to establish a bad link *)
+    | Link_down of Pid.t
+        (** Use to indicate that this process was terminated due to a linked process being termianted *)
     | Exception of exn
         (** The process terminated due to an unhandled exception *)
 

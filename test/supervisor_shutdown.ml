@@ -19,7 +19,6 @@ module Ping = struct
 end
 
 let main () =
-  let (Ok ()) = Logger.start () in
   process_flag (Trap_exit true);
   let this = self () in
   let sup =

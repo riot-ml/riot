@@ -14,6 +14,7 @@ let default_flags = { trap_exits = false }
 
 type t = {
   pid : Pid.t;
+  sid : Scheduler_uid.t;
   state : state Atomic.t;
   mutable cont : exit_reason Proc_state.t;
   mailbox : Mailbox.t;
@@ -23,13 +24,14 @@ type t = {
   mutable signals : signal list Atomic.t;
 }
 
-let make fn =
+let make sid fn =
   let cont = Proc_state.make fn Proc_effect.Yield in
   let pid = Pid.next () in
   Logs.debug (fun f -> f "Making process with pid: %a" Pid.pp pid);
   let proc =
     {
       pid;
+      sid;
       cont;
       state = Atomic.make Runnable;
       links = Atomic.make [];
@@ -45,6 +47,7 @@ let cont t = t.cont
 let pid { pid; _ } = pid
 let state t = Atomic.get t.state
 let signals t = Atomic.get t.signals
+let has_empty_mailbox t = Mailbox.is_empty t.mailbox
 let has_messages t = not (Mailbox.is_empty t.mailbox)
 
 let is_alive t =
@@ -67,7 +70,9 @@ let add_link t (pid : Pid.t) = Atomic.set t.links (pid :: Atomic.get t.links)
 let add_signal t (signal : signal) =
   Atomic.set t.signals (signal :: Atomic.get t.signals)
 
-let send_message t msg = Mailbox.queue t.mailbox msg
+let send_message t msg =
+  Mailbox.queue t.mailbox msg;
+  mark_as_runnable t
 
 let rec pp ppf t =
   Format.fprintf ppf "Process%a { state = %a; messages = %d }" Pid.pp t.pid

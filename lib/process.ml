@@ -5,8 +5,6 @@ type exit_reason =
   | Link_down of Pid.t
   | Exception of exn
 
-type signal = Message | Exit of exit_reason | Link of Pid.t | Monitor of Pid.t
-
 module Messages = struct
   type monitor = Process_down of Pid.t
   type Message.t += Monitor of monitor | Exit of Pid.t * exit_reason

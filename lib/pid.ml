@@ -8,9 +8,7 @@ let __current__ = Atomic.make 1L
 let rec next () =
   let last = Atomic.get __current__ in
   let current = last |> Int64.succ in
-  if Atomic.compare_and_set __current__ last current
-  then make last
-  else next ()
+  if Atomic.compare_and_set __current__ last current then make last else next ()
 
 let equal a b = Int64.equal a._id b._id
 let compare a b = Int64.compare a._id b._id

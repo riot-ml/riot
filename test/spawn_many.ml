@@ -10,10 +10,9 @@ let loop count =
   | Loop_stop -> Logger.debug (fun f -> f "dead at %d%!" count)
 
 let main t0 () =
-  (* Riot.trace_proc_run  (fun sch proc -> 
-    Format.printf "%2d %a\n%!" sch Process.pp proc
-  ); *)
-
+  (* Riot.trace_proc_run  (fun sch proc ->
+       Format.printf "%2d %a\n%!" sch Process.pp proc
+     ); *)
   let (Ok ()) = Logger.start ~print_source:true () in
 
   let pids = List.init 1_000_000 (fun _i -> spawn (fun () -> loop 0)) in

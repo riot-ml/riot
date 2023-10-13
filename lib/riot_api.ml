@@ -19,10 +19,9 @@ let sleep time =
   go (now +. time)
 
 let process_flag flag =
-  let pool = _get_pool () in
-  let pid = self () in
-  let proc = Proc_table.get pool.processes pid |> Option.get in
-  Logs.trace (fun f -> f "Process %a: updating process flag" Pid.pp pid);
+  let this = self () in
+  let proc = get_proc this in
+  Logs.trace (fun f -> f "Process %a: updating process flag" Pid.pp this);
   Process.set_flag proc flag
 
 let exit pid reason =
@@ -56,7 +55,7 @@ let link pid =
   let this = self () in
   Logs.debug (fun f -> f "linking %a <-> %a" Pid.pp this Pid.pp pid);
   let pool = _get_pool () in
-  let this_proc = Proc_table.get pool.processes this |> Option.get in
+  let this_proc = get_proc this in
   match Proc_table.get pool.processes pid with
   | Some proc ->
       if Process.is_alive proc then _link this_proc proc
@@ -81,7 +80,7 @@ let _spawn ?(do_link = false) (pool : Scheduler.pool) (scheduler : Scheduler.t)
   if do_link then (
     let this = self () in
     Logs.debug (fun f -> f "linking %a <-> %a" Pid.pp this Pid.pp proc.pid);
-    let this_proc = Proc_table.get pool.processes this |> Option.get in
+    let this_proc = get_proc this in
     _link this_proc proc);
 
   Scheduler.Pool.register_process pool scheduler proc;

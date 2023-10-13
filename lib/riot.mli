@@ -287,9 +287,12 @@ module Unix : sig
   type socket
   type connection
 
-  val close : connection -> unit
+  module Logger : Logger
+
+  val close_connection : connection -> unit
+  val close_socket : socket -> unit
   val listen : host:string -> port:int -> max_requests:int -> socket
-  val accept : socket -> (connection, [> `Unix_error ]) result
+  val accept : socket -> (connection, [> `Connection_aborted ]) result
   val write : connection -> bytes -> int -> int -> int
   val read : connection -> bytes -> int -> int -> int
 end

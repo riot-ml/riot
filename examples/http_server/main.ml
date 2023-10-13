@@ -8,10 +8,15 @@ open Riot
 let port = 2112
 
 let main () =
+  (*
+  Riot.trace_proc_run (fun sch proc ->
+      Format.printf "%2d %a\n%!" sch Process.pp proc);
+      *)
   (* since we have several sub-loggers with prefixes, we will set them all to Debug *)
-  Riot.Logger.set_log_level (Some Debug);
-  Server.Logger.set_log_level (Some Debug);
-  Socket.Logger.set_log_level (Some Debug);
+  Riot.Logger.set_log_level (Some Info);
+  Riot.Unix.Logger.set_log_level (Some Info);
+  Server.Logger.set_log_level (Some Info);
+  Socket.Logger.set_log_level (Some Info);
 
   (* now if we want to see our logs we shoulds tart our Logger
      note: there's only one logger process tree! even if we have multiple logger clients *)

@@ -36,14 +36,19 @@ module Flow = struct
     | `Yield -> do_yield conn flow
 
   and do_yield conn flow =
+    debug (fun f -> f "yield writer");
     let writer_pid = self () in
     flow.yield_writer (fun () ->
         send writer_pid Wakeup_writer;
         yield ());
-    let Wakeup_writer = receive () in
+    let Wakeup_writer =
+      receive ~select:(function Wakeup_writer -> Take | _ -> Drop) ()
+    in
+    trace (fun f -> f "resumed writing");
     write conn flow
 
   and do_write conn flow io_vecs =
+    debug (fun f -> f "do write");
     let rec write_all iovs total =
       match iovs with
       | [] -> `Ok total
@@ -58,8 +63,9 @@ module Flow = struct
     flow.report_write_result result;
     write conn flow
 
-  and do_close_write _conn _flow _len =
-    debug (fun f -> f "closing %a" Pid.pp (self ()))
+  and do_close_write conn _flow _len =
+    debug (fun f -> f "closing %a" Pid.pp (self ()));
+    Unix.close_connection conn
 
   (** Read flow. Drives http/af to read from a Unix socket. *)
   let rec read (conn : Unix.connection) flow =
@@ -69,14 +75,17 @@ module Flow = struct
     | `Yield -> do_yield conn flow
 
   and do_yield conn flow =
+    debug (fun f -> f "yield reader");
     let reader_pid = self () in
     flow.yield_reader (fun () ->
         send reader_pid Wakeup_reader;
         yield ());
     let Wakeup_reader = receive () in
+    trace (fun f -> f "resumed reading");
     read conn flow
 
   and do_read conn flow =
+    debug (fun f -> f "do read");
     let bytes = Bytes.create 1024 in
     match Unix.read conn bytes 0 (Bytes.length bytes) with
     | 0 ->
@@ -89,5 +98,7 @@ module Flow = struct
         flow.read ~buf ~len;
         read conn flow
 
-  and do_close conn _flow = Unix.close conn
+  and do_close conn _flow =
+    debug (fun f -> f "closing %a" Pid.pp (self ()));
+    Unix.close_connection conn
 end

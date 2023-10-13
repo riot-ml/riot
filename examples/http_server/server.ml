@@ -25,13 +25,17 @@ module Tcp_connector (P : Protocol) : Connector = struct
     let flow = P.create_flow () in
     let _writer =
       spawn_link (fun () ->
-          debug (fun f -> f "spawned writer %a" Pid.pp (self ()));
-          Socket.Flow.write conn flow)
+          try
+            debug (fun f -> f "spawned writer %a" Pid.pp (self ()));
+            Socket.Flow.write conn flow
+          with _ -> Unix.close_connection conn)
     in
     let _reader =
       spawn_link (fun () ->
-          debug (fun f -> f "spawned reader %a" Pid.pp (self ()));
-          Socket.Flow.read conn flow)
+          try
+            debug (fun f -> f "spawned reader %a" Pid.pp (self ()));
+            Socket.Flow.read conn flow
+          with _ -> Unix.close_connection conn)
     in
     receive () |> ignore
 

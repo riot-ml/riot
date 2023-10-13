@@ -207,7 +207,9 @@ module Scheduler = struct
 
     let send pid msg =
       match Proc_table.get pool.processes pid with
-      | Some proc -> Process.send_message proc msg
+      | Some proc ->
+          Process.send_message proc msg;
+          add_to_run_queue sch proc
       | None -> ()
     in
 

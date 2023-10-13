@@ -5,7 +5,6 @@ type t = {
   rnd : Random.State.t;
   run_queue : Proc_queue.t;
   sleep_set : Proc_set.t;
-  timers: Timer.t 
 }
 
 type pool = {

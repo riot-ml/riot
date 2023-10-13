@@ -1,6 +1,18 @@
-type t = { queue : Process.t Lf_queue.t } [@@unboxed]
+type t = { alive : Proc_set.t; queue : Process.t Lf_queue.t }
 
-let create () = { queue = Lf_queue.create () }
+let create () = { queue = Lf_queue.create (); alive = Proc_set.create () }
 let is_empty t = Lf_queue.is_empty t.queue
-let queue t pid = Lf_queue.push t.queue pid
-let next t = Lf_queue.pop t.queue
+
+let queue t proc =
+  if Proc_set.contains t.alive proc then ()
+  else (
+    Logs.debug (fun f -> f "queued process %a" Process.pp proc);
+    Proc_set.add t.alive proc;
+    Lf_queue.push t.queue proc)
+
+let next t =
+  match Lf_queue.pop t.queue with
+  | Some proc ->
+      Proc_set.remove t.alive proc;
+      Some proc
+  | None -> None

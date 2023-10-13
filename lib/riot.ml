@@ -1,9 +1,11 @@
 module Gen_server = Gen_server
 module Logger = Logger
 module Message = Message
+module Net = Net
 module Pid = Pid
 module Process = Process
 module Ref = Ref
+module Socket = Socket
 module Supervisor = Supervisor
 
 module type Logger = Logger.Intf
@@ -15,12 +17,14 @@ include Riot_api
 (** Public API *)
 
 let shutdown () =
+  Logger.warn (fun f -> f "RIOT IS SHUTTING DOWN!");
   let pool = _get_pool () in
   Scheduler.Pool.shutdown pool
 
 let run ?(rnd = Random.State.make_self_init ())
     ?(workers = max 0 (Stdlib.Domain.recommended_domain_count () - 1)) main =
   Logs.debug (fun f -> f "Initializing Riot runtime...");
+  Printexc.record_backtrace true;
   Pid.reset ();
   Scheduler.Uid.reset ();
 

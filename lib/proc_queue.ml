@@ -2,11 +2,11 @@ type t = { alive : Proc_set.t; queue : Process.t Lf_queue.t }
 
 let create () = { queue = Lf_queue.create (); alive = Proc_set.create () }
 let is_empty t = Lf_queue.is_empty t.queue
+let size t = Proc_set.size t.alive
 
 let queue t proc =
   if Proc_set.contains t.alive proc then ()
   else (
-    Logs.debug (fun f -> f "queued process %a" Process.pp proc);
     Proc_set.add t.alive proc;
     Lf_queue.push t.queue proc)
 

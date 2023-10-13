@@ -131,6 +131,10 @@ module Scheduler = struct
           (fun mon_pid ->
             match Proc_table.get pool.processes mon_pid with
             | None -> ()
+            | Some mon_proc when Process.is_exited mon_proc ->
+                Logs.debug (fun f ->
+                    f "monitoring process %a is dead, nothing to do" Pid.pp
+                      mon_proc.pid)
             | Some mon_proc ->
                 Logs.debug (fun f ->
                     f "notified %a of %a terminating" Pid.pp mon_pid Pid.pp pid);
@@ -154,6 +158,10 @@ module Scheduler = struct
                 let msg = Process.Messages.(Exit (pid, reason)) in
                 Process.send_message linked_proc msg;
                 awake_process pool linked_proc
+            | Some linked_proc when Process.is_exited linked_proc ->
+                Logs.debug (fun f ->
+                    f "linked process %a is already dead, nothing to do" Pid.pp
+                      linked_proc.pid)
             | Some linked_proc ->
                 Logs.debug (fun f ->
                     f "marking linked %a as dead" Pid.pp linked_proc.pid);

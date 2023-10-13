@@ -5,7 +5,7 @@ type t = {
   rnd : Random.State.t;
   run_queue : Proc_queue.t;
   sleep_set : Proc_set.t;
-  timers: Timer.t 
+  io: Io.t;
 }
 
 type pool = {
@@ -23,6 +23,7 @@ module Scheduler = struct
       rnd = Random.State.copy rnd;
       run_queue = Proc_queue.create ();
       sleep_set = Proc_set.create ();
+      io_fds = Hashtbl.create 1024;
     }
 
   let get_current_scheduler, set_current_scheduler =

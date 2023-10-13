@@ -1,21 +1,27 @@
+let trace_send = Tracer.trace_send
+let trace_proc_run = Tracer.trace_proc_run
 let _get_pool = Scheduler.Pool.get_pool
 let yield () = Effect.perform Proc_effect.Yield
 let self () = Scheduler.get_current_process_pid ()
+
+let get_proc pid =
+  let pool = _get_pool () in
+  let proc = Proc_table.get pool.processes pid |> Option.get in
+  proc
 
 let sleep time =
   let now = Unix.gettimeofday () in
   let rec go finish =
     yield ();
     let now = Unix.gettimeofday () in
-    if now > finish
-    then ()
-    else go finish
-  in 
-  go (now+.time)
+    if now > finish then () else go finish
+  in
+  go (now +. time)
 
 let process_flag flag =
-  let pool = _get_pool () in
-  let proc = Proc_table.get pool.processes (self ()) |> Option.get in
+  let this = self () in
+  let proc = get_proc this in
+  Logs.trace (fun f -> f "Process %a: updating process flag" Pid.pp this);
   Process.set_flag proc flag
 
 let exit pid reason =
@@ -23,7 +29,7 @@ let exit pid reason =
   match Proc_table.get pool.processes pid with
   | Some proc ->
       Logs.debug (fun f -> f "%a exited by %a" Pid.pp proc.pid Pid.pp (self ()));
-      Process.mark_as_dead proc reason
+      Process.mark_as_exited proc reason
   | None -> ()
 
 (* NOTE(leostera): to send a message, we will find the receiver process
@@ -34,25 +40,22 @@ let send pid msg =
   match Proc_table.get pool.processes pid with
   | Some proc ->
       Process.send_message proc msg;
+      Scheduler.awake_process pool proc;
       Logs.trace (fun f ->
-          f "delivered message from %a to %a: %s" Pid.pp (self ()) Pid.pp
-            proc.pid (Marshal.to_string msg []));
-      Scheduler.Pool.awake_process pool proc
-  | None ->
-      (* Effect.perform (Send (msg, pid)) *)
-      Logs.debug (fun f -> f "COULD NOT DELIVER message to %a" Pid.pp pid)
+          f "sent message from %a to %a" Pid.pp (self ()) Process.pp proc)
+  | None -> Logs.debug (fun f -> f "COULD NOT DELIVER message to %a" Pid.pp pid)
 
 exception Link_no_process of Pid.t
 
-let _link proc1 proc2 =
-  Process.add_link proc1 (Process.pid proc2);
-  Process.add_link proc2 (Process.pid proc1)
+let _link (proc1 : Process.t) (proc2 : Process.t) =
+  Process.add_link proc1 proc2.pid;
+  Process.add_link proc2 proc1.pid
 
 let link pid =
   let this = self () in
   Logs.debug (fun f -> f "linking %a <-> %a" Pid.pp this Pid.pp pid);
   let pool = _get_pool () in
-  let this_proc = Proc_table.get pool.processes this |> Option.get in
+  let this_proc = get_proc this in
   match Proc_table.get pool.processes pid with
   | Some proc ->
       if Process.is_alive proc then _link this_proc proc
@@ -62,7 +65,7 @@ let link pid =
 let _spawn ?(do_link = false) (pool : Scheduler.pool) (scheduler : Scheduler.t)
     fn =
   let proc =
-    Process.make (fun () ->
+    Process.make scheduler.uid (fun () ->
         try
           fn ();
           Normal
@@ -77,12 +80,11 @@ let _spawn ?(do_link = false) (pool : Scheduler.pool) (scheduler : Scheduler.t)
   if do_link then (
     let this = self () in
     Logs.debug (fun f -> f "linking %a <-> %a" Pid.pp this Pid.pp proc.pid);
-    let this_proc = Proc_table.get pool.processes this |> Option.get in
-
+    let this_proc = get_proc this in
     _link this_proc proc);
 
-  Scheduler.Pool.register_process pool proc;
-  Scheduler.add_to_ready_queue scheduler proc.pid;
+  Scheduler.Pool.register_process pool scheduler proc;
+  Scheduler.awake_process pool proc;
   proc.pid
 
 let spawn fn =
@@ -95,13 +97,10 @@ let spawn_link fn =
   let scheduler = Scheduler.get_random_scheduler pool in
   _spawn ~do_link:true pool scheduler fn
 
-let rec monitor pid1 pid2 =
+let monitor pid1 pid2 =
   let pool = _get_pool () in
   match Proc_table.get pool.processes pid2 with
-  | Some proc ->
-      let pids = Atomic.get proc.monitors in
-      if Atomic.compare_and_set proc.monitors pids (pid1 :: pids) then ()
-      else monitor pid1 pid2
+  | Some proc -> Process.add_monitor proc pid1
   | None -> ()
 
 let processes () =

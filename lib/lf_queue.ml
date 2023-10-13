@@ -105,6 +105,8 @@ let rec close (t : 'a t) =
         (* Retry *)
         close t)
 
+let peek t = t.head.value
+
 let pop t =
   let p = t.head in
   (* [p] is the previously-popped item. *)
@@ -126,16 +128,3 @@ let is_empty t =
 let create () =
   let dummy = { Node.value = Obj.magic (); next = Atomic.make Node.none } in
   { tail = Atomic.make dummy; head = dummy }
-
-let merge a b =
-  let rec go () =
-    match pop b with
-    | None -> ()
-    | Some x ->
-        push a x;
-        go ()
-  in
-  go ()
-
-let add x t = push t x
-let take_opt t = pop t

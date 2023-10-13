@@ -24,9 +24,11 @@ let main () =
   match receive () with
   | Collected_messages [ A 1; A 2; A 3 ] ->
       Logger.info (fun f -> f "received messages in order");
+      sleep 0.001;
       shutdown ()
   | _ ->
       Logger.info (fun f -> f "received messages out of order");
+      sleep 0.001;
       Stdlib.exit 1
 
 let () =

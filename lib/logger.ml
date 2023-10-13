@@ -97,16 +97,16 @@ module Logger = struct
     let write : type a. level -> namespace -> (a, unit) logger_format -> unit =
      fun level ns msgf ->
       let ts = Ptime_clock.now () in
-      let domain = (Domain.self () :> int) in
+      let sch = Scheduler.get_current_scheduler () in
       let pid = self () in
-      let src = (domain, pid) in
+      let src = (sch.uid, pid) in
       let buf = Buffer.create 128 in
 
       msgf @@ fun fmt ->
       Format.kfprintf
         (fun _ ->
           let message = Buffer.contents buf in
-          Logs.info (fun f -> f "%a send message: %s" Pid.pp pid message);
+          Logs.debug (fun f -> f "%a logging: %s" Pid.pp pid message);
           send !__main_formatter_ (Log { ts; level; ns; src; message });
 
           ())

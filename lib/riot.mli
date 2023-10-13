@@ -48,6 +48,8 @@ module Process : sig
       values instead.
    *)
 
+  val pp : Format.formatter -> t -> unit
+
   (** A process flag is a configuration for the behavior of a process. *)
   type process_flag =
     | Trap_exit of bool
@@ -60,6 +62,8 @@ module Process : sig
     | Normal  (** The process ended normally. *)
     | Exit_signal  (** The process received an exit signal *)
     | Bad_link  (** The process tried to establish a bad link *)
+    | Link_down of Pid.t
+        (** Use to indicate that this process was terminated due to a linked process being termianted *)
     | Exception of exn
         (** The process terminated due to an unhandled exception *)
 
@@ -133,6 +137,9 @@ val shutdown : unit -> unit
 
 val run : ?rnd:Random.State.t -> ?workers:int -> (unit -> unit) -> unit
 (** Start the Riot runtime using function [main] to boot the system *)
+
+val trace_send : (Pid.t -> Process.t -> Message.t -> unit) -> unit
+val trace_proc_run : (int -> Process.t -> unit) -> unit
 
 (* Generic Servers *)
 

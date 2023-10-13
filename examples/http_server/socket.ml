@@ -11,35 +11,6 @@ end)
 
 let trace, info, debug, warn, error = Logger.(trace, info, debug, warn, error)
 
-type t = {
-  fd : Unix.file_descr;
-  addr : Unix.sockaddr;
-  port : int;
-  max_requests : int;
-}
-
-type connection = { fd : Unix.file_descr; client_addr : Unix.sockaddr }
-
-let listen ~host ~port ~max_requests =
-  let addr = Unix.ADDR_INET (Unix.inet_addr_of_string host, port) in
-  let fd = Unix.socket Unix.PF_INET Unix.SOCK_STREAM 0 in
-  Unix.set_nonblock fd;
-  Unix.setsockopt fd Unix.SO_REUSEADDR true;
-  Unix.setsockopt fd Unix.SO_REUSEPORT true;
-  Unix.bind fd addr;
-  Unix.listen fd max_requests;
-  info (fun f -> f "Listening on %s:%d" host port);
-  { fd; addr; port; max_requests }
-
-let rec accept (t : t) =
-  yield ();
-  match Unix.accept t.fd with
-  | exception Unix.(Unix_error (EINTR, _, _)) -> accept t
-  | exception Unix.(Unix_error ((EAGAIN | EWOULDBLOCK), _, _)) -> accept t
-  | fd, client_addr -> { fd; client_addr }
-
-let close (conn : connection) = Unix.close conn.fd
-
 module Flow = struct
   type Riot.Message.t += Wakeup_reader | Wakeup_writer
   type read_flow = [ `Read | `Close | `Yield ]
@@ -58,7 +29,7 @@ module Flow = struct
   }
 
   (** Write flow. Drives http/af to write to a Unix socket. *)
-  let rec write (conn : connection) flow =
+  let rec write (conn : Unix.connection) flow =
     match flow.next_write_operation () with
     | `Write io_vecs -> do_write conn flow io_vecs
     | `Close len -> do_close_write conn flow len
@@ -79,7 +50,7 @@ module Flow = struct
       | Faraday.{ buffer; off; len } :: iovs ->
           let bytes = Bytes.create len in
           Bigstringaf.blit_to_bytes buffer ~src_off:off bytes ~dst_off:0 ~len;
-          let len = Unix.write conn.fd bytes 0 len in
+          let len = Unix.write conn bytes 0 len in
           debug (fun f -> f "wrote %d bytes: %s" len (Bytes.to_string bytes));
           write_all iovs (total + len)
     in
@@ -91,7 +62,7 @@ module Flow = struct
     debug (fun f -> f "closing %a" Pid.pp (self ()))
 
   (** Read flow. Drives http/af to read from a Unix socket. *)
-  let rec read (conn : connection) flow =
+  let rec read (conn : Unix.connection) flow =
     match flow.next_read_operation () with
     | `Read -> do_read conn flow
     | `Close -> do_close conn flow
@@ -107,12 +78,7 @@ module Flow = struct
 
   and do_read conn flow =
     let bytes = Bytes.create 1024 in
-    match Unix.read conn.fd bytes 0 (Bytes.length bytes) with
-    | (exception Unix.(Unix_error (EINTR, _, _)))
-    | (exception Unix.(Unix_error ((EAGAIN | EWOULDBLOCK), _, _))) ->
-        yield ();
-        read conn flow
-    | exception _exn -> do_close conn flow
+    match Unix.read conn bytes 0 (Bytes.length bytes) with
     | 0 ->
         flow.read_eof ~buf:Bigstringaf.empty ~len:0;
         read conn flow
@@ -123,5 +89,5 @@ module Flow = struct
         flow.read ~buf ~len;
         read conn flow
 
-  and do_close conn _flow = close conn
+  and do_close conn _flow = Unix.close conn
 end

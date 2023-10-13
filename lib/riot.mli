@@ -282,3 +282,14 @@ module Logger : sig
   module Make (_ : Namespace) : Logger
   include Logger.Intf
 end
+
+module Unix : sig
+  type socket
+  type connection
+
+  val close : connection -> unit
+  val listen : host:string -> port:int -> max_requests:int -> socket
+  val accept : socket -> (connection, [> `Unix_error ]) result
+  val write : connection -> bytes -> int -> int -> int
+  val read : connection -> bytes -> int -> int -> int
+end

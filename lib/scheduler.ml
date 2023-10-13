@@ -5,7 +5,7 @@ type t = {
   rnd : Random.State.t;
   run_queue : Proc_queue.t;
   sleep_set : Proc_set.t;
-  io: Io.t;
+  io_tbl : Io.t;
 }
 
 type pool = {
@@ -23,7 +23,7 @@ module Scheduler = struct
       rnd = Random.State.copy rnd;
       run_queue = Proc_queue.create ();
       sleep_set = Proc_set.create ();
-      io_fds = Hashtbl.create 1024;
+      io_tbl = Io.create ();
     }
 
   let get_current_scheduler, set_current_scheduler =
@@ -202,6 +202,29 @@ module Scheduler = struct
             Logs.trace (fun f -> f "Process %a finished" Pid.pp proc.pid);
             add_to_run_queue sch proc)
 
+  let poll_io pool (sch : t) =
+    let Io.{ read; write; except } = Io.select sch.io_tbl in
+
+    let send pid msg =
+      match Proc_table.get pool.processes pid with
+      | Some proc -> Process.send_message proc msg
+      | None -> ()
+    in
+
+    List.iter
+      (fun (sock, pids) ->
+        List.iter (fun pid -> send pid (Io.Socket_read sock)) pids)
+      read;
+    List.iter
+      (fun (sock, pids) ->
+        List.iter (fun pid -> send pid (Io.Socket_write sock)) pids)
+      write;
+    List.iter
+      (fun (sock, pids) ->
+        List.iter (fun pid -> send pid (Io.Socket_except sock)) pids)
+      except;
+    ()
+
   let run pool sch () =
     Logs.trace (fun f -> f "> enter worker loop");
     let exception Exit in
@@ -209,11 +232,13 @@ module Scheduler = struct
        while true do
          if pool.stop then raise_notrace Exit;
 
-         match Proc_queue.next sch.run_queue with
+         (match Proc_queue.next sch.run_queue with
          | Some proc ->
              set_current_process_pid proc.pid;
              step_process pool sch proc
-         | None -> ()
+         | None -> ());
+
+         poll_io pool sch
        done
      with Exit -> ());
     Logs.trace (fun f -> f "< exit worker loop")

@@ -9,9 +9,9 @@ let port = 2112
 
 let main () =
   (* since we have several sub-loggers with prefixes, we will set them all to Debug *)
-  Riot.Logger.set_log_level (Some Info);
-  Server.Logger.set_log_level (Some Info);
-  Socket.Logger.set_log_level (Some Info);
+  Riot.Logger.set_log_level (Some Debug);
+  Server.Logger.set_log_level (Some Debug);
+  Socket.Logger.set_log_level (Some Debug);
 
   (* now if we want to see our logs we shoulds tart our Logger
      note: there's only one logger process tree! even if we have multiple logger clients *)
@@ -20,7 +20,7 @@ let main () =
   Logger.info (fun f -> f "Starting server on port %d" port);
 
   let (Ok _server) =
-    Http_server.start_link ~port ~acceptors:40 @@ fun reqd ->
+    Http_server.start_link ~port @@ fun reqd ->
     let req = Httpaf.Reqd.request reqd in
     Logger.debug (fun f -> f "request: %a" Httpaf.Request.pp_hum req);
     let body =
@@ -39,4 +39,4 @@ let main () =
 
   receive () |> ignore
 
-let () = Riot.run ~workers:14 @@ main
+let () = Riot.run @@ main

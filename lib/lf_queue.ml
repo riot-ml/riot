@@ -128,6 +128,3 @@ let is_empty t =
 let create () =
   let dummy = { Node.value = Obj.magic (); next = Atomic.make Node.none } in
   { tail = Atomic.make dummy; head = dummy }
-
-let add x t = push t x
-let take_opt t = pop t

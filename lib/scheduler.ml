@@ -56,7 +56,7 @@ module Scheduler = struct
         if Scheduler_uid.equal sch.uid proc.sid then add_to_run_queue sch proc)
       pool.schedulers
 
-  let perform _sch (proc : Process.t_locked) =
+  let perform _sch (proc : Process.t) =
     let open Proc_state in
     let open Proc_effect in
     let perform : type a b. (a, b) step_callback =
@@ -89,28 +89,17 @@ module Scheduler = struct
             Process.mark_as_awaiting_message proc;
             k Delay)
           else
-            let skipped = Mailbox.create () in
+            let _skipped = Mailbox.create () in
             let rec go () =
               (* NOTE(leostera): we can get the value out of the option because
                  the case above checks for an empty mailbox. *)
               match Process.next_message proc with
-              | None ->
-                  let rec go () =
-                    match Mailbox.next skipped with
-                    | Some msg ->
-                        Mailbox.queue proc.locked.mailbox msg;
-                        go ()
-                    | None -> ()
-                  in
-                  go ();
-                  k Delay
+              | None -> k Delay
               | Some msg -> (
                   match select msg with
                   | Drop -> go ()
                   | Take -> k (Continue msg)
-                  | Skip ->
-                      Mailbox.queue skipped msg;
-                      go ())
+                  | Skip -> go ())
             in
             go ()
       | effect ->
@@ -120,20 +109,23 @@ module Scheduler = struct
     in
     { perform }
 
-  let step_process pool sch (proc : Process.t_locked) =
-    Logs.trace (fun f -> f "Stepping process %a" Process.pp proc.locked);
+  let step_process pool sch (proc : Process.t) =
+    Logs.trace (fun f -> f "Stepping process %a" Process.pp proc);
+    !Tracer.tracer_proc_run (sch.uid |> Scheduler_uid.to_int) proc;
     let pid = Process.pid proc in
     match Process.state proc with
     | Waiting when Process.has_messages proc ->
         Logs.debug (fun f -> f "waking up process %a" Pid.pp pid);
-        add_to_run_queue sch proc.locked
+        add_to_run_queue sch proc
     | Waiting ->
-        Proc_set.add sch.sleep_set proc.locked;
-        Logs.error (fun f -> f "hibernated process %a" Pid.pp pid);
+        Proc_set.add sch.sleep_set proc;
+        Logs.debug (fun f -> f "hibernated process %a" Pid.pp pid);
         Logs.trace (fun f -> f "sleep_set: %d" (Proc_set.size sch.sleep_set))
     | Exited reason ->
         (* send monitors a process-down message *)
         let monitoring_pids = Process.monitors proc in
+        Logs.debug (fun f ->
+            f "notifying %d monitors" (List.length monitoring_pids));
         List.iter
           (fun mon_pid ->
             match Proc_table.get pool.processes mon_pid with
@@ -155,7 +147,7 @@ module Scheduler = struct
           (fun link_pid ->
             match Proc_table.get pool.processes link_pid with
             | None -> ()
-            | Some linked_proc when linked_proc.flags.trap_exits ->
+            | Some linked_proc when Atomic.get linked_proc.flags.trap_exits ->
                 Logs.debug (fun f ->
                     f "%a will trap exits" Pid.pp linked_proc.pid);
                 let msg = Process.Messages.(Exit (pid, reason)) in
@@ -164,32 +156,37 @@ module Scheduler = struct
             | Some linked_proc ->
                 Logs.debug (fun f ->
                     f "marking linked %a as dead" Pid.pp linked_proc.pid);
-                Process.add_signal linked_proc
-                  (Exit (Link_down linked_proc.pid));
+                let reason = Process.(Link_down linked_proc.pid) in
+                Process.mark_as_exited linked_proc reason;
                 awake_process pool linked_proc)
           linked_pids
     | Running | Runnable -> (
-        Logs.trace (fun f -> f "Running process %a" Process.pp proc.locked);
-        Process.mark_as_running proc;
-        let perform = perform sch proc in
-        let cont = Proc_state.run ~perform (Process.cont proc) in
-        Process.set_cont proc cont;
-        match cont with
-        | Proc_state.Finished reason ->
-            let reason =
-              match reason with
-              | Ok reason -> reason
-              | Error exn -> Exception exn
-            in
-            Process.mark_as_dead proc reason;
+        Logs.trace (fun f -> f "Running process %a" Process.pp proc);
+        let exception Terminated_while_running of Process.exit_reason in
+        try
+          Process.mark_as_running proc;
+          let perform = perform sch proc in
+          let cont = Proc_state.run ~perform (Process.cont proc) in
+          Process.set_cont proc cont;
+          match cont with
+          | Proc_state.Finished reason ->
+              let reason =
+                match reason with
+                | Ok reason -> reason
+                | Error exn -> Exception exn
+              in
+              raise_notrace (Terminated_while_running reason)
+          | Proc_state.Suspended _ | Proc_state.Unhandled _ ->
+              Logs.trace (fun f ->
+                  f "Process %a suspended (will resume): %a" Pid.pp pid
+                    Process.pp proc);
+              add_to_run_queue sch proc
+        with
+        | Process.Process_reviving_is_forbidden _ -> add_to_run_queue sch proc
+        | Terminated_while_running reason ->
+            Process.mark_as_exited proc reason;
             Logs.trace (fun f -> f "Process %a finished" Pid.pp pid);
-            add_to_run_queue sch proc.locked
-        | Proc_state.Suspended _ | Proc_state.Unhandled _ ->
-            Process.mark_as_runnable proc;
-            Logs.trace (fun f ->
-                f "Process %a suspended (will resume): %a" Pid.pp pid Process.pp
-                  proc.locked);
-            add_to_run_queue sch proc.locked)
+            add_to_run_queue sch proc)
 
   let run pool sch () =
     Logs.trace (fun f -> f "> enter worker loop");
@@ -201,9 +198,7 @@ module Scheduler = struct
          match Proc_queue.next sch.run_queue with
          | Some proc ->
              set_current_process_pid proc.pid;
-             let proc = Process.lock proc in
-             step_process pool sch proc;
-             Process.unlock proc
+             step_process pool sch proc
          | None -> ()
        done
      with Exit -> ());

@@ -17,4 +17,4 @@ let main () =
 
 let () =
   Logger.set_log_level (Some Info);
-  Riot.run ~workers:1 @@ main
+  Riot.run ~workers:0 @@ main

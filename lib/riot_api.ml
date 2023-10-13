@@ -1,8 +1,10 @@
+let trace_send = Tracer.trace_send
+let trace_proc_run = Tracer.trace_proc_run
 let _get_pool = Scheduler.Pool.get_pool
 let yield () = Effect.perform Proc_effect.Yield
 let self () = Scheduler.get_current_process_pid ()
 
-let get_proc pid = 
+let get_proc pid =
   let pool = _get_pool () in
   let proc = Proc_table.get pool.processes pid |> Option.get in
   proc
@@ -18,7 +20,9 @@ let sleep time =
 
 let process_flag flag =
   let pool = _get_pool () in
-  let proc = Proc_table.get pool.processes (self ()) |> Option.get in
+  let pid = self () in
+  let proc = Proc_table.get pool.processes pid |> Option.get in
+  Logs.trace (fun f -> f "Process %a: updating process flag" Pid.pp pid);
   Process.set_flag proc flag
 
 let exit pid reason =
@@ -26,7 +30,7 @@ let exit pid reason =
   match Proc_table.get pool.processes pid with
   | Some proc ->
       Logs.debug (fun f -> f "%a exited by %a" Pid.pp proc.pid Pid.pp (self ()));
-      Process.add_signal proc Process.(Exit reason)
+      Process.mark_as_exited proc reason
   | None -> ()
 
 (* NOTE(leostera): to send a message, we will find the receiver process
@@ -38,16 +42,15 @@ let send pid msg =
   | Some proc ->
       Process.send_message proc msg;
       Scheduler.awake_process pool proc;
-      Logs.trace (fun f -> f "sent message from %a to %a" Pid.pp (self ()) Process.pp proc)
-  | None ->
-      (* Effect.perform (Send (msg, pid)) *)
-      Logs.debug (fun f -> f "COULD NOT DELIVER message to %a" Pid.pp pid)
+      Logs.trace (fun f ->
+          f "sent message from %a to %a" Pid.pp (self ()) Process.pp proc)
+  | None -> Logs.debug (fun f -> f "COULD NOT DELIVER message to %a" Pid.pp pid)
 
 exception Link_no_process of Pid.t
 
-let _link proc1 proc2 =
-  Process.add_signal proc1 (Link (Process.pid proc2));
-  Process.add_signal proc2.locked (Link proc1.pid)
+let _link (proc1 : Process.t) (proc2 : Process.t) =
+  Process.add_link proc1 proc2.pid;
+  Process.add_link proc2 proc1.pid
 
 let link pid =
   let this = self () in
@@ -56,10 +59,7 @@ let link pid =
   let this_proc = Proc_table.get pool.processes this |> Option.get in
   match Proc_table.get pool.processes pid with
   | Some proc ->
-      if Process.is_alive proc then (
-        let proc = Process.lock proc in
-        _link this_proc proc;
-        Process.unlock proc)
+      if Process.is_alive proc then _link this_proc proc
       else raise (Link_no_process pid)
   | None -> ()
 
@@ -82,10 +82,7 @@ let _spawn ?(do_link = false) (pool : Scheduler.pool) (scheduler : Scheduler.t)
     let this = self () in
     Logs.debug (fun f -> f "linking %a <-> %a" Pid.pp this Pid.pp proc.pid);
     let this_proc = Proc_table.get pool.processes this |> Option.get in
-
-    let proc = Process.lock proc in
-    _link this_proc proc;
-    Process.unlock proc);
+    _link this_proc proc);
 
   Scheduler.Pool.register_process pool scheduler proc;
   Scheduler.awake_process pool proc;
@@ -104,7 +101,7 @@ let spawn_link fn =
 let monitor pid1 pid2 =
   let pool = _get_pool () in
   match Proc_table.get pool.processes pid2 with
-  | Some proc -> Process.add_signal proc (Monitor pid1)
+  | Some proc -> Process.add_monitor proc pid1
   | None -> ()
 
 let processes () =
@@ -115,22 +112,14 @@ let processes () =
 let is_process_alive pid =
   yield ();
   let pool = _get_pool () in
-  let result =
-    match Proc_table.get pool.processes pid with
-    | Some proc ->
-        Logs.trace (fun f -> f "Proc: %a" Process.pp proc);
-        Process.is_alive proc
-    | None -> false
-  in
-  Logs.trace (fun f -> f "is_process_alive(%a) -> %b" Pid.pp pid result);
-  result
+  match Proc_table.get pool.processes pid with
+  | Some proc -> Process.is_alive proc
+  | None -> false
 
-let rec wait_pids ?(cb = fun _ -> ()) pids =
+let rec wait_pids pids =
   match pids with
   | [] -> ()
-  | pid :: tail ->
-      cb pids;
-      wait_pids (if is_process_alive pid then pids else tail)
+  | pid :: tail -> wait_pids (if is_process_alive pid then pids else tail)
 
 let random () = (Scheduler.get_current_scheduler ()).rnd
 

@@ -5,11 +5,12 @@ let make _id = { _id }
 let zero : t = make 0L
 let __current__ = Atomic.make 1L
 
-let next () =
+let rec next () =
   let last = Atomic.get __current__ in
   let current = last |> Int64.succ in
-  Atomic.set __current__ current;
-  make last
+  if Atomic.compare_and_set __current__ last current
+  then make last
+  else next ()
 
 let equal a b = Int64.equal a._id b._id
 let compare a b = Int64.compare a._id b._id

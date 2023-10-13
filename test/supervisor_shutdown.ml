@@ -46,6 +46,7 @@ let main () =
   match receive () with
   | Process.Messages.Exit (pid, _reason) when Pid.equal pid sup ->
       Logger.info (fun f -> f "supervisor finished as expected");
+      sleep 0.001;
       shutdown ()
   | _ -> failwith "expected supervisor failure"
 

@@ -49,6 +49,7 @@ module Process : sig
    *)
 
   val pp : Format.formatter -> t -> unit
+  val get_pid : t -> Pid.t
 
   (** A process flag is a configuration for the behavior of a process. *)
   type process_flag =
@@ -118,7 +119,7 @@ val processes : unit -> (Pid.t * Process.t) Seq.t
 val is_process_alive : Pid.t -> bool
 (** Returns true if the process [pid] is still alive. *)
 
-val wait_pids : ?cb:(Pid.t list -> unit) -> Pid.t list -> unit
+val wait_pids : Pid.t list -> unit
 (** Await all processes in the list to termimante. *)
 
 val random : unit -> Random.State.t
@@ -139,6 +140,8 @@ val run : ?rnd:Random.State.t -> ?workers:int -> (unit -> unit) -> unit
 (** Start the Riot runtime using function [main] to boot the system *)
 
 val get_proc : Pid.t -> Process.t
+val trace_send : (Pid.t -> Process.t -> Message.t -> unit) -> unit
+val trace_proc_run : (int -> Process.t -> unit) -> unit
 
 (* Generic Servers *)
 

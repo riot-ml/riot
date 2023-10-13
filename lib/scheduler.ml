@@ -226,7 +226,7 @@ module Pool = struct
     Logs.trace (fun f -> f "shutdown called");
     pool.stop <- true
 
-  let register_process pool scheduler proc =
+  let register_process pool _scheduler proc =
     Proc_table.register_process pool.processes proc
 
   let make ?(rnd = Random.State.make_self_init ()) ~domains ~main () =

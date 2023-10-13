@@ -5,6 +5,7 @@ type t = {
   rnd : Random.State.t;
   run_queue : Proc_queue.t;
   sleep_set : Proc_set.t;
+  timers: Timer.t 
 }
 
 type pool = {
@@ -115,15 +116,14 @@ module Scheduler = struct
   let step_process pool sch (proc : Process.t) =
     Logs.trace (fun f -> f "Stepping process %a" Process.pp proc);
     !Tracer.tracer_proc_run (sch.uid |> Scheduler_uid.to_int) proc;
-    let pid = Process.pid proc in
     match Process.state proc with
     | Waiting when Process.has_messages proc ->
         Process.mark_as_runnable proc;
-        Logs.debug (fun f -> f "waking up process %a" Pid.pp pid);
+        Logs.debug (fun f -> f "waking up process %a" Pid.pp proc.pid);
         add_to_run_queue sch proc
     | Waiting ->
         Proc_set.add sch.sleep_set proc;
-        Logs.debug (fun f -> f "hibernated process %a" Pid.pp pid);
+        Logs.debug (fun f -> f "hibernated process %a" Pid.pp proc.pid);
         Logs.trace (fun f -> f "sleep_set: %d" (Proc_set.size sch.sleep_set))
     | Exited reason ->
         (* send monitors a process-down message *)
@@ -140,8 +140,9 @@ module Scheduler = struct
                       mon_proc.pid)
             | Some mon_proc ->
                 Logs.debug (fun f ->
-                    f "notified %a of %a terminating" Pid.pp mon_pid Pid.pp pid);
-                let msg = Process.Messages.(Monitor (Process_down pid)) in
+                    f "notified %a of %a terminating" Pid.pp mon_pid Pid.pp
+                      proc.pid);
+                let msg = Process.Messages.(Monitor (Process_down proc.pid)) in
                 Process.send_message mon_proc msg;
                 awake_process pool mon_proc)
           monitoring_pids;
@@ -150,7 +151,7 @@ module Scheduler = struct
         let linked_pids = Process.links proc in
         Logs.debug (fun f ->
             f "terminating %d processes linked to %a" (List.length linked_pids)
-              Pid.pp pid);
+              Pid.pp proc.pid);
         List.iter
           (fun link_pid ->
             match Proc_table.get pool.processes link_pid with
@@ -158,7 +159,7 @@ module Scheduler = struct
             | Some linked_proc when Atomic.get linked_proc.flags.trap_exits ->
                 Logs.debug (fun f ->
                     f "%a will trap exits" Pid.pp linked_proc.pid);
-                let msg = Process.Messages.(Exit (pid, reason)) in
+                let msg = Process.Messages.(Exit (proc.pid, reason)) in
                 Process.send_message linked_proc msg;
                 awake_process pool linked_proc
             | Some linked_proc when Process.is_exited linked_proc ->
@@ -190,14 +191,14 @@ module Scheduler = struct
               raise_notrace (Terminated_while_running reason)
           | Proc_state.Suspended _ | Proc_state.Unhandled _ ->
               Logs.trace (fun f ->
-                  f "Process %a suspended (will resume): %a" Pid.pp pid
+                  f "Process %a suspended (will resume): %a" Pid.pp proc.pid
                     Process.pp proc);
               add_to_run_queue sch proc
         with
         | Process.Process_reviving_is_forbidden _ -> add_to_run_queue sch proc
         | Terminated_while_running reason ->
             Process.mark_as_exited proc reason;
-            Logs.trace (fun f -> f "Process %a finished" Pid.pp pid);
+            Logs.trace (fun f -> f "Process %a finished" Pid.pp proc.pid);
             add_to_run_queue sch proc)
 
   let run pool sch () =

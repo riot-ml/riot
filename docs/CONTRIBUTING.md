@@ -77,3 +77,33 @@ if you think they'll help other people find bugs too.
 
 `Logs.*` functions are cheap if the logs are disabled, since the function you
 pass to them only is evaluated when that log level is enabled.
+
+## Performance
+
+For doing performance work, it helps to use the `olly` tracer from the
+`runtime_events_tools` package. 
+
+```
+; opam install runtime_events_tools -y
+; olly trace riot.trace _build/default/examples/http_server/main.exe
+```
+
+`olly` will crate a trace file called `riot.trace` and you can open this file in 2 steps:
+
+1. run `./tools/trace_processor --httpd ./riot.trace` to preprocess the file (takes a bit)
+2. go to `https://ui.perfetto.dev/` and click YES on the "Trace Processor Native Acceleration" dialogue
+
+#### Basic Usage
+
+Typically you'll want to find all the instances of a certain
+operation that is slow. You can most likely see them straight
+on in the viewer, like this:
+
+1. click on a Process to see it expand
+2. click on the trace name you're interested in (say `major_slice`)
+3. in the details tab below click on the name 
+4. click on "Slices with the same name"
+5. click on Duration and sort by Highest First
+
+That should show you the list of all the instances of the
+trace you're looking for, sorted by the slowest ones.

@@ -3,12 +3,8 @@ module Uid = Scheduler_uid
 type t = {
   uid : Uid.t; [@warning "-69"]
   rnd : Random.State.t;
-  mutable sleep : bool;
   run_queue : Proc_queue.t;
-  proc_set : Proc_set.t;
   sleep_set : Proc_set.t;
-  idle_lock : Mutex.t;
-  idle_cond : Condition.t;
 }
 
 type pool = {
@@ -25,11 +21,7 @@ module Scheduler = struct
       uid;
       rnd = Random.State.copy rnd;
       run_queue = Proc_queue.create ();
-      proc_set = Proc_set.create ();
       sleep_set = Proc_set.create ();
-      idle_lock = Mutex.create ();
-      idle_cond = Condition.create ();
-      sleep = false;
     }
 
   let get_current_scheduler, set_current_scheduler =
@@ -89,17 +81,28 @@ module Scheduler = struct
             Process.mark_as_awaiting_message proc;
             k Delay)
           else
-            let _skipped = Mailbox.create () in
+            let skipped = Mailbox.create () in
             let rec go () =
               (* NOTE(leostera): we can get the value out of the option because
                  the case above checks for an empty mailbox. *)
               match Process.next_message proc with
-              | None -> k Delay
+              | None ->
+                  let rec move () =
+                    match Mailbox.next skipped with
+                    | Some msg ->
+                        Process.send_message proc msg;
+                        move ()
+                    | None -> ()
+                  in
+                  move ();
+                  k Delay
               | Some msg -> (
                   match select msg with
                   | Drop -> go ()
                   | Take -> k (Continue msg)
-                  | Skip -> go ())
+                  | Skip ->
+                      Mailbox.queue skipped msg;
+                      go ())
             in
             go ()
       | effect ->
@@ -221,12 +224,10 @@ module Pool = struct
 
   let shutdown pool =
     Logs.trace (fun f -> f "shutdown called");
-    pool.stop <- true;
-    List.iter (fun sch -> Condition.broadcast sch.idle_cond) pool.schedulers
+    pool.stop <- true
 
   let register_process pool scheduler proc =
-    Proc_table.register_process pool.processes proc;
-    Proc_set.add scheduler.proc_set proc
+    Proc_table.register_process pool.processes proc
 
   let make ?(rnd = Random.State.make_self_init ()) ~domains ~main () =
     Logs.debug (fun f -> f "Making scheduler pool...");

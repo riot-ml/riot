@@ -115,6 +115,7 @@ module Scheduler = struct
     let pid = Process.pid proc in
     match Process.state proc with
     | Waiting when Process.has_messages proc ->
+        Process.mark_as_runnable proc;
         Logs.debug (fun f -> f "waking up process %a" Pid.pp pid);
         add_to_run_queue sch proc
     | Waiting ->

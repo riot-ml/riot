@@ -37,12 +37,7 @@ module Tcp_connector (P : Protocol) : Connector = struct
           debug (fun f -> f "spawned reader %a" Pid.pp (self ()));
           Socket.Flow.read conn flow)
     in
-    (* TODO(leostera): impl hibernate() this process should just sleep *)
-    let rec loop () =
-      yield ();
-      loop ()
-    in
-    loop ()
+    receive () |> ignore
 
   let start_link conn =
     let pid = spawn_link (fun () -> handle_handshake conn) in
@@ -69,7 +64,11 @@ module Acceptor = struct
     accept_loop state
 
   let start_link state =
-    let pid = spawn_link (fun () -> accept_loop state) in
+    let pid =
+      spawn_link (fun () ->
+          process_flag (Trap_exit true);
+          accept_loop state)
+    in
     Ok pid
 
   let child_spec ~socket (module C : Connector) =

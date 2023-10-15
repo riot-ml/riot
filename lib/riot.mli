@@ -123,13 +123,21 @@ val wait_pids : Pid.t list -> unit
 
 val random : unit -> Random.State.t
 
-val receive : ?select:(Message.t -> Message.select_marker) -> unit -> Message.t
-(** [receive select ()] will block the current process until a message that
-    matches the [select] function is found in the mailbox, and then will pop it
-    and return it.
+val receive : ?ref:unit Ref.t -> unit -> Message.t
+(** [receive ()] will return the first message in the process mailbox.
 
     This function will suspend a process that has an empty mailbox, and the
     process will remain asleep until a message is delivered to it.
+
+    ### Selective Receive
+
+    If a `ref` was passed, then `[receive ref ()]` will skip all messages
+    created before the creation of this `Ref.t` value, and will only return
+    newer messages.
+
+    This is useful to skip the queue, but not remove any of the messages before
+    it. Those messages will be delivered in-order in future calls to `receive
+    ()`.
 *)
 
 val shutdown : unit -> unit
@@ -286,8 +294,6 @@ end
 module Unix : sig
   type socket
   type connection
-
-  module Logger : Logger
 
   val close_connection : connection -> unit
   val close_socket : socket -> unit

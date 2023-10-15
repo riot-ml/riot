@@ -1,145 +1,148 @@
-type fd = Unix.file_descr
+(* core types *)
+module Fd : sig
+  type t
 
-type socket = {
-  fd : fd;
-  addr : Unix.sockaddr;
-  addr_str : string;
-  port : int;
-  max_requests : int;
-}
+  val to_int : t -> int
+  val make : Unix.socket_domain -> Unix.socket_type -> t
+  val get : t -> [ `Open of Unix.file_descr | `Closed ]
+end = struct
+  type t = [ `Open of Unix.file_descr | `Closed ] Rc.t
 
-type listen = { pid : Pid.t; host : string; port : int; max_requests : int }
-type connection = { fd : fd; client_addr : Unix.sockaddr }
-type accept = Abort | Retry | Connected of connection
-type read = Abort | Retry | Read of int
-type write = Abort | Retry | Wrote of int
-type Message.t += Socket_read of fd | Socket_write of fd | Socket_except of fd
+  let get t = Rc.get t
+  let to_int t = match Rc.get t with `Open fd -> Obj.magic fd | `Closed -> -1
 
-module PidSet = Set.Make (struct
-  type t = Pid.t
+  let make sock_domain sock_type =
+    let fd = Unix.socket ~cloexec:true sock_domain sock_type 0 in
+    Rc.make (`Open fd)
+end
 
-  let compare = Pid.compare
-end)
+type 't raw_addr = string
+type tcp_addr = [ `v4 | `v6 ] raw_addr
+type stream_addr = [ `Tcp of tcp_addr * int ]
+type 'kind socket = Fd.t
+type listen_socket = [ `listen ] socket
+type stream_socket = [ `stream ] socket
 
 type t = {
-  read : (fd, PidSet.t) Hashtbl.t;
-  write : (fd, PidSet.t) Hashtbl.t;
-  except : (fd, PidSet.t) Hashtbl.t;
+  fds : (Fd.t, unit) Dashmap.t;
+  read : (Pid.t, Fd.t) Dashmap.t;
+  write : (Pid.t, Fd.t) Dashmap.t;
 }
 
-let rec pp ppf (t : t) =
-  Format.fprintf ppf "{ read=%a; write=%a; except=%a }" pp_pid_table t.read
-    pp_pid_table t.write pp_pid_table t.except
+(* auxiliary types *)
 
-and pp_pid_table ppf tbl =
-  let entries = Hashtbl.to_seq_keys tbl in
-  Format.fprintf ppf "[";
-  Seq.iter (fun fd -> Format.fprintf ppf "%d," (Obj.magic fd)) entries;
-  Format.fprintf ppf "]"
+type awake = { read : (Pid.t * Fd.t) list; write : (Pid.t * Fd.t) list }
 
-and pp_socket ppf (socket : socket) =
-  Format.fprintf ppf "Socket { fd=%d; addr=%s:%d; max_req=%d }"
-    (Obj.magic socket.fd) socket.addr_str socket.port socket.max_requests
+(* operation types *)
+
+type accept = Abort | Retry | Connected of stream_socket
+type read = Abort | Retry | Read of int
+type write = Abort | Retry | Wrote of int
+
+(* basic api over t *)
 
 let create () =
   {
-    read = Hashtbl.create 1024;
-    write = Hashtbl.create 1024;
-    except = Hashtbl.create 1024;
+    fds = Dashmap.create 1024;
+    read = Dashmap.create 1024;
+    write = Dashmap.create 1024;
   }
 
-type awake = {
-  read : (fd * Pid.t list) list;
-  write : (fd * Pid.t list) list;
-  except : (fd * Pid.t list) list;
-}
+let add_fd t fd = Dashmap.insert t.fds fd ()
+let register_read (t : t) fd pid = Dashmap.insert t.read pid fd
+let unregister_read (t : t) fd pid = Dashmap.remove t.read pid fd
+let register_write (t : t) fd pid = Dashmap.insert t.write pid fd
+let unregister_write (t : t) fd pid = Dashmap.remove t.write pid fd
 
-let register_read (t : t) fd pid =
-  Logs.trace (fun f -> f "registered for reading: %a" Pid.pp pid);
-  let old_set =
-    match Hashtbl.find_opt t.read fd with
-    | None -> PidSet.empty
-    | Some old_set -> old_set
+(* pretty-printing *)
+
+let rec pp ppf (t : t) =
+  Format.fprintf ppf "{ fds=%a; read=%a; write=%a }" pp_fds_table t.fds
+    pp_pid_table t.read pp_pid_table t.write
+
+and pp_fds_table ppf tbl =
+  let entries = Dashmap.entries tbl in
+  Format.fprintf ppf "[";
+  List.iter (fun (fd, _) -> Format.fprintf ppf "%d," (Obj.magic fd)) entries;
+  Format.fprintf ppf "]"
+
+and pp_pid_table ppf tbl =
+  let entries = Dashmap.entries tbl in
+  Format.fprintf ppf "[";
+  List.iter
+    (fun (pid, fd) -> Format.fprintf ppf "%a:%d," Pid.pp pid (Obj.magic fd))
+    entries;
+  Format.fprintf ppf "]"
+
+and pp_socket ppf (socket : _ socket) =
+  Format.fprintf ppf "Socket { fd=%d; }" (Fd.to_int socket)
+
+and pp_addr ppf (addr : stream_addr) =
+  match addr with `Tcp (host, port) -> Format.fprintf ppf "%s:%d" host port
+
+(* sockets api *)
+
+let addr_to_unix_sockaddr addr =
+  match addr with
+  | `Tcp (host, port) ->
+      let addr = Unix.inet_addr_of_string host in
+      (Unix.SOCK_STREAM, Unix.ADDR_INET (addr, port))
+
+let addr_to_unix_socket_domain addr =
+  match addr with `Tcp (_host, _) -> Unix.PF_INET
+
+let listen (t : t) ~reuse_addr ~reuse_port ~backlog addr =
+  let sock_domain = addr_to_unix_socket_domain addr in
+  let sock_type, sock_addr = addr_to_unix_sockaddr addr in
+  let fd = Fd.make sock_domain sock_type in
+  match Fd.get fd with
+  | `Open sock ->
+      Unix.set_nonblock sock;
+      Unix.setsockopt sock Unix.SO_REUSEADDR reuse_addr;
+      Unix.setsockopt sock Unix.SO_REUSEPORT reuse_port;
+      Unix.bind sock sock_addr;
+      Unix.listen sock backlog;
+      Logs.trace (fun f -> f "listening to socket: %a" pp_addr addr);
+      add_fd t fd;
+      Ok fd
+  | `Closed ->
+      Logs.error (fun f -> f "socket closed while opening");
+      Error `Closed
+
+let select (t : t) =
+  let select t ~read ~write =
+    try UnixLabels.select ~read ~write ~except:[] ~timeout:0.001
+    with Unix.Unix_error (Unix.EBADF, _, _) ->
+      Logs.warn (fun f -> f "%a" pp t);
+      ([], [], [])
   in
-  let pid_set = PidSet.add pid old_set in
-  Hashtbl.replace t.read fd pid_set
-
-let register_write (t : t) fd pid =
-  Logs.trace (fun f -> f "registered for writing: %a" Pid.pp pid);
-  let old_set =
-    match Hashtbl.find_opt t.write fd with
-    | None -> PidSet.empty
-    | Some old_set -> old_set
+  let reads = Dashmap.entries t.read in
+  let writes = Dashmap.entries t.write in
+  let read, write =
+    let fds = List.map (fun (_, fd) -> fd) in
+    let read, write, _ = select t ~read:(fds reads) ~write:(fds writes) in
+    let read = List.filter (fun (_, fd) -> List.mem fd read) reads in
+    let write = List.filter (fun (_, fd) -> List.mem fd write) writes in
+    (read, write)
   in
-  let pid_set = PidSet.add pid old_set in
-  Hashtbl.replace t.write fd pid_set
-
-let register_except (t : t) fd pid =
-  Logs.trace (fun f -> f "registered for exceptional: %a" Pid.pp pid);
-  let old_set =
-    match Hashtbl.find_opt t.except fd with
-    | None -> PidSet.empty
-    | Some old_set -> old_set
-  in
-  let pid_set = PidSet.add pid old_set in
-  Hashtbl.replace t.except fd pid_set
-
-let get_fds pid_tbl = pid_tbl |> Hashtbl.to_seq_keys |> List.of_seq
-
-let find_pids fds pid_tbl =
-  List.map
-    (fun fd ->
-      let pid_set =
-        match Hashtbl.find_opt pid_tbl fd with
-        | None -> PidSet.empty
-        | Some pid_set -> pid_set
-      in
-      (fd, PidSet.to_list pid_set))
-    fds
-
-let rec select (t : t) =
-  try
-    let read = get_fds t.read in
-    let write = get_fds t.write in
-    let except = get_fds t.except in
-    let read, write, except =
-      UnixLabels.select ~read ~write ~except ~timeout:0.0
-    in
-    {
-      read = find_pids read t.read;
-      write = find_pids write t.write;
-      except = find_pids except t.except;
-    }
-  with
-  | Unix.Unix_error (Unix.EBADF, _, _) ->
-      Logs.error (fun f -> f "ebadf: %a" pp t);
-      { read = []; write = []; except = [] }
-  | _exn -> { read = []; write = []; except = [] }
+  { read; write }
 
 let close (t : t) fd =
-  Hashtbl.remove t.read fd;
-  Hashtbl.remove t.write fd;
-  Hashtbl.remove t.except fd;
+  let rm_fd (fd', ()) = if fd = fd' then None else Some (fd', ()) in
+  let rm_pid (pid, fd') = if fd = fd' then None else Some (pid, fd') in
+  Dashmap.update t.fds rm_fd;
+  Dashmap.update t.read rm_pid;
+  Dashmap.update t.write rm_pid;
   Unix.close fd
 
-let listen (t : t) { pid; host; port; max_requests } =
-  let addr = Unix.ADDR_INET (Unix.inet_addr_of_string host, port) in
-  let fd = Unix.socket Unix.PF_INET Unix.SOCK_STREAM 0 in
-  Unix.set_nonblock fd;
-  Unix.setsockopt fd Unix.SO_REUSEADDR true;
-  Unix.setsockopt fd Unix.SO_REUSEPORT true;
-  Unix.bind fd addr;
-  Unix.listen fd max_requests;
-  let socket = { fd; addr; addr_str = host; port; max_requests } in
-  Logs.trace (fun f -> f "listening to socket: %a" pp_socket socket);
-  register_read t socket.fd pid;
-  socket
-
-let accept (socket : socket) : accept =
+let accept (t : t) (socket : socket) : accept =
   match Unix.accept socket.fd with
   | exception Unix.(Unix_error ((EINTR | EAGAIN | EWOULDBLOCK), _, _)) -> Retry
   | exception _ -> Abort
-  | fd, client_addr -> Connected { fd; client_addr }
+  | fd, client_addr ->
+      Logs.trace (fun f -> f "connected client with fd=%d" (Obj.magic fd));
+      add_fd t fd;
+      Connected { fd; client_addr }
 
 let read (conn : connection) buf off len : read =
   match Unix.read conn.fd buf off len with

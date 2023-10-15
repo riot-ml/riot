@@ -70,9 +70,9 @@ let _spawn ?(do_link = false) (pool : Scheduler.pool) (scheduler : Scheduler.t)
           fn ();
           Normal
         with exn ->
-          Logs.debug (fun f ->
-              f "Process %a died with exception %s:\n%s" Pid.pp (self ())
-                (Printexc.to_string exn)
+          Logs.error (fun f ->
+              f "Process %a died with unhandled exception %s:\n%s" Pid.pp
+                (self ()) (Printexc.to_string exn)
                 (Printexc.get_backtrace ()));
           Exception exn)
   in
@@ -121,6 +121,4 @@ let rec wait_pids pids =
   | pid :: tail -> wait_pids (if is_process_alive pid then pids else tail)
 
 let random () = (Scheduler.get_current_scheduler ()).rnd
-
-let receive ?(select = fun _ -> Message.Take) () =
-  Effect.perform (Proc_effect.Receive { select })
+let receive ?ref () = Effect.perform (Proc_effect.Receive { ref })

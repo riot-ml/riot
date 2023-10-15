@@ -69,7 +69,6 @@ let run : type a. perform:perform -> a t -> a t =
   | Suspended (fn, e) as suspended ->
       let k : type c. (c, a) continuation -> c step -> a t =
        fun fn step ->
-        Logs.trace (fun f -> f "stepping with %a" pp_step step);
         match step with
         | Delay -> suspended
         | Continue v -> continue_with fn v

@@ -1,4 +1,4 @@
-type t = { size : int Atomic.t; mutable queue : Message.t Lf_queue.t }
+type t = { size : int Atomic.t; queue : Message.envelope Lf_queue.t }
 
 let create () = { size = Atomic.make 0; queue = Lf_queue.create () }
 

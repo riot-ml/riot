@@ -10,7 +10,7 @@ module Messages = struct
   type Message.t += Monitor of monitor | Exit of Pid.t * exit_reason
 end
 
-type state = Runnable | Waiting | Running | Exited of exit_reason
+type state = Runnable | Waiting | Running | Exited of exit_reason | Finalized
 type process_flags = { trap_exits : bool Atomic.t }
 type process_flag = Trap_exit of bool
 
@@ -23,6 +23,9 @@ type t = {
   state : state Atomic.t;
   mutable cont : exit_reason Proc_state.t;
   mailbox : Mailbox.t;
+  save_queue : Mailbox.t;
+  mutable read_save_queue : bool;
+      (** the save queue is a temporary queue used for storing messages during a selective receive *)
   links : Pid.t list Atomic.t;
   monitors : Pid.t list Atomic.t;
 }
@@ -41,6 +44,8 @@ let make sid fn =
       links = Atomic.make [];
       monitors = Atomic.make [];
       mailbox = Mailbox.create ();
+      save_queue = Mailbox.create ();
+      read_save_queue = false;
       flags = default_flags ();
     }
   in
@@ -48,8 +53,9 @@ let make sid fn =
 
 let rec pp ppf t =
   Format.fprintf ppf "Process%a { state = %a; messages = %d; flags = %a }"
-    Pid.pp t.pid pp_state (Atomic.get t.state) (Mailbox.size t.mailbox) pp_flags
-    t.flags
+    Pid.pp t.pid pp_state (Atomic.get t.state)
+    (Mailbox.size t.save_queue + Mailbox.size t.mailbox)
+    pp_flags t.flags
 
 and pp_state ppf (state : state) =
   match state with
@@ -57,6 +63,7 @@ and pp_state ppf (state : state) =
   | Waiting -> Format.fprintf ppf "Waiting"
   | Running -> Format.fprintf ppf "Running"
   | Exited e -> Format.fprintf ppf "Exited(%a)" pp_reason e
+  | Finalized -> Format.fprintf ppf "Finalized"
 
 and pp_reason ppf (t : exit_reason) =
   match t with
@@ -80,14 +87,21 @@ let links t = Atomic.get t.links
 let is_alive t =
   match Atomic.get t.state with
   | Runnable | Waiting | Running -> true
-  | Exited _ -> false
+  | Finalized | Exited _ -> false
 
-let is_exited t = match Atomic.get t.state with Exited _ -> true | _ -> false
+let is_exited t =
+  match Atomic.get t.state with Finalized | Exited _ -> true | _ -> false
+
 let is_runnable t = Atomic.get t.state = Runnable
 let is_running t = Atomic.get t.state = Running
 let is_waiting t = Atomic.get t.state = Waiting
-let has_empty_mailbox t = Mailbox.is_empty t.mailbox
-let has_messages t = not (Mailbox.is_empty t.mailbox)
+let is_finalized t = Atomic.get t.state = Finalized
+
+let has_empty_mailbox t =
+  Mailbox.is_empty t.save_queue && Mailbox.is_empty t.mailbox
+
+let has_messages t = not (has_empty_mailbox t)
+let message_count t = Mailbox.size t.mailbox + Mailbox.size t.save_queue
 let should_awake t = is_alive t && has_messages t
 
 exception Process_reviving_is_forbidden of t
@@ -123,6 +137,12 @@ let rec mark_as_exited t reason =
             reason)
     else mark_as_exited t reason
 
+let rec mark_as_finalized t =
+  let old_state = Atomic.get t.state in
+  if Atomic.compare_and_set t.state old_state Finalized then
+    Logs.trace (fun f -> f "Process %a: marked as finalized" Pid.pp t.pid)
+  else mark_as_finalized t
+
 (** `set_flag` is only called by `Riot.process_flag` which runs only on the
     current process, which means we already have a lock on it.
  *)
@@ -154,14 +174,28 @@ let rec add_monitor t monitor =
   else add_monitor t monitor
 
 let next_message t =
-  match Mailbox.next t.mailbox with
-  | Some m ->
-      Logs.trace (fun f ->
-          f "Process %a: found message in mailbox" Pid.pp t.pid);
-      Some m
-  | None -> None
+  if t.read_save_queue then (
+    match Mailbox.next t.save_queue with
+    | Some m ->
+        Logs.trace (fun f ->
+            f "Process %a: found message in save queue" Pid.pp t.pid);
+        Some m
+    | None ->
+        t.read_save_queue <- false;
+        None)
+  else
+    match Mailbox.next t.mailbox with
+    | Some m ->
+        Logs.trace (fun f ->
+            f "Process %a: found message in mailbox" Pid.pp t.pid);
+        Some m
+    | None -> None
+
+let add_to_save_queue t msg = Mailbox.queue t.save_queue msg
+let read_save_queue t = t.read_save_queue <- true
 
 let send_message t msg =
   if is_alive t then (
-    Mailbox.queue t.mailbox msg;
+    let envelope = Message.envelope msg in
+    Mailbox.queue t.mailbox envelope;
     if is_waiting t then mark_as_runnable t)

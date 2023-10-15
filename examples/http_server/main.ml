@@ -14,7 +14,6 @@ let main () =
       *)
   (* since we have several sub-loggers with prefixes, we will set them all to Debug *)
   Riot.Logger.set_log_level (Some Info);
-  Riot.Unix.Logger.set_log_level (Some Info);
   Server.Logger.set_log_level (Some Info);
   Socket.Logger.set_log_level (Some Info);
 
@@ -26,20 +25,13 @@ let main () =
 
   let (Ok _server) =
     Http_server.start_link ~port @@ fun reqd ->
-    let req = Httpaf.Reqd.request reqd in
-    Logger.debug (fun f -> f "request: %a" Httpaf.Request.pp_hum req);
-    let body =
-      Format.asprintf "%a\n"
-        (Ptime.pp_rfc3339 ~space:true ~frac_s:4 ())
-        (Ptime_clock.now ())
-    in
+    let body = "Hello World" in
     let headers =
       Httpaf.Headers.of_list
         [ ("Content-Length", Int.to_string (String.length body)) ]
     in
     let res = Httpaf.Response.create ~headers `OK in
-    Httpaf.Reqd.respond_with_string reqd res body;
-    Logger.debug (fun f -> f "response: %a" Httpaf.Response.pp_hum res)
+    Httpaf.Reqd.respond_with_string reqd res body
   in
 
   receive () |> ignore

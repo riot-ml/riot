@@ -1,6 +1,7 @@
 (tests
  (names
   spawn_and_exit
+  selective_receive
   add_monitor
   link_processes
   send_order

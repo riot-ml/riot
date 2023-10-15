@@ -1,9 +1,5 @@
-type _ Effect.t +=
-  | Receive : {
-      select : Message.t -> Message.select_marker;
-    }
-      -> Message.t Effect.t
-  | Yield : unit Effect.t
+type _ Effect.t += Receive : { ref : unit Ref.t option } -> Message.t Effect.t
+type _ Effect.t += Yield : unit Effect.t
 
 let pp : type a. Format.formatter -> a Effect.t -> unit =
  fun ppf eff ->

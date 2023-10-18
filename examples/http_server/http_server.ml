@@ -3,7 +3,7 @@ module type Handler = sig
 end
 
 module Http_protocol (H : Handler) : Server.Protocol = struct
-  open Socket.Flow
+  open Server.Flow
 
   let create_flow () =
     let module S = Httpaf.Server_connection in
@@ -22,8 +22,8 @@ end
 
 let start_link ?(port = 2112) (handler : Httpaf.Reqd.t -> unit) =
   let connector =
-    (module Server.Tcp_connector (Http_protocol (struct
+    (module Server.Tcp_connection (Http_protocol (struct
       let handler = handler
-    end)) : Server.Connector)
+    end)) : Server.Connection)
   in
   Server.start_link ~port connector ()

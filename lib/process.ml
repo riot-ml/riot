@@ -10,7 +10,14 @@ module Messages = struct
   type Message.t += Monitor of monitor | Exit of Pid.t * exit_reason
 end
 
-type state = Runnable | Waiting | Running | Exited of exit_reason | Finalized
+type state =
+  | Runnable
+  | Waiting_message
+  | Waiting_io of { syscall : string; mode : [ `r | `rw | `w ]; fd : Fd.t }
+  | Running
+  | Exited of exit_reason
+  | Finalized
+
 type process_flags = { trap_exits : bool Atomic.t }
 type process_flag = Trap_exit of bool
 
@@ -52,7 +59,7 @@ let make sid fn =
   proc
 
 let rec pp ppf t =
-  Format.fprintf ppf "Process%a { state = %a; messages = %d; flags = %a }"
+  Format.fprintf ppf "Process %a { state = %a; messages = %d; flags = %a }"
     Pid.pp t.pid pp_state (Atomic.get t.state)
     (Mailbox.size t.save_queue + Mailbox.size t.mailbox)
     pp_flags t.flags
@@ -60,7 +67,10 @@ let rec pp ppf t =
 and pp_state ppf (state : state) =
   match state with
   | Runnable -> Format.fprintf ppf "Runnable"
-  | Waiting -> Format.fprintf ppf "Waiting"
+  | Waiting_message -> Format.fprintf ppf "Waiting_message"
+  | Waiting_io { syscall; mode; fd } ->
+      let mode = match mode with `r -> "r" | `w -> "w" | `rw -> "rw" in
+      Format.fprintf ppf "Waiting_io(%s,%s,%a)" syscall mode Fd.pp fd
   | Running -> Format.fprintf ppf "Running"
   | Exited e -> Format.fprintf ppf "Exited(%a)" pp_reason e
   | Finalized -> Format.fprintf ppf "Finalized"
@@ -86,15 +96,22 @@ let links t = Atomic.get t.links
 
 let is_alive t =
   match Atomic.get t.state with
-  | Runnable | Waiting | Running -> true
+  | Runnable | Waiting_message | Waiting_io _ | Running -> true
   | Finalized | Exited _ -> false
 
 let is_exited t =
   match Atomic.get t.state with Finalized | Exited _ -> true | _ -> false
 
+let is_waiting t =
+  match Atomic.get t.state with
+  | Waiting_io _ | Waiting_message -> true
+  | _ -> false
+
+let is_waiting_io t =
+  match Atomic.get t.state with Waiting_io _ -> true | _ -> false
+
 let is_runnable t = Atomic.get t.state = Runnable
 let is_running t = Atomic.get t.state = Running
-let is_waiting t = Atomic.get t.state = Waiting
 let is_finalized t = Atomic.get t.state = Finalized
 
 let has_empty_mailbox t =
@@ -106,11 +123,20 @@ let should_awake t = is_alive t && has_messages t
 
 exception Process_reviving_is_forbidden of t
 
+let rec mark_as_awaiting_io t syscall mode fd =
+  if is_exited t then raise (Process_reviving_is_forbidden t);
+  let old_state = Atomic.get t.state in
+  if Atomic.compare_and_set t.state old_state (Waiting_io { syscall; mode; fd })
+  then
+    Logs.trace (fun f -> f "Process %a: marked as waiting for io" Pid.pp t.pid)
+  else mark_as_awaiting_io t syscall mode fd
+
 let rec mark_as_awaiting_message t =
   if is_exited t then raise (Process_reviving_is_forbidden t);
   let old_state = Atomic.get t.state in
-  if Atomic.compare_and_set t.state old_state Waiting then
-    Logs.trace (fun f -> f "Process %a: marked as waiting" Pid.pp t.pid)
+  if Atomic.compare_and_set t.state old_state Waiting_message then
+    Logs.trace (fun f ->
+        f "Process %a: marked as waiting for message" Pid.pp t.pid)
   else mark_as_awaiting_message t
 
 let rec mark_as_running t =

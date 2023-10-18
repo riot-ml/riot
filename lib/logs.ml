@@ -22,7 +22,7 @@ let level_to_color_string t =
   | Info -> ""
   | Trace -> ""
 
-let log_level = ref (Some Error)
+let log_level = ref (Some Trace)
 let set_log_level x = log_level := x
 
 let should_log x =

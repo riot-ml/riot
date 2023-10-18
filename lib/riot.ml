@@ -1,10 +1,11 @@
+module Gen_server = Gen_server
+module Logger = Logger
 module Message = Message
+module Net = Net
 module Pid = Pid
 module Process = Process
 module Ref = Ref
-module Logger = Logger
 module Socket = Socket
-module Gen_server = Gen_server
 module Supervisor = Supervisor
 
 module type Logger = Logger.Intf

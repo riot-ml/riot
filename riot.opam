@@ -12,7 +12,9 @@ bug-reports: "https://github.com/leostera/riot/issues"
 depends: [
   "ocaml" {>= "5.0"}
   "dune" {>= "3.10"}
-  "logs" {>= "0.7.0"}
+  "ptime" {>= "1.1.0"}
+  "iomux" {>= "0.3"}
+  "bigstringaf" {>= "0.9.1"}
   "odoc" {with-doc}
 ]
 build: [

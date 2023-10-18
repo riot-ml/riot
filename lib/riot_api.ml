@@ -1,6 +1,11 @@
 let trace_send = Tracer.trace_send
 let trace_proc_run = Tracer.trace_proc_run
 let _get_pool = Scheduler.Pool.get_pool
+
+let syscall name mode fd cb =
+  Effect.perform (Proc_effect.Syscall { name; mode; fd });
+  cb fd
+
 let yield () = Effect.perform Proc_effect.Yield
 let self () = Scheduler.get_current_process_pid ()
 

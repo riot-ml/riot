@@ -80,12 +80,23 @@ module Scheduler = struct
       in
       go fuel
 
-  let perform _sch (proc : Process.t) =
+  let handle_syscall k sch (proc : Process.t) syscall mode fd =
+    let open Proc_state in
+    Logs.trace (fun f ->
+        let mode = match mode with `r -> "r" | `w -> "w" | `rw -> "rw" in
+        f "Registering %a for Syscall(%s,%s,%a)" Pid.pp proc.pid syscall mode
+          Fd.pp fd);
+    Io.register sch.io_tbl proc fd;
+    Process.mark_as_awaiting_io proc syscall mode fd;
+    k Yield
+
+  let perform sch (proc : Process.t) =
     let open Proc_state in
     let open Proc_effect in
     let perform : type a b. (a, b) step_callback =
      fun k eff ->
       match eff with
+      | Syscall { name; mode; fd } -> handle_syscall k sch proc name mode fd
       | Receive { ref } -> handle_receive k proc ref
       | Yield ->
           Logs.trace (fun f ->
@@ -108,7 +119,8 @@ module Scheduler = struct
       Logs.debug (fun f -> f "Hibernated process %a" Pid.pp proc.pid);
       Logs.trace (fun f -> f "sleep_set: %d" (Proc_set.size sch.sleep_set)))
 
-  let handle_exit_proc pool _sch proc reason =
+  let handle_exit_proc pool sch proc reason =
+    Io.unregister_process sch.io_tbl proc;
     (* send monitors a process-down message *)
     let monitoring_pids = Process.monitors proc in
     Logs.debug (fun f ->
@@ -169,6 +181,10 @@ module Scheduler = struct
             match reason with Ok reason -> reason | Error exn -> Exception exn
           in
           raise_notrace (Terminated_while_running reason)
+      | _ when Process.is_waiting_io proc ->
+          Logs.trace (fun f ->
+              f "Process %a hibernated (will resume): %a" Pid.pp proc.pid
+                Process.pp proc)
       | Proc_state.Suspended _ | Proc_state.Unhandled _ ->
           Logs.trace (fun f ->
               f "Process %a suspended (will resume): %a" Pid.pp proc.pid
@@ -185,26 +201,22 @@ module Scheduler = struct
     !Tracer.tracer_proc_run (sch.uid |> Scheduler_uid.to_int) proc;
     match Process.state proc with
     | Finalized -> failwith "finalized processes should never be stepped on"
-    | Waiting -> handle_wait_proc pool sch proc
+    | Waiting_io _ -> failwith "tried to step a process that was blocked on io"
+    | Waiting_message -> handle_wait_proc pool sch proc
     | Exited reason -> handle_exit_proc pool sch proc reason
     | Running | Runnable -> handle_run_proc pool sch proc
 
   let poll_io pool (sch : t) =
-    Logs.trace (fun f -> f "io_tbl: %a" Io.pp sch.io_tbl);
-    let Io.{ read; write } = Io.select sch.io_tbl in
-
-    let send pid msg =
-      match Proc_table.get pool.processes pid with
-      | Some proc when Process.is_alive proc ->
-          Logs.trace (fun f -> f "Process%a: notifying of io" Pid.pp pid);
-          Process.send_message proc msg;
-          add_to_run_queue sch proc
-      | _ -> ()
-    in
-
-    List.iter (fun (pid, fd) -> send pid (Io.Socket_read fd)) read;
-    List.iter (fun (pid, fd) -> send pid (Io.Socket_write fd)) write;
-    ()
+    Logs.trace (fun f -> f "io_poll: %a" Io.pp sch.io_tbl);
+    Io.poll sch.io_tbl @@ fun mode proc ->
+    Logs.trace (fun f ->
+        let mode = match mode with `r -> "r" | `w -> "w" | `rw -> "rw" in
+        f "io_poll(%s): %a" mode Process.pp proc);
+    match Process.state proc with
+    | Waiting_io _ ->
+        Process.mark_as_runnable proc;
+        awake_process pool proc
+    | _ -> ()
 
   let run pool sch () =
     Logs.trace (fun f -> f "> enter worker loop");
@@ -213,11 +225,13 @@ module Scheduler = struct
        while true do
          if pool.stop then raise_notrace Exit;
 
-         (match Proc_queue.next sch.run_queue with
-         | Some proc ->
-             set_current_process_pid proc.pid;
-             step_process pool sch proc
-         | None -> ());
+         for _ = 0 to Int.min (Proc_queue.size sch.run_queue) 10 do
+           match Proc_queue.next sch.run_queue with
+           | Some proc ->
+               set_current_process_pid proc.pid;
+               step_process pool sch proc
+           | None -> ()
+         done;
 
          poll_io pool sch
        done

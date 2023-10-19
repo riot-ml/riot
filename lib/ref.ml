@@ -8,10 +8,12 @@ let rec make () =
   let current = last |> Int64.succ in
   if Atomic.compare_and_set __current__ last current then Ref last else make ()
 
-let equal : type a b. a t -> b t -> (a, b) Type.eq option =
+let equal (Ref a) (Ref b) = Int64.equal a b
+
+let type_equal : type a b. a t -> b t -> (a, b) Type.eq option =
  fun a b ->
   match (a, b) with
-  | Ref a', Ref b' when a' == b' -> Some (Obj.magic Type.Equal)
+  | Ref a', Ref b' when Int64.equal a' b' -> Some (Obj.magic Type.Equal)
   | _ -> None
 
 let is_newer (Ref a) (Ref b) = Int64.compare a b = 1

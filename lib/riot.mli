@@ -3,7 +3,8 @@ module Ref : sig
 
   val make : unit -> 'a t
   val pp : Format.formatter -> 'a t -> unit
-  val equal : 'a 'b. 'a t -> 'b t -> ('a, 'b) Type.eq option
+  val equal : 'a t -> 'b t -> bool
+  val type_equal : 'a 'b. 'a t -> 'b t -> ('a, 'b) Type.eq option
 end
 
 module Pid : sig

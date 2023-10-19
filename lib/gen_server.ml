@@ -25,7 +25,7 @@ let call : type res. Pid.t -> res req -> res =
   send pid (Call (self (), ref, req));
   match receive () with
   | Reply (ref', res) -> (
-      match Ref.equal ref ref' with
+      match Ref.type_equal ref ref' with
       | Some Type.Equal -> res
       | None -> failwith "bad message")
   | _ -> failwith "unexpected message"

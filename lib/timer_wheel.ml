@@ -19,7 +19,7 @@ module Timer = struct
     let ends_at = Ptime.Span.of_float_s time |> Option.get in
     { id; started_at; ends_at; fn; mode }
 
-  let equal a b = Ref.equal a.id b.id |> Option.is_some
+  let equal a b = Ref.equal a.id b.id
 end
 
 type t = { timers : (Timer.t, unit) Dashmap.t; mutable last_t : Ptime.t }

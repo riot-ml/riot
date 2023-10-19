@@ -3,6 +3,8 @@
   spawn_and_exit
   selective_receive
   add_monitor
+  send_after
+  send_interval
   link_processes
   send_order
   spawn_many

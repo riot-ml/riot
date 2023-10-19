@@ -1,13 +1,15 @@
 let trace_send = Tracer.trace_send
 let trace_proc_run = Tracer.trace_proc_run
 let _get_pool = Scheduler.Pool.get_pool
+let _get_sch = Scheduler.get_current_scheduler
+let self () = Scheduler.get_current_process_pid ()
 
 let syscall name mode fd cb =
   Effect.perform (Proc_effect.Syscall { name; mode; fd });
   cb fd
 
+let receive ?ref () = Effect.perform (Proc_effect.Receive { ref })
 let yield () = Effect.perform Proc_effect.Yield
-let self () = Scheduler.get_current_process_pid ()
 
 let get_proc pid =
   let pool = _get_pool () in
@@ -125,5 +127,16 @@ let rec wait_pids pids =
   | [] -> ()
   | pid :: tail -> wait_pids (if is_process_alive pid then pids else tail)
 
-let random () = (Scheduler.get_current_scheduler ()).rnd
-let receive ?ref () = Effect.perform (Proc_effect.Receive { ref })
+module Timer = struct
+  type timer = unit Ref.t
+
+  let _set_timer pid msg time mode =
+    let sch = _get_sch () in
+    let timer_ref =
+      Scheduler.set_timer sch time mode (fun () -> send pid msg)
+    in
+    Ok timer_ref
+
+  let send_after pid msg ~after:time = _set_timer pid msg time `one_off
+  let send_interval pid msg ~every:time = _set_timer pid msg time `interval
+end

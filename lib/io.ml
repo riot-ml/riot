@@ -42,7 +42,7 @@ and pp_proc_table ppf tbl =
   let entries = Dashmap.entries tbl in
   Format.fprintf ppf "[";
   List.iter
-    (fun (fd, (proc, mode)) ->
+    (fun (fd, (proc, _mode)) ->
       Format.fprintf ppf "%a:%a," Fd.pp fd Pid.pp Process.(proc.pid))
     entries;
   Format.fprintf ppf "]"
@@ -134,7 +134,7 @@ let close (_t : t) fd =
   Logs.trace (fun f -> f "closing %a" Fd.pp fd);
   Fd.close fd
 
-let listen (t : t) ~reuse_addr ~reuse_port ~backlog addr =
+let listen (_t : t) ~reuse_addr ~reuse_port ~backlog addr =
   let sock_domain = Net.Addr.to_domain addr in
   let sock_type, sock_addr = Net.Addr.to_unix addr in
   let fd = Unix.socket ~cloexec:true sock_domain sock_type 0 in
@@ -149,7 +149,7 @@ let listen (t : t) ~reuse_addr ~reuse_port ~backlog addr =
       f "listening to socket %a on %a" Fd.pp fd Net.Addr.pp addr);
   Ok fd
 
-let accept (t : t) (socket : Fd.t) : accept =
+let accept (_t : t) (socket : Fd.t) : accept =
   Fd.use ~op_name:"accept" socket @@ fun fd ->
   match Unix.accept ~cloexec:true fd with
   | raw_fd, client_addr ->

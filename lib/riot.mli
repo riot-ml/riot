@@ -121,8 +121,6 @@ val is_process_alive : Pid.t -> bool
 val wait_pids : Pid.t list -> unit
 (** Await all processes in the list to termimante. *)
 
-val random : unit -> Random.State.t
-
 val receive : ?ref:unit Ref.t -> unit -> Message.t
 (** [receive ()] will return the first message in the process mailbox.
 
@@ -346,4 +344,14 @@ module Socket : sig
     (Bigstringaf.t, [> `Closed | `Timeout ]) result
 
   val send : Bigstringaf.t -> Net.stream_socket -> (int, [> `Closed ]) result
+end
+
+module Timer : sig
+  type timer
+
+  val send_after :
+    Pid.t -> Message.t -> after:float -> (timer, [> `Timer_error ]) result
+
+  val send_interval :
+    Pid.t -> Message.t -> every:float -> (timer, [> `Timer_error ]) result
 end

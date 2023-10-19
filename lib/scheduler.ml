@@ -5,6 +5,7 @@ type t = {
   rnd : Random.State.t;
   run_queue : Proc_queue.t;
   sleep_set : Proc_set.t;
+  timers : Timer_wheel.t;
   io_tbl : Io.t;
 }
 
@@ -24,6 +25,7 @@ module Scheduler = struct
       run_queue = Proc_queue.create ();
       sleep_set = Proc_set.create ();
       io_tbl = Io.create ();
+      timers = Timer_wheel.create ();
     }
 
   let get_current_scheduler, set_current_scheduler =
@@ -37,6 +39,9 @@ module Scheduler = struct
     let sch = get_current_scheduler () in
     let rnd_idx = Random.State.int sch.rnd (List.length all_schedulers) in
     List.nth all_schedulers rnd_idx
+
+  let set_timer sch time mode fn =
+    Timer_wheel.make_timer sch.timers time mode fn
 
   let add_to_run_queue sch (proc : Process.t) =
     Proc_set.remove sch.sleep_set proc;
@@ -215,6 +220,8 @@ module Scheduler = struct
         awake_process pool proc
     | _ -> ()
 
+  let tick_timers _pool (sch : t) = Timer_wheel.tick sch.timers
+
   let run pool sch () =
     Logs.trace (fun f -> f "> enter worker loop");
     let exception Exit in
@@ -230,7 +237,8 @@ module Scheduler = struct
            | None -> ()
          done;
 
-         poll_io pool sch
+         poll_io pool sch;
+         tick_timers pool sch
        done
      with Exit -> ());
     Logs.trace (fun f -> f "< exit worker loop")

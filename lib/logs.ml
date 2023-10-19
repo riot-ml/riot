@@ -14,6 +14,14 @@ let level_to_int = function
   | Warn -> 1
   | Error -> 0
 
+let level_to_color_string t =
+  match t with
+  | Error -> "\x1b[31m"
+  | Warn -> "\x1b[33m"
+  | Debug -> "\x1b[36m"
+  | Info -> ""
+  | Trace -> ""
+
 let log_level = ref (Some Error)
 let set_log_level x = log_level := x
 
@@ -46,7 +54,8 @@ let msg : type a. level -> (a, unit) message_format -> unit =
   Format.kfprintf
     (fun _ -> Mutex.unlock log_lock)
     stdout
-    ("%a %a[thread=%d] @[" ^^ fmt ^^ "@]@.")
+    ("%s%a %a[thread=%d] @[" ^^ fmt ^^ "@]@.\x1b[0m%!")
+    (level_to_color_string level)
     (Ptime.pp_rfc3339 ~frac_s:5 ~space:true ~tz_offset_s:0 ())
     (Ptime_clock.now ()) pp_level level domain
 

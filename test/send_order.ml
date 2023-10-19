@@ -1,3 +1,5 @@
+[@@@warning "-8"]
+
 open Riot
 
 type Riot.Message.t +=
@@ -14,6 +16,8 @@ let rec loop state =
   | _ -> loop state
 
 let main () =
+  let (Ok ()) = Logger.start ~print_source:true () in
+
   let this = self () in
   let pid = spawn (fun () -> loop { messages = []; main = this }) in
   send pid (A 1);

@@ -22,7 +22,9 @@
  (depends
    (ocaml (>= "5.0"))
    dune
-   (logs (>= "0.7.0"))
+   (ptime (>= "1.1.0"))
+   (iomux (>= "0.3"))
+   (bigstringaf (>= "0.9.1"))
  )
  (tags
   (topics "to describe" your project)))

@@ -5,6 +5,7 @@ type t = {
   rnd : Random.State.t;
   run_queue : Proc_queue.t;
   sleep_set : Proc_set.t;
+  io_tbl : Io.t;
 }
 
 type pool = {
@@ -22,6 +23,7 @@ module Scheduler = struct
       rnd = Random.State.copy rnd;
       run_queue = Proc_queue.create ();
       sleep_set = Proc_set.create ();
+      io_tbl = Io.create ();
     }
 
   let get_current_scheduler, set_current_scheduler =
@@ -48,63 +50,58 @@ module Scheduler = struct
         if Scheduler_uid.equal sch.uid proc.sid then add_to_run_queue sch proc)
       pool.schedulers
 
-  let perform _sch (proc : Process.t) =
+  let handle_receive k (proc : Process.t) (ref : unit Ref.t option) =
+    let open Proc_state in
+    Logs.trace (fun f ->
+        f "Process %a: receiving messages" Pid.pp (Process.pid proc));
+    if Process.has_empty_mailbox proc then (
+      Logs.trace (fun f ->
+          f "Process %a is awaiting for new messages" Pid.pp (Process.pid proc));
+      Process.mark_as_awaiting_message proc;
+      k Delay)
+    else
+      let fuel = Process.message_count proc in
+      Logs.trace (fun f -> f "Skimming mailbox with %d messages" fuel);
+      let rec go fuel =
+        if fuel = 0 then k Delay
+        else
+          match (ref, Process.next_message proc) with
+          | _, None ->
+              Logs.trace (fun f ->
+                  f "Emptied the queue, will read from save queue next");
+              Process.read_save_queue proc;
+              k Delay
+          | Some ref, Some msg when Ref.is_newer ref msg.uid ->
+              Logs.trace (fun f ->
+                  f "Skipping msg ref=%a msg.uid=%a" Ref.pp ref Ref.pp msg.uid);
+              Process.add_to_save_queue proc msg;
+              go (fuel - 1)
+          | _, Some Message.{ msg; _ } -> k (Continue msg)
+      in
+      go fuel
+
+  let handle_syscall k sch (proc : Process.t) syscall mode fd =
+    let open Proc_state in
+    Logs.trace (fun f ->
+        let mode = match mode with `r -> "r" | `w -> "w" | `rw -> "rw" in
+        f "Registering %a for Syscall(%s,%s,%a)" Pid.pp proc.pid syscall mode
+          Fd.pp fd);
+    Io.register sch.io_tbl proc mode fd;
+    Process.mark_as_awaiting_io proc syscall mode fd;
+    k Yield
+
+  let perform sch (proc : Process.t) =
     let open Proc_state in
     let open Proc_effect in
     let perform : type a b. (a, b) step_callback =
      fun k eff ->
-      Logs.trace (fun f ->
-          f "Process %a: performing effect: %a" Pid.pp (Process.pid proc)
-            Proc_effect.pp eff);
       match eff with
+      | Syscall { name; mode; fd } -> handle_syscall k sch proc name mode fd
+      | Receive { ref } -> handle_receive k proc ref
       | Yield ->
           Logs.trace (fun f ->
               f "Process %a: yielding" Pid.pp (Process.pid proc));
           k Yield
-      (* NOTE(leostera): the selective receive algorithm goes:
-
-         * is there a new message?
-           -> no: reperform – we will essentially be blocked here until we
-                  either receive a message or we timeout (if a timeout is set)
-           -> yes: check if we should take the message
-              -> take: return the message and continue
-              -> skip: put the message on a temporary skip queue
-         * loop until the mailbox is
-      *)
-      | Receive { select } ->
-          Logs.trace (fun f ->
-              f "Process %a: receiving messages" Pid.pp (Process.pid proc));
-          if Process.has_empty_mailbox proc then (
-            Logs.debug (fun f ->
-                f "Process %a is awaiting for new messages" Pid.pp
-                  (Process.pid proc));
-            Process.mark_as_awaiting_message proc;
-            k Delay)
-          else
-            let skipped = Mailbox.create () in
-            let rec go () =
-              (* NOTE(leostera): we can get the value out of the option because
-                 the case above checks for an empty mailbox. *)
-              match Process.next_message proc with
-              | None ->
-                  let rec move () =
-                    match Mailbox.next skipped with
-                    | Some msg ->
-                        Process.send_message proc msg;
-                        move ()
-                    | None -> ()
-                  in
-                  move ();
-                  k Delay
-              | Some msg -> (
-                  match select msg with
-                  | Drop -> go ()
-                  | Take -> k (Continue msg)
-                  | Skip ->
-                      Mailbox.queue skipped msg;
-                      go ())
-            in
-            go ()
       | effect ->
           Logs.trace (fun f ->
               f "Process %a: unhandled effect" Pid.pp (Process.pid proc));
@@ -112,93 +109,111 @@ module Scheduler = struct
     in
     { perform }
 
+  let handle_wait_proc _pool sch proc =
+    if Process.has_messages proc then (
+      Process.mark_as_runnable proc;
+      Logs.debug (fun f -> f "Waking up process %a" Pid.pp proc.pid);
+      add_to_run_queue sch proc)
+    else (
+      Proc_set.add sch.sleep_set proc;
+      Logs.debug (fun f -> f "Hibernated process %a" Pid.pp proc.pid);
+      Logs.trace (fun f -> f "sleep_set: %d" (Proc_set.size sch.sleep_set)))
+
+  let handle_exit_proc pool sch proc reason =
+    Io.unregister_process sch.io_tbl proc;
+    (* send monitors a process-down message *)
+    let monitoring_pids = Process.monitors proc in
+    Logs.debug (fun f ->
+        f "notifying %d monitors" (List.length monitoring_pids));
+    List.iter
+      (fun mon_pid ->
+        match Proc_table.get pool.processes mon_pid with
+        | None -> ()
+        | Some mon_proc when Process.is_exited mon_proc ->
+            Logs.debug (fun f ->
+                f "monitoring process %a is dead, nothing to do" Pid.pp
+                  mon_proc.pid)
+        | Some mon_proc ->
+            Logs.debug (fun f ->
+                f "notified %a of %a terminating" Pid.pp mon_pid Pid.pp proc.pid);
+            let msg = Process.Messages.(Monitor (Process_down proc.pid)) in
+            Process.send_message mon_proc msg;
+            awake_process pool mon_proc)
+      monitoring_pids;
+
+    (* mark linked processes as dead *)
+    let linked_pids = Process.links proc in
+    Logs.debug (fun f ->
+        f "terminating %d processes linked to %a" (List.length linked_pids)
+          Pid.pp proc.pid);
+    List.iter
+      (fun link_pid ->
+        match Proc_table.get pool.processes link_pid with
+        | None -> ()
+        | Some linked_proc when Atomic.get linked_proc.flags.trap_exits ->
+            Logs.debug (fun f -> f "%a will trap exits" Pid.pp linked_proc.pid);
+            let msg = Process.Messages.(Exit (proc.pid, reason)) in
+            Process.send_message linked_proc msg;
+            awake_process pool linked_proc
+        | Some linked_proc when Process.is_exited linked_proc ->
+            Logs.debug (fun f ->
+                f "linked process %a is already dead, nothing to do" Pid.pp
+                  linked_proc.pid)
+        | Some linked_proc ->
+            let reason = Process.(Link_down proc.pid) in
+            Process.mark_as_exited linked_proc reason;
+            Logs.debug (fun f ->
+                f "marking linked %a as dead" Pid.pp linked_proc.pid);
+            awake_process pool linked_proc)
+      linked_pids
+
+  let handle_run_proc _pool sch proc =
+    Logs.trace (fun f -> f "Running process %a" Process.pp proc);
+    let exception Terminated_while_running of Process.exit_reason in
+    try
+      Process.mark_as_running proc;
+      let perform = perform sch proc in
+      let cont = Proc_state.run ~perform (Process.cont proc) in
+      Process.set_cont proc cont;
+      match cont with
+      | Proc_state.Finished reason ->
+          let reason =
+            match reason with Ok reason -> reason | Error exn -> Exception exn
+          in
+          raise_notrace (Terminated_while_running reason)
+      | _ when Process.is_waiting_io proc ->
+          Logs.trace (fun f ->
+              f "Process %a hibernated (will resume): %a" Pid.pp proc.pid
+                Process.pp proc)
+      | Proc_state.Suspended _ | Proc_state.Unhandled _ ->
+          Logs.trace (fun f ->
+              f "Process %a suspended (will resume): %a" Pid.pp proc.pid
+                Process.pp proc);
+          add_to_run_queue sch proc
+    with
+    | Process.Process_reviving_is_forbidden _ -> add_to_run_queue sch proc
+    | Terminated_while_running reason ->
+        Process.mark_as_exited proc reason;
+        Logs.trace (fun f -> f "Process %a finished" Pid.pp proc.pid);
+        add_to_run_queue sch proc
+
   let step_process pool sch (proc : Process.t) =
-    Logs.trace (fun f -> f "Stepping process %a" Process.pp proc);
     !Tracer.tracer_proc_run (sch.uid |> Scheduler_uid.to_int) proc;
     match Process.state proc with
-    | Waiting when Process.has_messages proc ->
-        Process.mark_as_runnable proc;
-        Logs.debug (fun f -> f "waking up process %a" Pid.pp proc.pid);
-        add_to_run_queue sch proc
-    | Waiting ->
-        Proc_set.add sch.sleep_set proc;
-        Logs.debug (fun f -> f "hibernated process %a" Pid.pp proc.pid);
-        Logs.trace (fun f -> f "sleep_set: %d" (Proc_set.size sch.sleep_set))
-    | Exited reason ->
-        (* send monitors a process-down message *)
-        let monitoring_pids = Process.monitors proc in
-        Logs.debug (fun f ->
-            f "notifying %d monitors" (List.length monitoring_pids));
-        List.iter
-          (fun mon_pid ->
-            match Proc_table.get pool.processes mon_pid with
-            | None -> ()
-            | Some mon_proc when Process.is_exited mon_proc ->
-                Logs.debug (fun f ->
-                    f "monitoring process %a is dead, nothing to do" Pid.pp
-                      mon_proc.pid)
-            | Some mon_proc ->
-                Logs.debug (fun f ->
-                    f "notified %a of %a terminating" Pid.pp mon_pid Pid.pp
-                      proc.pid);
-                let msg = Process.Messages.(Monitor (Process_down proc.pid)) in
-                Process.send_message mon_proc msg;
-                awake_process pool mon_proc)
-          monitoring_pids;
+    | Finalized -> failwith "finalized processes should never be stepped on"
+    | Waiting_io _ -> ()
+    | Waiting_message -> handle_wait_proc pool sch proc
+    | Exited reason -> handle_exit_proc pool sch proc reason
+    | Running | Runnable -> handle_run_proc pool sch proc
 
-        (* mark linked processes as dead *)
-        let linked_pids = Process.links proc in
-        Logs.debug (fun f ->
-            f "terminating %d processes linked to %a" (List.length linked_pids)
-              Pid.pp proc.pid);
-        List.iter
-          (fun link_pid ->
-            match Proc_table.get pool.processes link_pid with
-            | None -> ()
-            | Some linked_proc when Atomic.get linked_proc.flags.trap_exits ->
-                Logs.debug (fun f ->
-                    f "%a will trap exits" Pid.pp linked_proc.pid);
-                let msg = Process.Messages.(Exit (proc.pid, reason)) in
-                Process.send_message linked_proc msg;
-                awake_process pool linked_proc
-            | Some linked_proc when Process.is_exited linked_proc ->
-                Logs.debug (fun f ->
-                    f "linked process %a is already dead, nothing to do" Pid.pp
-                      linked_proc.pid)
-            | Some linked_proc ->
-                Logs.debug (fun f ->
-                    f "marking linked %a as dead" Pid.pp linked_proc.pid);
-                let reason = Process.(Link_down linked_proc.pid) in
-                Process.mark_as_exited linked_proc reason;
-                awake_process pool linked_proc)
-          linked_pids
-    | Running | Runnable -> (
-        Logs.trace (fun f -> f "Running process %a" Process.pp proc);
-        let exception Terminated_while_running of Process.exit_reason in
-        try
-          Process.mark_as_running proc;
-          let perform = perform sch proc in
-          let cont = Proc_state.run ~perform (Process.cont proc) in
-          Process.set_cont proc cont;
-          match cont with
-          | Proc_state.Finished reason ->
-              let reason =
-                match reason with
-                | Ok reason -> reason
-                | Error exn -> Exception exn
-              in
-              raise_notrace (Terminated_while_running reason)
-          | Proc_state.Suspended _ | Proc_state.Unhandled _ ->
-              Logs.trace (fun f ->
-                  f "Process %a suspended (will resume): %a" Pid.pp proc.pid
-                    Process.pp proc);
-              add_to_run_queue sch proc
-        with
-        | Process.Process_reviving_is_forbidden _ -> add_to_run_queue sch proc
-        | Terminated_while_running reason ->
-            Process.mark_as_exited proc reason;
-            Logs.trace (fun f -> f "Process %a finished" Pid.pp proc.pid);
-            add_to_run_queue sch proc)
+  let poll_io pool (sch : t) =
+    Io.poll sch.io_tbl @@ fun (proc, mode) ->
+    Logs.trace (fun f -> f "io_poll(%a): %a" Fd.Mode.pp mode Process.pp proc);
+    match Process.state proc with
+    | Waiting_io _ ->
+        Process.mark_as_runnable proc;
+        awake_process pool proc
+    | _ -> ()
 
   let run pool sch () =
     Logs.trace (fun f -> f "> enter worker loop");
@@ -207,11 +222,15 @@ module Scheduler = struct
        while true do
          if pool.stop then raise_notrace Exit;
 
-         match Proc_queue.next sch.run_queue with
-         | Some proc ->
-             set_current_process_pid proc.pid;
-             step_process pool sch proc
-         | None -> ()
+         for _ = 0 to Int.min (Proc_queue.size sch.run_queue) 10 do
+           match Proc_queue.next sch.run_queue with
+           | Some proc ->
+               set_current_process_pid proc.pid;
+               step_process pool sch proc
+           | None -> ()
+         done;
+
+         poll_io pool sch
        done
      with Exit -> ());
     Logs.trace (fun f -> f "< exit worker loop")
@@ -249,12 +268,12 @@ module Pool = struct
                 f "<<< shutting down scheduler #%a" Scheduler_uid.pp
                   scheduler.uid)
           with exn ->
-            shutdown pool;
             Logs.error (fun f ->
                 f "Scheduler.run exception: %s due to: %s%!"
                   (Printexc.to_string exn)
                   (Printexc.raw_backtrace_to_string
-                     (Printexc.get_raw_backtrace ()))))
+                     (Printexc.get_raw_backtrace ())));
+            shutdown pool)
     in
     Logs.debug (fun f -> f "Created %d schedulers" (List.length schedulers));
     (pool, List.map spawn schedulers)

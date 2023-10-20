@@ -11,7 +11,7 @@ type t = {
 (* operation types *)
 
 type op = [ `Abort of Unix.error | `Retry ]
-type accept = [ `Connected of Net.stream_socket * Net.Addr.stream_addr | op ]
+type accept = [ `Connected of Net.stream_socket * Addr.stream_addr | op ]
 type read = [ `Read of int | op ]
 type write = [ `Wrote of int | op ]
 
@@ -134,9 +134,15 @@ let close (_t : t) fd =
   Logs.trace (fun f -> f "closing %a" Fd.pp fd);
   Fd.close fd
 
+let getaddrinfo host service =
+  match Unix.getaddrinfo host service [] with
+  | addr_info -> `Ok addr_info
+  | exception Unix.(Unix_error ((EINTR | EAGAIN | EWOULDBLOCK), _, _)) -> `Retry
+  | exception Unix.(Unix_error (reason, _, _)) -> `Abort reason
+
 let listen (_t : t) ~reuse_addr ~reuse_port ~backlog addr =
-  let sock_domain = Net.Addr.to_domain addr in
-  let sock_type, sock_addr = Net.Addr.to_unix addr in
+  let sock_domain = Addr.to_domain addr in
+  let sock_type, sock_addr = Addr.to_unix addr in
   let fd = Unix.socket ~cloexec:true sock_domain sock_type 0 in
   let fd = Fd.make fd in
   Fd.use ~op_name:"listen" fd @@ fun sock ->
@@ -145,15 +151,14 @@ let listen (_t : t) ~reuse_addr ~reuse_port ~backlog addr =
   Unix.setsockopt sock Unix.SO_REUSEPORT reuse_port;
   Unix.bind sock sock_addr;
   Unix.listen sock backlog;
-  Logs.trace (fun f ->
-      f "listening to socket %a on %a" Fd.pp fd Net.Addr.pp addr);
+  Logs.trace (fun f -> f "listening to socket %a on %a" Fd.pp fd Addr.pp addr);
   Ok fd
 
 let accept (_t : t) (socket : Fd.t) : accept =
   Fd.use ~op_name:"accept" socket @@ fun fd ->
   match Unix.accept ~cloexec:true fd with
   | raw_fd, client_addr ->
-      let addr = Net.Addr.of_unix client_addr in
+      let addr = Addr.of_unix client_addr in
       let fd = Fd.make raw_fd in
       Logs.trace (fun f -> f "connected client with fd=%a" Fd.pp fd);
       `Connected (fd, addr)

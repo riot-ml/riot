@@ -295,12 +295,14 @@ module Net : sig
     type tcp_addr
     type stream_addr
 
+    val get_info : stream_addr -> stream_addr list
     val loopback : tcp_addr
-    val tcp : tcp_addr -> int -> stream_addr
-    val to_unix : stream_addr -> Unix.socket_type * Unix.sockaddr
-    val to_domain : stream_addr -> Unix.socket_domain
     val of_unix : Unix.sockaddr -> stream_addr
+    val of_uri : Uri.t -> stream_addr option
     val pp : Format.formatter -> stream_addr -> unit
+    val tcp : tcp_addr -> int -> stream_addr
+    val to_domain : stream_addr -> Unix.socket_domain
+    val to_unix : stream_addr -> Unix.socket_type * Unix.sockaddr
   end
 
   type 'kind socket
@@ -355,4 +357,18 @@ module Timer : sig
 
   val send_interval :
     Pid.t -> Message.t -> every:float -> (timer, [> `Timer_error ]) result
+end
+
+module Queue : sig
+  exception Closed
+
+  type 'a t
+
+  val push : 'a t -> 'a -> unit
+  val push_head : 'a t -> 'a -> unit
+  val close : 'a t -> unit
+  val peek : 'a t -> 'a
+  val pop : 'a t -> 'a option
+  val is_empty : 'a t -> bool
+  val create : unit -> 'a t
 end

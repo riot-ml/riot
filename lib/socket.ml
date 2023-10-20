@@ -8,7 +8,7 @@ type listen_opts = {
   reuse_addr : bool;
   reuse_port : bool;
   backlog : int;
-  addr : Net.Addr.tcp_addr;
+  addr : Addr.tcp_addr;
 }
 
 type timeout = Infinity | Bounded of float
@@ -16,12 +16,7 @@ type unix_error = [ `Unix_error of Unix.error ]
 type ('ok, 'err) result = ('ok, ([> unix_error ] as 'err)) Stdlib.result
 
 let default_listen_opts =
-  {
-    reuse_addr = true;
-    reuse_port = true;
-    backlog = 128;
-    addr = Net.Addr.loopback;
-  }
+  { reuse_addr = true; reuse_port = true; backlog = 128; addr = Addr.loopback }
 
 let close socket =
   let sch = Scheduler.get_current_scheduler () in
@@ -33,7 +28,7 @@ let close socket =
 let listen ?(opts = default_listen_opts) ~port () =
   let sch = Scheduler.get_current_scheduler () in
   let { reuse_addr; reuse_port; backlog; addr } = opts in
-  let addr = Net.Addr.tcp addr port in
+  let addr = Addr.tcp addr port in
   Logger.trace (fun f -> f "Listening on 0.0.0.0:%d" port);
   Io.listen sch.io_tbl ~reuse_port ~reuse_addr ~backlog addr
 

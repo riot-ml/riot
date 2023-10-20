@@ -1,12 +1,48 @@
 module Gen_server = Gen_server
 module Logger = Logger
 module Message = Message
-module Net = Net
+
+module Net = struct
+  module Addr = struct
+    include Addr
+
+    let of_addr_info Unix.{ ai_family; ai_addr; ai_socktype; ai_protocol; _ } =
+      match (ai_family, ai_socktype, ai_addr) with
+      | ( (Unix.PF_INET | Unix.PF_INET6),
+          (Unix.SOCK_DGRAM | Unix.SOCK_STREAM),
+          addr ) -> (
+          match ai_protocol with 6 -> Some (of_unix addr) | _ -> None)
+      | _ -> None
+
+    let rec get_info host service =
+      match Io.getaddrinfo host service with
+      | `Ok info -> List.filter_map of_addr_info info
+      | `Retry ->
+          Riot_api.yield ();
+          get_info host service
+      | `Abort _err -> failwith "getaddrinfo failed"
+
+    let of_uri uri =
+      let port =
+        match Uri.port uri with
+        | Some port -> Int.to_string port
+        | _ -> Uri.scheme uri |> Option.value ~default:"http"
+      in
+      let host = Uri.host_with_default ~default:"0.0.0.0" uri in
+      match get_info host port with ip :: _ -> Some ip | [] -> None
+
+    let get_info (`Tcp (host, port)) = get_info host (Int.to_string port)
+  end
+
+  include Net
+end
+
 module Pid = Pid
 module Process = Process
 module Ref = Ref
 module Socket = Socket
 module Supervisor = Supervisor
+module Queue = Lf_queue
 
 module type Logger = Logger.Intf
 
@@ -39,5 +75,4 @@ let run ?(rnd = Random.State.make_self_init ())
 
   Logs.debug (fun f -> f "Riot runtime shutting down...");
   List.iter Stdlib.Domain.join domains;
-  Logs.debug (fun f -> f "Riot runtime shutdown");
-  ()
+  Logs.debug (fun f -> f "Riot runtime shutdown")

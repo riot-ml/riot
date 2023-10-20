@@ -32,6 +32,20 @@ let listen ?(opts = default_listen_opts) ~port () =
   Logger.trace (fun f -> f "Listening on 0.0.0.0:%d" port);
   Io.listen sch.io_tbl ~reuse_port ~reuse_addr ~backlog addr
 
+let rec connect addr =
+  let sch = Scheduler.get_current_scheduler () in
+  Logger.error (fun f -> f "Connecting to %a" Addr.pp addr);
+  match Io.connect sch.io_tbl addr with
+  | `Connected fd -> Ok fd
+  | `In_progress fd ->
+      let this = _get_proc (self ()) in
+      Io.register sch.io_tbl this `w fd;
+      syscall "connect" `w fd @@ fun socket -> Ok socket
+  | `Abort reason -> Error (`Unix_error reason)
+  | `Retry ->
+      yield ();
+      connect addr
+
 let rec accept ?(timeout = Infinity) (socket : Net.listen_socket) =
   syscall "accept" `r socket @@ fun socket ->
   let sch = Scheduler.get_current_scheduler () in

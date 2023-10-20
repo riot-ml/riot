@@ -130,11 +130,17 @@ let poll t fn =
           |> List.iter (fun (_fd, proc) -> fn proc))
 
 (* sockets api *)
+let socket sock_domain sock_type =
+  let fd = Unix.socket ~cloexec:true sock_domain sock_type 0 in
+  Unix.set_nonblock fd;
+  Fd.make fd
+
 let close (_t : t) fd =
   Logs.trace (fun f -> f "closing %a" Fd.pp fd);
   Fd.close fd
 
 let getaddrinfo host service =
+  Logs.error (fun f -> f "getaddrinfo %s %s" host service);
   match Unix.getaddrinfo host service [] with
   | addr_info -> `Ok addr_info
   | exception Unix.(Unix_error ((EINTR | EAGAIN | EWOULDBLOCK), _, _)) -> `Retry
@@ -143,16 +149,28 @@ let getaddrinfo host service =
 let listen (_t : t) ~reuse_addr ~reuse_port ~backlog addr =
   let sock_domain = Addr.to_domain addr in
   let sock_type, sock_addr = Addr.to_unix addr in
-  let fd = Unix.socket ~cloexec:true sock_domain sock_type 0 in
-  let fd = Fd.make fd in
+  let fd = socket sock_domain sock_type in
   Fd.use ~op_name:"listen" fd @@ fun sock ->
-  Unix.set_nonblock sock;
   Unix.setsockopt sock Unix.SO_REUSEADDR reuse_addr;
   Unix.setsockopt sock Unix.SO_REUSEPORT reuse_port;
   Unix.bind sock sock_addr;
   Unix.listen sock backlog;
   Logs.trace (fun f -> f "listening to socket %a on %a" Fd.pp fd Addr.pp addr);
   Ok fd
+
+let connect (_t : t) (addr : Addr.stream_addr) =
+  Logs.error (fun f -> f "Connecting to: %a" Addr.pp addr);
+
+  let sock_domain = Addr.to_domain addr in
+  let sock_type, sock_addr = Addr.to_unix addr in
+  let fd = socket sock_domain sock_type in
+
+  Fd.use ~op_name:"connect" fd @@ fun sock ->
+  match Unix.connect sock sock_addr with
+  | () -> `Connected fd
+  | exception Unix.(Unix_error (EINPROGRESS, _, _)) -> `In_progress fd
+  | exception Unix.(Unix_error ((EINTR | EAGAIN | EWOULDBLOCK), _, _)) -> `Retry
+  | exception Unix.(Unix_error (reason, _, _)) -> `Abort reason
 
 let accept (_t : t) (socket : Fd.t) : accept =
   Fd.use ~op_name:"accept" socket @@ fun fd ->

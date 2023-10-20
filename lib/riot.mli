@@ -328,6 +328,8 @@ module Socket : sig
     unit ->
     (Net.listen_socket, [> `System_limit ]) result
 
+  val connect : Net.Addr.stream_addr -> (Net.stream_socket, [> `Closed ]) result
+
   val accept :
     ?timeout:timeout ->
     Net.listen_socket ->

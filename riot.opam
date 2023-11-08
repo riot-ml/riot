@@ -4,7 +4,7 @@ synopsis: "A short synopsis"
 description: "A longer description"
 maintainer: ["Leandro Ostera <leandro@abstractmachines.dev>"]
 authors: ["Leandro Ostera <leandro@abstractmachines.dev>"]
-license: "LICENSE"
+license: "MIT"
 tags: ["topics" "to describe" "your" "project"]
 homepage: "https://github.com/leostera/riot"
 doc: "https://github.com/leostera/riot"

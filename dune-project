@@ -11,7 +11,7 @@
 
 (maintainers "Leandro Ostera <leandro@abstractmachines.dev>")
 
-(license LICENSE)
+(license MIT)
 
 (documentation https://github.com/leostera/riot)
 

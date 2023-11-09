@@ -40,7 +40,7 @@ let rec loop : type args state. (args, state) impl -> state -> unit =
       send pid (Reply (ref, res));
       loop impl state
   | msg ->
-      let _res = I.handle_info msg state in 
+      let _res = I.handle_info msg state in
       loop impl state
 
 let start_link :

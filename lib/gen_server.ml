@@ -14,6 +14,7 @@ module type Impl = sig
 
   val init : args -> state init_result
   val handle_call : 'res. 'res req -> Pid.t -> state -> 'res
+  val handle_info : Message.t -> state -> unit
 end
 
 type ('args, 'state) impl =
@@ -38,7 +39,9 @@ let rec loop : type args state. (args, state) impl -> state -> unit =
       let res = I.handle_call req pid state in
       send pid (Reply (ref, res));
       loop impl state
-  | _ -> loop impl state
+  | msg ->
+      let _res = I.handle_info msg state in 
+      loop impl state
 
 let start_link :
     type args state. (args, state) impl -> args -> (Pid.t, exn) result =

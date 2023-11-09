@@ -3,8 +3,8 @@ type tcp_addr = [ `v4 | `v6 ] raw_addr
 type stream_addr = [ `Tcp of tcp_addr * int ]
 
 module Ipaddr = struct
-  let to_unix : tcp_addr -> Unix.inet_addr = Obj.magic
-  let of_unix : Unix.inet_addr -> tcp_addr = Obj.magic
+  let to_unix : tcp_addr -> Unix.inet_addr = Unix.inet_addr_of_string
+  let of_unix : Unix.inet_addr -> tcp_addr = Unix.string_of_inet_addr
 end
 
 let loopback : tcp_addr = "0.0.0.0"

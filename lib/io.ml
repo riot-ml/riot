@@ -155,7 +155,7 @@ let listen (_t : t) ~reuse_addr ~reuse_port ~backlog addr =
   Unix.setsockopt sock Unix.SO_REUSEPORT reuse_port;
   Unix.bind sock sock_addr;
   Unix.listen sock backlog;
-  Logs.trace (fun f -> f "listening to socket %a on %a" Fd.pp fd Addr.pp addr);
+  Logs.debug (fun f -> f "listening to socket %a on %a" Fd.pp fd Addr.pp addr);
   Ok fd
 
 let connect (_t : t) (addr : Addr.stream_addr) =

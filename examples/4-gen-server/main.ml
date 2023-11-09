@@ -36,6 +36,8 @@ module Twitch = struct
       | Is_connected -> true
       | Profile _ ->
           Ok { name = "Jonathan Archer"; email = "archer4eva@starfl.it" }
+
+    let handle_info _msg _state = ()
   end
 
   let start_link ?(verbose = false) () =

@@ -70,11 +70,14 @@ dune exec ./my_app.exe
 
 ## Acknowledgments
 
-Riot is the continuation of the work I started with [Caramel](https://github.com/leostera/caramel), an Erlang-backend for the OCaml compiler.
+Riot is the continuation of the work I started with
+[Caramel](https://github.com/leostera/caramel), an Erlang-backend for the OCaml
+compiler.
 
 It was heavily inspired by [eio][eio] by the OCaml Multicore team and
 [miou][miou] by [Calascibetta Romain](https://twitter.com/Dinoosaure) and the
-[Robur team](https://robur.coop/), as I learned more about Algebraic Effects. In particular the `Proc_state` is based on the `State` module in Miou.
+[Robur team](https://robur.coop/), as I learned more about Algebraic Effects.
+In particular the `Proc_state` is based on the `State` module in Miou.
 
 And a thousand thanks to [Calascibetta Romain](https://twitter.com/Dinoosaure)
 and [Antonio Monteiro](https://twitter.com/_anmonteiro) for the discussions and

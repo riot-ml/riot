@@ -17,16 +17,18 @@
 
 (package
  (name riot)
- (synopsis "A short synopsis")
- (description "A longer description")
+ (synopsis "An actor-model multi-core scheduler for OCaml 5")
+ (description "Riot is an actor-model multi-core scheduler for OCaml 5. It
+              brings Erlang-style concurrency to the language, where
+              lighweight process communicate via message passing")
  (depends
    (ocaml (>= "5.0"))
    dune
    (ptime (>= "1.1.0"))
    (iomux (>= "0.3"))
    (bigstringaf (>= "0.9.1"))
+   (uri (>= "4.4.0"))
+   (odoc (and :with-doc (>= "2.2.2")))
  )
  (tags
-  (topics "to describe" your project)))
-
-; See the complete stanza docs at https://dune.readthedocs.io/en/stable/dune-files.html#dune-project
+  (topics multicore erlang actor "message-passing" processes)))

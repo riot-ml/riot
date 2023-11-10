@@ -7,6 +7,5 @@
   send_interval
   link_processes
   send_order
-  spawn_many
   supervisor_shutdown)
  (libraries riot))

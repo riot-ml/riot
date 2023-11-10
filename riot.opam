@@ -19,7 +19,7 @@ depends: [
   "iomux" {>= "0.3"}
   "bigstringaf" {>= "0.9.1"}
   "uri" {>= "4.4.0"}
-  "odoc" {with-doc}
+  "odoc" {with-doc & >= "2.2.2"}
 ]
 build: [
   ["dune" "subst"] {dev}

@@ -52,7 +52,7 @@ module Flow = struct
       | [] -> `Ok total
       | Faraday.{ buffer; off; len } :: iovs -> (
           let data = Bigstringaf.sub buffer ~off ~len in
-          match Socket.send data conn with
+          match Net.Socket.send data conn with
           | Error _ -> failwith "something went wrong"
           | Ok len ->
               debug (fun f ->
@@ -65,7 +65,7 @@ module Flow = struct
 
   and do_close_write conn _flow _len =
     debug (fun f -> f "writer: closing %a" Pid.pp (self ()));
-    Socket.close conn
+    Net.Socket.close conn
 
   (** Read flow. Drives http/af to read from a Unix socket. *)
   let rec read (conn : Net.stream_socket) flow =
@@ -86,7 +86,7 @@ module Flow = struct
 
   and do_read conn flow =
     debug (fun f -> f "do read");
-    match Socket.receive ~len:128 conn with
+    match Net.Socket.receive ~len:128 conn with
     | Ok data when Bigstringaf.length data = 0 ->
         flow.read_eof ~buf:Bigstringaf.empty ~len:0;
         read conn flow
@@ -105,7 +105,7 @@ module Flow = struct
 
   and do_close conn _flow =
     debug (fun f -> f "reader: closing %a" Pid.pp (self ()));
-    Socket.close conn
+    Net.Socket.close conn
 end
 
 module type Connection = sig
@@ -147,7 +147,7 @@ module Acceptor = struct
 
   let rec accept_loop state =
     trace (fun f -> f "Awaiting connection...");
-    let (Ok (conn, client_addr)) = Socket.accept state.socket in
+    let (Ok (conn, client_addr)) = Net.Socket.accept state.socket in
     let (module Connection) = state.connection in
     let (Ok pid) = Connection.start_link conn in
     info (fun f -> f "%a: accepted connection" Net.Addr.pp client_addr);
@@ -176,7 +176,7 @@ module Acceptor = struct
     }
 
     let start_link { port; acceptors; connection } =
-      let (Ok socket) = Socket.listen ~port () in
+      let (Ok socket) = Net.Socket.listen ~port () in
       let child_specs =
         List.init acceptors (fun _ -> child_spec ~socket connection)
       in

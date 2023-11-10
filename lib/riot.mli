@@ -1,10 +1,39 @@
+(** {1 Riot}
+
+*)
+
 module Ref : sig
   type 'a t
+  (** A unique reference.
+
+      A value of `'a t` won't be created twice (but can be shared/copied),
+      which makes it ideal for coordination between processes.
+
+      Normally, you'd use a `'a Ref.t` to identify outgoing/incoming message
+      pairs, but they can also be used for type-equalities. If two refs of type
+      `'a Ref.t` and `'b Ref.t` are equal, then you can use `Ref.type_equal`
+      to obtain a type-level witness that proves that `'a` and `'b` are equal.
+  *)
 
   val make : unit -> 'a t
+  (** `make ()` creates a new unique ref. The type of the ref may be inferred
+      from context or explicitly set.
+  *)
+
   val pp : Format.formatter -> 'a t -> unit
+
   val equal : 'a t -> 'b t -> bool
+  (** `equal ref1 ref2` returns true if both references are the same,
+      regardless of the type they hold.
+
+      If the types are different, you may want to use `type_equal` instead to
+      prove type equality.
+  *)
+
   val type_equal : 'a 'b. 'a t -> 'b t -> ('a, 'b) Type.eq option
+  (** `type_equal refA refB` proves that `'a` and `'b` are equals if the
+      underlying refs are also equal.
+  *)
 end
 
 module Pid : sig
@@ -18,6 +47,8 @@ module Pid : sig
       runtime. This is typically the `main` function passed to `Riot.run` *)
 
   val equal : t -> t -> bool
+  (** `equal pid1 pid2` returns true if both pids are the same. *)
+
   val pp : Format.formatter -> t -> unit
 end
 
@@ -309,49 +340,52 @@ module Net : sig
   type 'kind socket
   type listen_socket = [ `listen ] socket
   type stream_socket = [ `stream ] socket
-end
 
-module Socket : sig
-  module Logger : Logger
+  module Socket : sig
+    module Logger : Logger
 
-  type listen_opts = {
-    reuse_addr : bool;
-    reuse_port : bool;
-    backlog : int;
-    addr : Net.Addr.tcp_addr;
-  }
+    type listen_opts = {
+      reuse_addr : bool;
+      reuse_port : bool;
+      backlog : int;
+      addr : Addr.tcp_addr;
+    }
 
-  type timeout = Infinity | Bounded of float
-  type unix_error = [ `Unix_error of Unix.error ]
-  type ('ok, 'err) result = ('ok, ([> unix_error ] as 'err)) Stdlib.result
+    type timeout = Infinity | Bounded of float
+    type unix_error = [ `Unix_error of Unix.error ]
+    type ('ok, 'err) result = ('ok, ([> unix_error ] as 'err)) Stdlib.result
 
-  val listen :
-    ?opts:listen_opts ->
-    port:int ->
-    unit ->
-    (Net.listen_socket, [> `System_limit ]) result
+    val listen :
+      ?opts:listen_opts ->
+      port:int ->
+      unit ->
+      (listen_socket, [> `System_limit ]) result
 
-  val connect : Net.Addr.stream_addr -> (Net.stream_socket, [> `Closed ]) result
+    val connect :
+      Addr.stream_addr -> (stream_socket, [> `Closed ]) result
 
-  val accept :
-    ?timeout:timeout ->
-    Net.listen_socket ->
-    ( Net.stream_socket * Net.Addr.stream_addr,
-      [> `Closed | `Timeout | `System_limit ] )
-    result
+    val accept :
+      ?timeout:timeout ->
+      listen_socket ->
+      ( stream_socket * Addr.stream_addr,
+        [> `Closed | `Timeout | `System_limit ] )
+      result
 
-  val close : _ Net.socket -> unit
+    val close : _ socket -> unit
 
-  val controlling_process :
-    _ Net.socket -> new_owner:Pid.t -> (unit, [> `Closed | `Not_owner ]) result
+    val controlling_process :
+      _ socket ->
+      new_owner:Pid.t ->
+      (unit, [> `Closed | `Not_owner ]) result
 
-  val receive :
-    ?timeout:timeout ->
-    len:int ->
-    Net.stream_socket ->
-    (Bigstringaf.t, [> `Closed | `Timeout ]) result
+    val receive :
+      ?timeout:timeout ->
+      len:int ->
+      stream_socket ->
+      (Bigstringaf.t, [> `Closed | `Timeout ]) result
 
-  val send : Bigstringaf.t -> Net.stream_socket -> (int, [> `Closed ]) result
+    val send : Bigstringaf.t -> stream_socket -> (int, [> `Closed ]) result
+  end
 end
 
 module Timer : sig

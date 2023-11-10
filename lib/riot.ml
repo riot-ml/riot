@@ -40,13 +40,14 @@ module Net = struct
     let get_info (`Tcp (host, port)) = get_info host (Int.to_string port)
   end
 
+  module Socket = Socket
+
   include Net
 end
 
 module Pid = Pid
 module Process = Process
 module Ref = Ref
-module Socket = Socket
 module Supervisor = Supervisor
 module Queue = Lf_queue
 

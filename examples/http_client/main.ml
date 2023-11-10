@@ -24,7 +24,7 @@ let main () =
   let uri = Uri.of_string "http://0.0.0.0:2112" in
   let (Some addr) = Net.Addr.of_uri uri in
   let _ =
-    match Socket.connect addr with
+    match Net.Socket.connect addr with
     | Ok _sock -> Logger.info (fun f -> f "connected!")
     | Error `Closed -> Logger.error (fun f -> f "connection closed")
     | Error (`Unix_error unix_err) ->

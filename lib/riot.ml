@@ -41,7 +41,6 @@ module Net = struct
   end
 
   module Socket = Socket
-
   include Net
 end
 

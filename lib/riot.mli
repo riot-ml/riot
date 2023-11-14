@@ -361,8 +361,7 @@ module Net : sig
       unit ->
       (listen_socket, [> `System_limit ]) result
 
-    val connect :
-      Addr.stream_addr -> (stream_socket, [> `Closed ]) result
+    val connect : Addr.stream_addr -> (stream_socket, [> `Closed ]) result
 
     val accept :
       ?timeout:timeout ->
@@ -374,9 +373,7 @@ module Net : sig
     val close : _ socket -> unit
 
     val controlling_process :
-      _ socket ->
-      new_owner:Pid.t ->
-      (unit, [> `Closed | `Not_owner ]) result
+      _ socket -> new_owner:Pid.t -> (unit, [> `Closed | `Not_owner ]) result
 
     val receive :
       ?timeout:timeout ->

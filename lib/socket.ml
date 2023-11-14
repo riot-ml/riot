@@ -57,18 +57,16 @@ let rec accept ?(timeout = Infinity) (socket : Net.listen_socket) =
 let controlling_process _socket ~new_owner:_ = Ok ()
 
 let rec receive ?(timeout = Infinity) ~len socket =
-  syscall "read" `r socket @@ fun socket ->
   let bytes = Bytes.create len in
   match Io.read socket bytes 0 len with
   | `Abort reason -> Error (`Unix_error reason)
-  | `Retry -> receive ~timeout ~len socket
+  | `Retry -> syscall "read" `r socket @@ receive ~timeout ~len
   | `Read len ->
       let data = Bigstringaf.create len in
       Bigstringaf.blit_from_bytes bytes ~src_off:0 data ~dst_off:0 ~len;
       Ok data
 
 let rec send data socket =
-  syscall "write" `w socket @@ fun socket ->
   Logger.debug (fun f -> f "sending: %S" (Bigstringaf.to_string data));
   let off = 0 in
   let len = Bigstringaf.length data in
@@ -78,7 +76,7 @@ let rec send data socket =
   | `Abort reason -> Error (`Unix_error reason)
   | `Retry ->
       Logger.debug (fun f -> f "retrying");
-      send data socket
+      syscall "write" `w socket @@ send data
   | `Wrote bytes ->
       Logger.debug (fun f -> f "sent: %S" (Bigstringaf.to_string data));
       Ok bytes

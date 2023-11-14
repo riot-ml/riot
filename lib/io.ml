@@ -174,11 +174,12 @@ let connect (_t : t) (addr : Addr.stream_addr) =
 
 let accept (_t : t) (socket : Fd.t) : accept =
   Fd.use ~op_name:"accept" socket @@ fun fd ->
+  Logs.debug (fun f -> f "Accepting client at fd=%a" Fd.pp socket);
   match Unix.accept ~cloexec:true fd with
   | raw_fd, client_addr ->
       let addr = Addr.of_unix client_addr in
       let fd = Fd.make raw_fd in
-      Logs.trace (fun f -> f "connected client with fd=%a" Fd.pp fd);
+      Logs.debug (fun f -> f "connected client with fd=%a" Fd.pp fd);
       `Connected (fd, addr)
   | exception Unix.(Unix_error ((EINTR | EAGAIN | EWOULDBLOCK), _, _)) -> `Retry
   | exception Unix.(Unix_error (reason, _, _)) -> `Abort reason

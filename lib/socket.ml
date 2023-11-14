@@ -47,11 +47,10 @@ let rec connect addr =
       connect addr
 
 let rec accept ?(timeout = Infinity) (socket : Net.listen_socket) =
-  syscall "accept" `r socket @@ fun socket ->
   let sch = Scheduler.get_current_scheduler () in
   match Io.accept sch.io_tbl socket with
   | `Abort reason -> Error (`Unix_error reason)
-  | `Retry -> accept ~timeout socket
+  | `Retry -> syscall "accept" `r socket @@ accept ~timeout
   | `Connected (socket, addr) -> Ok (socket, addr)
 
 let controlling_process _socket ~new_owner:_ = Ok ()

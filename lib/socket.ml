@@ -69,11 +69,16 @@ let rec receive ?(timeout = Infinity) ~len socket =
 
 let rec send data socket =
   syscall "write" `w socket @@ fun socket ->
+  Logger.debug (fun f -> f "sending: %S" (Bigstringaf.to_string data));
   let off = 0 in
   let len = Bigstringaf.length data in
   let bytes = Bytes.create len in
   Bigstringaf.blit_to_bytes data ~src_off:off bytes ~dst_off:0 ~len;
   match Io.write socket bytes off len with
   | `Abort reason -> Error (`Unix_error reason)
-  | `Retry -> send data socket
-  | `Wrote bytes -> Ok bytes
+  | `Retry ->
+      Logger.debug (fun f -> f "retrying");
+      send data socket
+  | `Wrote bytes ->
+      Logger.debug (fun f -> f "sent: %S" (Bigstringaf.to_string data));
+      Ok bytes

@@ -112,6 +112,9 @@ module Process : sig
   end
 end
 
+val random : unit -> Random.State.t 
+(** Returnts the current random state from a scheduler. *)
+
 val yield : unit -> unit
 (** Suspends execution of the current process and returns control to the scheduler *)
 

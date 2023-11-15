@@ -13,8 +13,6 @@
 
 (license MIT)
 
-(documentation https://github.com/leostera/riot)
-
 (package
  (name riot)
  (synopsis "An actor-model multi-core scheduler for OCaml 5")
@@ -22,7 +20,7 @@
               brings Erlang-style concurrency to the language, where
               lighweight process communicate via message passing")
  (depends
-   (ocaml (>= "5.0"))
+   (ocaml (>= "5.1"))
    dune
    (ptime (>= "1.1.0"))
    (iomux (>= "0.3"))

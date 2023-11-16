@@ -86,26 +86,25 @@ let run ?(rnd = Random.State.make_self_init ())
 module Application = struct
   module type Intf = sig
     val name : string
-    val start : unit -> (Pid.t, [> `Shutdown_reason of string ]) result
+
+    val start :
+      unit ->
+      ( Pid.t,
+        ([> `Application_error of string | `Supervisor_error ] as 'err) )
+      result
   end
-
-  type t = (module Intf)
-
-  let name (module App : Intf) = App.name
-  let start (module App : Intf) = App.start ()
 end
 
 let start ?rnd ?workers ~apps () =
   run ?rnd ?workers @@ fun () ->
   let pids =
     List.fold_left
-      (fun acc app ->
-        match (acc, Application.start app) with
+      (fun acc (module App : Application.Intf) ->
+        match (acc, App.start ()) with
         | Ok acc, Ok pid -> Ok (pid :: acc)
         | Ok _, Error error ->
             Logs.error (fun f ->
-                f "Could not start application %s due to %s"
-                  (Application.name app)
+                f "Could not start application %s due to %s" App.name
                   (Marshal.to_string error []));
             Error ()
         | Error (), _ -> acc)

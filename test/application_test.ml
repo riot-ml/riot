@@ -8,8 +8,7 @@ module Test = struct
       spawn (fun () ->
           Logger.info (fun f -> f "test started!");
           sleep 0.5;
-          shutdown ()
-          )
+          shutdown ())
     in
     Ok pid
 end

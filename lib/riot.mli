@@ -121,13 +121,13 @@ end
 module Application : sig
   module type Intf = sig
     val name : string
-    val start : unit -> (Pid.t, [> `Shutdown_reason of string ]) result
+
+    val start :
+      unit ->
+      ( Pid.t,
+        ([> `Application_error of string | `Supervisor_error ] as 'err) )
+      result
   end
-
-  type t = (module Intf)
-
-  val name : t -> string
-  val start : t -> (Pid.t, [> `Shutdown_reason of string ]) result
 end
 
 val random : unit -> Random.State.t
@@ -199,7 +199,11 @@ val run : ?rnd:Random.State.t -> ?workers:int -> (unit -> unit) -> unit
 (** Start the Riot runtime using function [main] to boot the system *)
 
 val start :
-  ?rnd:Random.State.t -> ?workers:int -> apps:Application.t list -> unit -> unit
+  ?rnd:Random.State.t ->
+  ?workers:int ->
+  apps:(module Application.Intf) list ->
+  unit ->
+  unit
 (** Start the Riot runtime with a series of applications.
 
     Each application will be started in the same order as specified, and

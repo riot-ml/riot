@@ -326,6 +326,17 @@ module Supervisor : sig
   (** Describe and start a supervisor *)
 end
 
+(* Telemetry *)
+
+module Telemetry : sig
+  include Application.Intf
+
+  type event = Telemetry.event = ..
+
+  val emit : event -> unit
+  val attach : (event -> unit) -> unit
+end
+
 (* Logger *)
 
 type ('a, 'b) logger_format =

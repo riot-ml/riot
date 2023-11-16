@@ -1,5 +1,6 @@
 module Gen_server = Gen_server
 module Logger = Logger
+module Telemetry = Telemetry_app
 module Message = Message
 
 module Net = struct

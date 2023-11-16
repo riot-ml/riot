@@ -13,4 +13,7 @@ module Test = struct
     Ok pid
 end
 
-let () = Riot.start ~apps:[ (module Riot.Logger); (module Test) ] ()
+let () =
+  Riot.start
+    ~apps:[ (module Riot.Telemetry); (module Riot.Logger); (module Test) ]
+    ()

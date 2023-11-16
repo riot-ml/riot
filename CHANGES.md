@@ -1,5 +1,11 @@
 # Changes
 
+## Unreleased
+
+* Introduce the `Application` interface for managing the lifecycle of the system
+* Fix `Riot.Logger` to fit the `Application` interface
+* Add a new `Riot.Telemetry` backend for doing async telemetry
+
 ## 0.0.2
 
 * New `Riot.random ()` API to expose current scheduler's random state

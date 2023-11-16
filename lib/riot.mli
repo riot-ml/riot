@@ -112,6 +112,24 @@ module Process : sig
   end
 end
 
+(** A Riot `Application` can be used to encapsulate functionality that must
+    share the same lifecycle. For example, the `Riot.Logger` is an Application.
+
+    Applications are also useful to orchestrate the order of startup, since
+    `Riot.start ~apps` will start them one by one.
+*)
+module Application : sig
+  module type Intf = sig
+    val name : string
+    val start : unit -> (Pid.t, [> `Shutdown_reason of string ]) result
+  end
+
+  type t = (module Intf)
+
+  val name : t -> string
+  val start : t -> (Pid.t, [> `Shutdown_reason of string ]) result
+end
+
 val random : unit -> Random.State.t
 (** Returnts the current random state from a scheduler. *)
 
@@ -179,6 +197,17 @@ val shutdown : unit -> unit
 
 val run : ?rnd:Random.State.t -> ?workers:int -> (unit -> unit) -> unit
 (** Start the Riot runtime using function [main] to boot the system *)
+
+val start :
+  ?rnd:Random.State.t -> ?workers:int -> apps:Application.t list -> unit -> unit
+(** Start the Riot runtime with a series of applications.
+
+    Each application will be started in the same order as specified, and
+    if any application fails to start up, the system will be shutdown.
+
+    Once the applications are started, they will all be monitored until they
+    are all terminated. Only then will the runtime shutdown.
+*)
 
 val trace_send : (Pid.t -> Process.t -> Message.t -> unit) -> unit
 val trace_proc_run : (int -> Process.t -> unit) -> unit
@@ -308,15 +337,10 @@ module type Logger = sig
 end
 
 module Logger : sig
-  type namespace = string list
+  include Application.Intf
 
-  val start :
-    ?print_time:bool ->
-    ?print_source:bool ->
-    ?color_output:bool ->
-    unit ->
-    (Pid.t, [> `Supervisor_error ]) result
-  (** Start the logger application. *)
+  type opts = { print_source : bool; print_time : bool; color_output : bool }
+  type namespace = string list
 
   module type Namespace = sig
     val namespace : namespace

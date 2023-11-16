@@ -82,3 +82,34 @@ let run ?(rnd = Random.State.make_self_init ())
   Logs.debug (fun f -> f "Riot runtime shutting down...");
   List.iter Stdlib.Domain.join domains;
   Logs.debug (fun f -> f "Riot runtime shutdown")
+
+module Application = struct
+  module type Intf = sig
+    val name : string
+    val start : unit -> (Pid.t, [> `Shutdown_reason of string ]) result
+  end
+
+  type t = (module Intf)
+
+  let name (module App : Intf) = App.name
+  let start (module App : Intf) = App.start ()
+end
+
+let start ?rnd ?workers ~apps () =
+  run ?rnd ?workers @@ fun () ->
+  let pids =
+    List.fold_left
+      (fun acc app ->
+        match (acc, Application.start app) with
+        | Ok acc, Ok pid -> Ok (pid :: acc)
+        | Ok _, Error error ->
+            Logs.error (fun f ->
+                f "Could not start application %s due to %s"
+                  (Application.name app)
+                  (Marshal.to_string error []));
+            Error ()
+        | Error (), _ -> acc)
+      (Ok []) apps
+    |> Result.get_ok
+  in
+  wait_pids pids

@@ -1,5 +1,6 @@
 (tests
  (names
+  application_test
   spawn_and_exit
   selective_receive
   add_monitor

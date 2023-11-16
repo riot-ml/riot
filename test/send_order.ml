@@ -16,7 +16,7 @@ let rec loop state =
   | _ -> loop state
 
 let main () =
-  let (Ok _) = Logger.start ~print_source:true () in
+  let (Ok _) = Logger.start () in
 
   let this = self () in
   let pid = spawn (fun () -> loop { messages = []; main = this }) in

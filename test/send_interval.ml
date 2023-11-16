@@ -5,7 +5,7 @@ open Riot
 type Message.t += A
 
 let main () =
-  let (Ok _) = Logger.start ~print_source:true () in
+  let (Ok _) = Logger.start () in
   let this = self () in
 
   let (Ok _timer) = Timer.send_interval this A ~every:0.5 in

@@ -1,6 +1,6 @@
 open Riot_api
 
-type config = { print_source : bool; print_time : bool; color_output : bool }
+type opts = { print_source : bool; print_time : bool; color_output : bool }
 
 type ('a, 'b) logger_format =
   (('a, Format.formatter, unit, 'b) format4 -> 'a) -> 'b
@@ -153,7 +153,9 @@ include Make (struct
   let namespace = []
 end)
 
-let start ?(print_time = false) ?(print_source = false) ?(color_output = true)
-    () =
-  let state = { print_time; print_source; color_output } in
-  Logger.start_link state
+let name = "Riot.Logger"
+
+let default_opts =
+  { print_time = false; print_source = false; color_output = true }
+
+let start () = Logger.start_link default_opts

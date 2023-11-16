@@ -18,7 +18,7 @@ let rec collect_messages ref count =
     msg :: collect_messages ref (count - 1)
 
 let main () =
-  let (Ok ()) = Logger.start ~print_source:true () in
+  let (Ok _) = Logger.start ~print_source:true () in
   let this = self () in
   let pid1 = spawn (fun () -> loop this) in
 

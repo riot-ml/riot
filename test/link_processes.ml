@@ -7,7 +7,7 @@ let rec loop () =
   loop ()
 
 let main () =
-  let (Ok ()) = Logger.start () in
+  let (Ok _) = Logger.start () in
 
   (* spin up and wait for 1 second before terminating *)
   let pid1 = spawn (fun () -> loop ()) in

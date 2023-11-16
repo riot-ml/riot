@@ -48,7 +48,7 @@ module Twitch = struct
 end
 
 let main () =
-  let (Ok ()) = Logger.start () in
+  let (Ok _) = Logger.start () in
   let (Ok pid) = Twitch.start_link () in
   if Twitch.is_connected pid then Logger.info (fun f -> f "connected to twitch");
   let (Ok user) = Twitch.profile pid ~id:1 in

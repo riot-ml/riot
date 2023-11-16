@@ -112,7 +112,7 @@ module Process : sig
   end
 end
 
-val random : unit -> Random.State.t 
+val random : unit -> Random.State.t
 (** Returnts the current random state from a scheduler. *)
 
 val yield : unit -> unit
@@ -149,6 +149,7 @@ val monitor : Pid.t -> Pid.t -> unit
 (** Makes [pid1] a monitor of [pid2]. When [pid2] terminates, [pid1] will receive a message. *)
 
 val processes : unit -> (Pid.t * Process.t) Seq.t
+(** `processes ()` will list all the processes currently alive. *)
 
 val is_process_alive : Pid.t -> bool
 (** Returns true if the process [pid] is still alive. *)
@@ -314,7 +315,7 @@ module Logger : sig
     ?print_source:bool ->
     ?color_output:bool ->
     unit ->
-    (unit, [> `Supervisor_error ]) result
+    (Pid.t, [> `Supervisor_error ]) result
   (** Start the logger application. *)
 
   module type Namespace = sig

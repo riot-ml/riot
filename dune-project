@@ -16,9 +16,7 @@
 (package
  (name riot)
  (synopsis "An actor-model multi-core scheduler for OCaml 5")
- (description "Riot is an actor-model multi-core scheduler for OCaml 5. It
-              brings Erlang-style concurrency to the language, where
-              lighweight process communicate via message passing")
+ (description "Riot is an actor-model multi-core scheduler for OCaml 5. It brings Erlang-style concurrency to the language, where lighweight process communicate via message passing")
  (depends
    (ocaml (>= "5.1"))
    dune

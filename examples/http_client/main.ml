@@ -17,7 +17,9 @@ let main () =
 
   (* now if we want to see our logs we shoulds tart our Logger
      note: there's only one logger process tree! even if we have multiple logger clients *)
-  Riot.Logger.start ~print_time:true ~print_source:true () |> Result.get_ok;
+  let _ =
+    Riot.Logger.start ~print_time:true ~print_source:true () |> Result.get_ok
+  in
   yield ();
   Logger.info (fun f -> f "Fetching google.com");
 

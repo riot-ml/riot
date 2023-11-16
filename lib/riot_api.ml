@@ -16,7 +16,6 @@ let syscall name mode fd cb =
 
 let receive ?ref () = Effect.perform (Proc_effect.Receive { ref })
 let yield () = Effect.perform Proc_effect.Yield
-
 let random () = (_get_sch ()).rnd
 
 let sleep time =

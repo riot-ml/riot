@@ -156,4 +156,4 @@ end)
 let start ?(print_time = false) ?(print_source = false) ?(color_output = true)
     () =
   let state = { print_time; print_source; color_output } in
-  Logger.start_link state |> Result.map (fun _ -> ())
+  Logger.start_link state

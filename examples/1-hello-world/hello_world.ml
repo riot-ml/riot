@@ -5,7 +5,7 @@ let say_hello () =
 
 let () =
   Riot.run @@ fun () ->
-  Logger.start () |> Result.get_ok;
+  let _ = Logger.start () |> Result.get_ok in
 
   say_hello ();
 

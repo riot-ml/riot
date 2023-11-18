@@ -1,3 +1,4 @@
 (library
  (public_name riot.util)
- (name util))
+ (name util)
+ (libraries log unix))

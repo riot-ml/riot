@@ -14,3 +14,5 @@ val start_link :
   child_specs:child_spec list ->
   unit ->
   (Pid.t, 'a) result
+
+val children : Pid.t -> Pid.t list

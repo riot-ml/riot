@@ -34,7 +34,7 @@ let create () = { timers = Dashmap.create (); last_t = Ptime_clock.now () }
 
 let make_timer t time mode fn =
   let timer = Timer.make time mode fn in
-  Logs.trace (fun f -> f "Making timer: %a" Timer.pp timer);
+  Log.trace (fun f -> f "Making timer: %a" Timer.pp timer);
   Dashmap.insert t.timers timer ();
   timer.id
 
@@ -45,7 +45,7 @@ let ends_at now t1 =
 let run_timer t now (timer, ()) =
   let open Timer in
   let ends_at = ends_at timer.started_at timer.ends_at in
-  Logs.trace (fun f ->
+  Log.trace (fun f ->
       f "Running timer %a with ends_at=%a" Timer.pp timer (Ptime.pp_rfc3339 ())
         ends_at);
   if Ptime.is_earlier now ~than:ends_at then ()

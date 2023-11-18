@@ -8,7 +8,7 @@ let shutdown () =
 
 let run ?(rnd = Random.State.make_self_init ())
     ?(workers = max 0 (Stdlib.Domain.recommended_domain_count () - 1)) main =
-  Logs.debug (fun f -> f "Initializing Riot runtime...");
+  Log.debug (fun f -> f "Initializing Riot runtime...");
   Printexc.record_backtrace true;
   Pid.reset ();
   Scheduler.Uid.reset ();
@@ -22,9 +22,9 @@ let run ?(rnd = Random.State.make_self_init ())
   let _pid = _spawn pool sch0 main in
   Scheduler.run pool sch0 ();
 
-  Logs.debug (fun f -> f "Riot runtime shutting down...");
+  Log.debug (fun f -> f "Riot runtime shutting down...");
   List.iter Stdlib.Domain.join domains;
-  Logs.debug (fun f -> f "Riot runtime shutdown")
+  Log.debug (fun f -> f "Riot runtime shutdown")
 
 let start ?rnd ?workers ~apps () =
   run ?rnd ?workers @@ fun () ->
@@ -34,7 +34,7 @@ let start ?rnd ?workers ~apps () =
         match (acc, App.start ()) with
         | Ok acc, Ok pid -> Ok (pid :: acc)
         | Ok _, Error error ->
-            Logs.error (fun f ->
+            Logger.error (fun f ->
                 f "Could not start application %s due to %s" App.name
                   (Marshal.to_string error []));
             Error ()

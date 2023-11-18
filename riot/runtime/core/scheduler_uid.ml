@@ -12,5 +12,5 @@ let pp ppf t = Format.fprintf ppf "%02d" t
 let to_int t = t
 
 let reset () =
-  Logs.debug (fun f -> f "Resetting Scheduler Uids");
+  Log.debug (fun f -> f "Resetting Scheduler Uids");
   Atomic.set __current__ 0

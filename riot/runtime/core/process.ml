@@ -43,7 +43,7 @@ type t = {
 let make sid fn =
   let cont = Proc_state.make fn Proc_effect.Yield in
   let pid = Pid.next () in
-  Logs.debug (fun f -> f "Making process with pid: %a" Pid.pp pid);
+  Log.debug (fun f -> f "Making process with pid: %a" Pid.pp pid);
   let proc =
     {
       pid;
@@ -129,14 +129,14 @@ let rec mark_as_awaiting_io t syscall mode fd =
   let old_state = Atomic.get t.state in
   if Atomic.compare_and_set t.state old_state (Waiting_io { syscall; mode; fd })
   then
-    Logs.trace (fun f -> f "Process %a: marked as waiting for io" Pid.pp t.pid)
+    Log.trace (fun f -> f "Process %a: marked as waiting for io" Pid.pp t.pid)
   else mark_as_awaiting_io t syscall mode fd
 
 let rec mark_as_awaiting_message t =
   if is_exited t then raise (Process_reviving_is_forbidden t);
   let old_state = Atomic.get t.state in
   if Atomic.compare_and_set t.state old_state Waiting_message then
-    Logs.trace (fun f ->
+    Log.trace (fun f ->
         f "Process %a: marked as waiting for message" Pid.pp t.pid)
   else mark_as_awaiting_message t
 
@@ -144,14 +144,14 @@ let rec mark_as_running t =
   if is_exited t then raise (Process_reviving_is_forbidden t);
   let old_state = Atomic.get t.state in
   if Atomic.compare_and_set t.state old_state Running then
-    Logs.trace (fun f -> f "Process %a: marked as running" Pid.pp t.pid)
+    Log.trace (fun f -> f "Process %a: marked as running" Pid.pp t.pid)
   else mark_as_running t
 
 let rec mark_as_runnable t =
   if is_exited t then raise (Process_reviving_is_forbidden t);
   let old_state = Atomic.get t.state in
   if Atomic.compare_and_set t.state old_state Runnable then
-    Logs.trace (fun f -> f "Process %a: marked as runnable" Pid.pp t.pid)
+    Log.trace (fun f -> f "Process %a: marked as runnable" Pid.pp t.pid)
   else mark_as_runnable t
 
 let rec mark_as_exited t reason =
@@ -159,7 +159,7 @@ let rec mark_as_exited t reason =
   else
     let old_state = Atomic.get t.state in
     if Atomic.compare_and_set t.state old_state (Exited reason) then
-      Logs.trace (fun f ->
+      Log.trace (fun f ->
           f "Process %a: marked as exited with reason %a" Pid.pp t.pid pp_reason
             reason)
     else mark_as_exited t reason
@@ -167,7 +167,7 @@ let rec mark_as_exited t reason =
 let rec mark_as_finalized t =
   let old_state = Atomic.get t.state in
   if Atomic.compare_and_set t.state old_state Finalized then
-    Logs.trace (fun f -> f "Process %a: marked as finalized" Pid.pp t.pid)
+    Log.trace (fun f -> f "Process %a: marked as finalized" Pid.pp t.pid)
   else mark_as_finalized t
 
 (** `set_flag` is only called by `Riot.process_flag` which runs only on the
@@ -186,7 +186,7 @@ let rec add_link t link =
   let old_links = Atomic.get t.links in
   let new_links = link :: old_links in
   if Atomic.compare_and_set t.links old_links new_links then (
-    Logs.trace (fun f ->
+    Log.trace (fun f ->
         f "Process %a: adding link to %a" Pid.pp t.pid Pid.pp link);
     ())
   else add_link t link
@@ -195,7 +195,7 @@ let rec add_monitor t monitor =
   let old_monitors = Atomic.get t.monitors in
   let new_monitors = monitor :: old_monitors in
   if Atomic.compare_and_set t.monitors old_monitors new_monitors then (
-    Logs.trace (fun f ->
+    Log.trace (fun f ->
         f "Process %a: adding monitor to %a" Pid.pp t.pid Pid.pp monitor);
     ())
   else add_monitor t monitor
@@ -204,7 +204,7 @@ let next_message t =
   if t.read_save_queue then (
     match Mailbox.next t.save_queue with
     | Some m ->
-        Logs.trace (fun f ->
+        Log.trace (fun f ->
             f "Process %a: found message in save queue" Pid.pp t.pid);
         Some m
     | None ->
@@ -213,7 +213,7 @@ let next_message t =
   else
     match Mailbox.next t.mailbox with
     | Some m ->
-        Logs.trace (fun f ->
+        Log.trace (fun f ->
             f "Process %a: found message in mailbox" Pid.pp t.pid);
         Some m
     | None -> None

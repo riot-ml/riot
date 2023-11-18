@@ -32,14 +32,14 @@ let sleep time =
 let process_flag flag =
   let this = self () in
   let proc = _get_proc this in
-  Logs.trace (fun f -> f "Process %a: updating process flag" Pid.pp this);
+  Log.trace (fun f -> f "Process %a: updating process flag" Pid.pp this);
   Process.set_flag proc flag
 
 let exit pid reason =
   let pool = _get_pool () in
   match Proc_table.get pool.processes pid with
   | Some proc ->
-      Logs.debug (fun f -> f "%a exited by %a" Pid.pp proc.pid Pid.pp (self ()));
+      Log.debug (fun f -> f "%a exited by %a" Pid.pp proc.pid Pid.pp (self ()));
       Process.mark_as_exited proc reason
   | None -> ()
 
@@ -52,9 +52,9 @@ let send pid msg =
   | Some proc ->
       Process.send_message proc msg;
       Scheduler.awake_process pool proc;
-      Logs.trace (fun f ->
+      Log.trace (fun f ->
           f "sent message from %a to %a" Pid.pp (self ()) Process.pp proc)
-  | None -> Logs.debug (fun f -> f "COULD NOT DELIVER message to %a" Pid.pp pid)
+  | None -> Log.debug (fun f -> f "COULD NOT DELIVER message to %a" Pid.pp pid)
 
 exception Link_no_process of Pid.t
 
@@ -64,7 +64,7 @@ let _link (proc1 : Process.t) (proc2 : Process.t) =
 
 let link pid =
   let this = self () in
-  Logs.debug (fun f -> f "linking %a <-> %a" Pid.pp this Pid.pp pid);
+  Log.debug (fun f -> f "linking %a <-> %a" Pid.pp this Pid.pp pid);
   let pool = _get_pool () in
   let this_proc = _get_proc this in
   match Proc_table.get pool.processes pid with
@@ -81,7 +81,7 @@ let _spawn ?(do_link = false) (pool : Scheduler.pool) (scheduler : Scheduler.t)
           fn ();
           Normal
         with exn ->
-          Logs.error (fun f ->
+          Log.error (fun f ->
               f "Process %a died with unhandled exception %s:\n%s" Pid.pp
                 (self ()) (Printexc.to_string exn)
                 (Printexc.get_backtrace ()));
@@ -90,7 +90,7 @@ let _spawn ?(do_link = false) (pool : Scheduler.pool) (scheduler : Scheduler.t)
 
   if do_link then (
     let this = self () in
-    Logs.debug (fun f -> f "linking %a <-> %a" Pid.pp this Pid.pp proc.pid);
+    Log.debug (fun f -> f "linking %a <-> %a" Pid.pp this Pid.pp proc.pid);
     let this_proc = _get_proc this in
     _link this_proc proc);
 

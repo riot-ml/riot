@@ -1,4 +1,4 @@
 (library
  (public_name riot.net)
  (name net)
- (libraries core util logs iomux uri unix telemetry bigstringaf))
+ (libraries core util log iomux uri unix telemetry bigstringaf))

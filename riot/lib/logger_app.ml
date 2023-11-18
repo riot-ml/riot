@@ -36,13 +36,13 @@ module Formatter = struct
   let child_spec config = Supervisor.child_spec ~start_link config
 end
 
-let start_link config =
-  let child_specs = [ Formatter.child_spec config ] in
-  Supervisor.start_link ~child_specs ()
-
 let name = "Riot.Logger"
 
 let default_opts =
   { print_time = false; print_source = false; color_output = true }
 
-let start () = start_link default_opts
+let start () =
+  let child_specs = [ Formatter.child_spec default_opts ] in
+  let (Ok pid) = Supervisor.start_link ~child_specs () in
+  Ok pid
+[@@warning "-8"]

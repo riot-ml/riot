@@ -23,7 +23,7 @@ type pool = {
 module Scheduler = struct
   let make ~rnd () =
     let uid = Uid.next () in
-    Logs.debug (fun f -> f "Making scheduler with id: %a" Uid.pp uid);
+    Log.debug (fun f -> f "Making scheduler with id: %a" Uid.pp uid);
     {
       uid;
       rnd = Random.State.copy rnd;
@@ -51,7 +51,7 @@ module Scheduler = struct
   let add_to_run_queue sch (proc : Process.t) =
     Proc_set.remove sch.sleep_set proc;
     Proc_queue.queue sch.run_queue proc;
-    Logs.trace (fun f ->
+    Log.trace (fun f ->
         f "Adding process to run_queue queue: %a" Pid.pp proc.pid)
 
   let awake_process pool (proc : Process.t) =
@@ -62,27 +62,27 @@ module Scheduler = struct
 
   let handle_receive k (proc : Process.t) (ref : unit Ref.t option) =
     let open Proc_state in
-    Logs.trace (fun f ->
+    Log.trace (fun f ->
         f "Process %a: receiving messages" Pid.pp (Process.pid proc));
     if Process.has_empty_mailbox proc then (
-      Logs.trace (fun f ->
+      Log.trace (fun f ->
           f "Process %a is awaiting for new messages" Pid.pp (Process.pid proc));
       Process.mark_as_awaiting_message proc;
       k Delay)
     else
       let fuel = Process.message_count proc in
-      Logs.trace (fun f -> f "Skimming mailbox with %d messages" fuel);
+      Log.trace (fun f -> f "Skimming mailbox with %d messages" fuel);
       let rec go fuel =
         if fuel = 0 then k Delay
         else
           match (ref, Process.next_message proc) with
           | _, None ->
-              Logs.trace (fun f ->
+              Log.trace (fun f ->
                   f "Emptied the queue, will read from save queue next");
               Process.read_save_queue proc;
               k Delay
           | Some ref, Some msg when Ref.is_newer ref msg.uid ->
-              Logs.trace (fun f ->
+              Log.trace (fun f ->
                   f "Skipping msg ref=%a msg.uid=%a" Ref.pp ref Ref.pp msg.uid);
               Process.add_to_save_queue proc msg;
               go (fuel - 1)
@@ -92,7 +92,7 @@ module Scheduler = struct
 
   let handle_syscall k sch (proc : Process.t) syscall mode fd =
     let open Proc_state in
-    Logs.trace (fun f ->
+    Log.trace (fun f ->
         let mode = match mode with `r -> "r" | `w -> "w" | `rw -> "rw" in
         f "Registering %a for Syscall(%s,%s,%a)" Pid.pp proc.pid syscall mode
           Fd.pp fd);
@@ -109,11 +109,11 @@ module Scheduler = struct
       | Syscall { name; mode; fd } -> handle_syscall k sch proc name mode fd
       | Receive { ref } -> handle_receive k proc ref
       | Yield ->
-          Logs.trace (fun f ->
+          Log.trace (fun f ->
               f "Process %a: yielding" Pid.pp (Process.pid proc));
           k Yield
       | effect ->
-          Logs.trace (fun f ->
+          Log.trace (fun f ->
               f "Process %a: unhandled effect" Pid.pp (Process.pid proc));
           k (Reperform effect)
     in
@@ -122,29 +122,28 @@ module Scheduler = struct
   let handle_wait_proc _pool sch proc =
     if Process.has_messages proc then (
       Process.mark_as_runnable proc;
-      Logs.debug (fun f -> f "Waking up process %a" Pid.pp proc.pid);
+      Log.debug (fun f -> f "Waking up process %a" Pid.pp proc.pid);
       add_to_run_queue sch proc)
     else (
       Proc_set.add sch.sleep_set proc;
-      Logs.debug (fun f -> f "Hibernated process %a" Pid.pp proc.pid);
-      Logs.trace (fun f -> f "sleep_set: %d" (Proc_set.size sch.sleep_set)))
+      Log.debug (fun f -> f "Hibernated process %a" Pid.pp proc.pid);
+      Log.trace (fun f -> f "sleep_set: %d" (Proc_set.size sch.sleep_set)))
 
   let handle_exit_proc pool sch proc reason =
     Io.unregister_process sch.io_tbl proc;
     (* send monitors a process-down message *)
     let monitoring_pids = Process.monitors proc in
-    Logs.debug (fun f ->
-        f "notifying %d monitors" (List.length monitoring_pids));
+    Log.debug (fun f -> f "notifying %d monitors" (List.length monitoring_pids));
     List.iter
       (fun mon_pid ->
         match Proc_table.get pool.processes mon_pid with
         | None -> ()
         | Some mon_proc when Process.is_exited mon_proc ->
-            Logs.debug (fun f ->
+            Log.debug (fun f ->
                 f "monitoring process %a is dead, nothing to do" Pid.pp
                   mon_proc.pid)
         | Some mon_proc ->
-            Logs.debug (fun f ->
+            Log.debug (fun f ->
                 f "notified %a of %a terminating" Pid.pp mon_pid Pid.pp proc.pid);
             let msg = Process.Messages.(Monitor (Process_down proc.pid)) in
             Process.send_message mon_proc msg;
@@ -153,7 +152,7 @@ module Scheduler = struct
 
     (* mark linked processes as dead *)
     let linked_pids = Process.links proc in
-    Logs.debug (fun f ->
+    Log.debug (fun f ->
         f "terminating %d processes linked to %a" (List.length linked_pids)
           Pid.pp proc.pid);
     List.iter
@@ -161,24 +160,24 @@ module Scheduler = struct
         match Proc_table.get pool.processes link_pid with
         | None -> ()
         | Some linked_proc when Atomic.get linked_proc.flags.trap_exits ->
-            Logs.debug (fun f -> f "%a will trap exits" Pid.pp linked_proc.pid);
+            Log.debug (fun f -> f "%a will trap exits" Pid.pp linked_proc.pid);
             let msg = Process.Messages.(Exit (proc.pid, reason)) in
             Process.send_message linked_proc msg;
             awake_process pool linked_proc
         | Some linked_proc when Process.is_exited linked_proc ->
-            Logs.debug (fun f ->
+            Log.debug (fun f ->
                 f "linked process %a is already dead, nothing to do" Pid.pp
                   linked_proc.pid)
         | Some linked_proc ->
             let reason = Process.(Link_down proc.pid) in
             Process.mark_as_exited linked_proc reason;
-            Logs.debug (fun f ->
+            Log.debug (fun f ->
                 f "marking linked %a as dead" Pid.pp linked_proc.pid);
             awake_process pool linked_proc)
       linked_pids
 
   let handle_run_proc _pool sch proc =
-    Logs.trace (fun f -> f "Running process %a" Process.pp proc);
+    Log.trace (fun f -> f "Running process %a" Process.pp proc);
     let exception Terminated_while_running of Process.exit_reason in
     try
       Process.mark_as_running proc;
@@ -192,11 +191,11 @@ module Scheduler = struct
           in
           raise_notrace (Terminated_while_running reason)
       | _ when Process.is_waiting_io proc ->
-          Logs.trace (fun f ->
+          Log.trace (fun f ->
               f "Process %a hibernated (will resume): %a" Pid.pp proc.pid
                 Process.pp proc)
       | Proc_state.Suspended _ | Proc_state.Unhandled _ ->
-          Logs.trace (fun f ->
+          Log.trace (fun f ->
               f "Process %a suspended (will resume): %a" Pid.pp proc.pid
                 Process.pp proc);
           add_to_run_queue sch proc
@@ -204,7 +203,7 @@ module Scheduler = struct
     | Process.Process_reviving_is_forbidden _ -> add_to_run_queue sch proc
     | Terminated_while_running reason ->
         Process.mark_as_exited proc reason;
-        Logs.trace (fun f -> f "Process %a finished" Pid.pp proc.pid);
+        Log.trace (fun f -> f "Process %a finished" Pid.pp proc.pid);
         add_to_run_queue sch proc
 
   let step_process pool sch (proc : Process.t) =
@@ -218,7 +217,7 @@ module Scheduler = struct
 
   let poll_io pool (sch : t) =
     Io.poll sch.io_tbl @@ fun (proc, mode) ->
-    Logs.trace (fun f -> f "io_poll(%a): %a" Fd.Mode.pp mode Process.pp proc);
+    Log.trace (fun f -> f "io_poll(%a): %a" Fd.Mode.pp mode Process.pp proc);
     match Process.state proc with
     | Waiting_io _ ->
         Process.mark_as_runnable proc;
@@ -228,7 +227,7 @@ module Scheduler = struct
   let tick_timers _pool (sch : t) = Timer_wheel.tick sch.timers
 
   let run pool sch () =
-    Logs.trace (fun f -> f "> enter worker loop");
+    Log.trace (fun f -> f "> enter worker loop");
     let exception Exit in
     (try
        while true do
@@ -246,7 +245,7 @@ module Scheduler = struct
          tick_timers pool sch
        done
      with Exit -> ());
-    Logs.trace (fun f -> f "< exit worker loop")
+    Log.trace (fun f -> f "< exit worker loop")
 end
 
 include Scheduler
@@ -255,14 +254,14 @@ module Pool = struct
   let get_pool, set_pool = Thread_local.make ~name:"POOL"
 
   let shutdown pool =
-    Logs.trace (fun f -> f "shutdown called");
+    Log.trace (fun f -> f "shutdown called");
     pool.stop <- true
 
   let register_process pool _scheduler proc =
     Proc_table.register_process pool.processes proc
 
   let make ?(rnd = Random.State.make_self_init ()) ~domains ~main () =
-    Logs.debug (fun f -> f "Making scheduler pool...");
+    Log.debug (fun f -> f "Making scheduler pool...");
     let schedulers = List.init domains @@ fun _ -> Scheduler.make ~rnd () in
     let pool =
       {
@@ -277,17 +276,17 @@ module Pool = struct
           Scheduler.set_current_scheduler scheduler;
           try
             Scheduler.run pool scheduler ();
-            Logs.trace (fun f ->
+            Log.trace (fun f ->
                 f "<<< shutting down scheduler #%a" Scheduler_uid.pp
                   scheduler.uid)
           with exn ->
-            Logs.error (fun f ->
+            Log.error (fun f ->
                 f "Scheduler.run exception: %s due to: %s%!"
                   (Printexc.to_string exn)
                   (Printexc.raw_backtrace_to_string
                      (Printexc.get_raw_backtrace ())));
             shutdown pool)
     in
-    Logs.debug (fun f -> f "Created %d schedulers" (List.length schedulers));
+    Log.debug (fun f -> f "Created %d schedulers" (List.length schedulers));
     (pool, List.map spawn schedulers)
 end

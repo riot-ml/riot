@@ -15,5 +15,5 @@ let compare a b = Int64.compare a._id b._id
 let hash t = Int64.hash t._id
 
 let reset () =
-  Logs.debug (fun f -> f "Resetting Process Ids");
+  Log.debug (fun f -> f "Resetting Process Ids");
   Atomic.set __current__ 1L

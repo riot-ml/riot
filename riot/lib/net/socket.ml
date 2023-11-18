@@ -19,7 +19,7 @@ let default_listen_opts =
 let close socket =
   let sch = Scheduler.get_current_scheduler () in
   let this = self () in
-  Logs.trace (fun f ->
+  Logger.trace (fun f ->
       f "Process %a: Closing socket fd=%a" Pid.pp this Fd.pp socket);
   Io.close sch.io_tbl socket
 

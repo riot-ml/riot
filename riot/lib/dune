@@ -1,0 +1,4 @@
+(library
+ (public_name riot.lib)
+ (name lib)
+ (libraries lib_net logger runtime))

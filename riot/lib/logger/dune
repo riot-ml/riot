@@ -1,0 +1,4 @@
+(library
+ (public_name riot.lib.logger)
+ (name logger)
+ (libraries runtime))

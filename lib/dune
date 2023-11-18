@@ -1,4 +1,0 @@
-(library
- (name riot)
- (public_name riot)
- (libraries unix ptime ptime.clock.os bigstringaf iomux uri telemetry))

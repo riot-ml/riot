@@ -1,0 +1,3 @@
+(library
+ (public_name riot.util)
+ (name util))

@@ -29,7 +29,7 @@ module Flow = struct
   }
 
   (** Write flow. Drives http/af to write to a Unix socket. *)
-  let rec write (conn : Net.stream_socket) flow =
+  let rec write (conn : Net.Socket.stream_socket) flow =
     match flow.next_write_operation () with
     | `Write io_vecs -> do_write conn flow io_vecs
     | `Close len -> do_close_write conn flow len
@@ -68,7 +68,7 @@ module Flow = struct
     Net.Socket.close conn
 
   (** Read flow. Drives http/af to read from a Unix socket. *)
-  let rec read (conn : Net.stream_socket) flow =
+  let rec read (conn : Net.Socket.stream_socket) flow =
     match flow.next_read_operation () with
     | `Read -> do_read conn flow
     | `Close -> do_close conn flow
@@ -109,7 +109,8 @@ module Flow = struct
 end
 
 module type Connection = sig
-  val start_link : Net.stream_socket -> (Pid.t, [> `connection_error ]) result
+  val start_link :
+    Net.Socket.stream_socket -> (Pid.t, [> `connection_error ]) result
 end
 
 module type Protocol = sig
@@ -140,8 +141,8 @@ end
 
 module Acceptor = struct
   type state = {
-    socket : Net.listen_socket;
-    open_connections : (Net.stream_socket * Pid.t) list;
+    socket : Net.Socket.listen_socket;
+    open_connections : (Net.Socket.stream_socket * Pid.t) list;
     connection : (module Connection);
   }
 

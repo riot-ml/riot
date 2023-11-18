@@ -182,7 +182,7 @@ module Scheduler = struct
     try
       Process.mark_as_running proc;
       let perform = perform sch proc in
-      let cont = Proc_state.run ~perform (Process.cont proc) in
+      let cont = Proc_state.run ~reductions:100 ~perform (Process.cont proc) in
       Process.set_cont proc cont;
       match cont with
       | Proc_state.Finished reason ->

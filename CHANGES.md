@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+* Big namespace refactor. `Riot.Runtime` includes the lower-level runtime
+  blocks, and everything else that is more user-friendly lives at the `Riot.*`
+level.
+* Introduce reduction counting, so processes will run up to N iterations unless
+  they finish, or they execute an unhandled effect.
 * Introduce the `Application` interface for managing the lifecycle of the system
 * Fix `Riot.Logger` to fit the `Application` interface
 * Add a new `Riot.Telemetry` backend for doing async telemetry

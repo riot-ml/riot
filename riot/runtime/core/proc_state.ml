@@ -45,20 +45,32 @@ let make fn eff =
   let k = Effect.Shallow.fiber fn in
   Suspended (k, eff)
 
-(* NOTE(leostera): this behaves like Miou's `once` *)
-let run : type a. perform:perform -> a t -> a t =
- fun ~perform t ->
-  match t with
-  | Finished _ as finished -> finished
-  | Unhandled (fn, v) -> continue_with fn v
-  | Suspended (fn, e) as suspended ->
-      let k : type c. (c, a) continuation -> c step -> a t =
-       fun fn step ->
-        match step with
-        | Delay -> suspended
-        | Continue v -> continue_with fn v
-        | Discontinue exn -> discontinue_with fn exn
-        | Reperform eff -> unhandled_with fn (Effect.perform eff)
-        | Yield -> continue_with fn ()
-      in
-      perform.perform (k fn) e
+let run : type a. reductions:int -> perform:perform -> a t -> a t =
+ fun ~reductions ~perform t ->
+  let exception Yield of a t in
+  let reductions = ref reductions in
+  let t = ref t in
+  try
+    while true do
+      if !reductions = 0 then raise_notrace (Yield !t);
+      match !t with
+      | Finished _ as finished -> raise_notrace (Yield finished)
+      | Unhandled (fn, v) ->
+          t := continue_with fn v;
+          reductions := !reductions - 1;
+          raise_notrace (Yield !t)
+      | Suspended (fn, e) as suspended ->
+          let k : type c. (c, a) continuation -> c step -> a t =
+           fun fn step ->
+            match step with
+            | Delay -> suspended
+            | Continue v -> continue_with fn v
+            | Discontinue exn -> discontinue_with fn exn
+            | Reperform eff -> unhandled_with fn (Effect.perform eff)
+            | Yield -> continue_with fn ()
+          in
+          t := perform.perform (k fn) e;
+          reductions := !reductions - 1
+    done;
+    !t
+  with Yield t -> t

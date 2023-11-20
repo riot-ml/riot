@@ -24,6 +24,7 @@
    (iomux (>= "0.3"))
    (bigstringaf (>= "0.9.1"))
    (uri (>= "4.4.0"))
+   (telemetry (>= "0.0.1"))
    (odoc (and :with-doc (>= "2.2.2")))
  )
  (tags

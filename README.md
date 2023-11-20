@@ -5,8 +5,7 @@ An actor-model multi-core scheduler for OCaml 5.
 </p>
 
 Riot is an [actor-model][actors] multi-core scheduler for OCaml 5. It brings
-[Erlang][erlang]-style concurrency to the language, where lighweight process
-communicate via message passing.
+[Erlang][erlang]-style concurrency to the language, where lightweight processes communicate via message-passing.
 
 ```ocaml
 open Riot
@@ -41,14 +40,18 @@ Riot also includes:
 
 * **Supervisors** to build process hierarchies
 
-* **Logging** designed to be multicore friendly
+* **Logging** and **Telemetry** designed to be multicore friendly
+
+* an **Application** interface to orchestrate startup/shutdown of systems
+
+* **Generic Servers** for designing encapsulated services like with Elixir's [GenServer][genserver]
 
 ### Non-goals
 
 At the same time, there's a few things that Riot is not, and does not aim to be.
 
-Primrarily, Riot is not a full port of the Erlang VM and it won't support several
-of its use-cases, like:
+Primarily, Riot is not a full port of the Erlang VM and it won't support
+several of its use-cases, like:
 * supporting Erlang or Elixir bytecode
 * hot-code reloading in live applications
 * function-call level tracing in live applications
@@ -87,3 +90,4 @@ feedback.
 [erlang]: https://erlang.org
 [eio]: https://github.com/ocaml-multicore/eio
 [miou]: https://github.com/robur-coop/miou
+[genserver]: https://hexdocs.pm/elixir/1.12/GenServer.html

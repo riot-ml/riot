@@ -1,6 +1,6 @@
 # Changes
 
-## Unreleased
+## 0.0.3
 
 * Big namespace refactor. `Riot.Runtime` includes the lower-level runtime
   blocks, and everything else that is more user-friendly lives at the `Riot.*`

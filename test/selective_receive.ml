@@ -28,8 +28,12 @@ let main () =
 
   let () =
     match collect_messages ref 3 with
-    | [ B; C; A ] -> Logger.info (fun f -> f "messages arrived as expected")
-    | _msgs -> Logger.error (fun f -> f "messages arrived out of order?")
+    | [ B; C; A ] ->
+        Logger.info (fun f ->
+            f "selective_receive: messages arrived as expected")
+    | _msgs ->
+        Logger.error (fun f ->
+            f "selective_receive: messages arrived out of order?")
   in
   sleep 0.01;
   shutdown ()

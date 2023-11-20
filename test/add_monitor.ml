@@ -9,12 +9,13 @@ let main () =
 
   match receive () with
   | Process.Messages.Monitor (Process_down pid2) when Pid.equal pid pid2 ->
-      Runtime.Log.info (fun f -> f "was notified of process death");
+      Runtime.Log.info (fun f -> f "add_monitor: was notified of process death");
       shutdown ()
   | _ ->
-      Runtime.Log.info (fun f -> f "was NOT notified of process death");
+      Runtime.Log.info (fun f ->
+          f "add_monitor: was NOT notified of process death");
       Stdlib.exit 1
 
 let () =
-  Logger.set_log_level (Some Info);
+  Runtime.Log.set_log_level (Some Info);
   Riot.run ~workers:0 @@ main

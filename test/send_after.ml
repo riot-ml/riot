@@ -14,7 +14,7 @@ let main () =
   let B = receive () in
   let A = receive () in
 
-  Logger.info (fun f -> f "messages respected send_after time");
+  Logger.info (fun f -> f "send_after_test: messages respected send_after time");
 
   sleep 0.01;
   shutdown ()

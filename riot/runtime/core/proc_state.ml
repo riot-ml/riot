@@ -67,7 +67,7 @@ let run : type a. reductions:int -> perform:perform -> a t -> a t =
             | Continue v -> continue_with fn v
             | Discontinue exn -> discontinue_with fn exn
             | Reperform eff -> unhandled_with fn (Effect.perform eff)
-            | Yield -> continue_with fn ()
+            | Yield -> raise_notrace (Yield (continue_with fn ()))
           in
           t := perform.perform (k fn) e;
           reductions := !reductions - 1

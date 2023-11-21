@@ -6,7 +6,7 @@ module Test = struct
   let start () =
     let pid =
       spawn (fun () ->
-          Logger.info (fun f -> f "application_test: test started!");
+          Logger.info (fun f -> f "app started!");
           sleep 0.5;
           shutdown ())
     in

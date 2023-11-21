@@ -53,6 +53,13 @@ module Pid : sig
 end
 
 module Message : sig
+  type t = ..
+  (** [t] is the type of all messages in a Riot program.
+
+      Since this type is extensible, you can make sure different parts of your
+      program can see the constructors that are relevant for them.
+    *)
+
   (** [select_marker] is used in a _selective receive_ call to match the exact
       messages you are looking for. This is useful to skip ahead in your
       mailbox without having to consume all the messages in it.
@@ -61,13 +68,6 @@ module Message : sig
     | Take  (** use [Take] to mark a message as selected *)
     | Skip  (** use [Skip] to requeue for later consumption *)
     | Drop  (** use [Drop] to remove this message while selecting *)
-
-  type t = ..
-  (** [t] is the type of all messages in a Riot program.
-
-      Since this type is extensible, you can make sure different parts of your
-      program can see the constructors that are relevant for them.
-    *)
 end
 
 module Process : sig

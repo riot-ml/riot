@@ -4,6 +4,14 @@
 An actor-model multi-core scheduler for OCaml 5.
 </p>
 
+<p align="center">
+  <a href="#quick-start">Quick Start</a> |
+  <a href="https://github.com/leostera/riot/tree/master/examples#readme">
+    Tutorial</a> |
+  <a href="https://ocaml.org/p/riot/latest/doc/Riot/index.html">Reference</a>
+  &nbsp;&nbsp;
+</p>
+
 Riot is an [actor-model][actors] multi-core scheduler for OCaml 5. It brings
 [Erlang][erlang]-style concurrency to the language, where lightweight processes communicate via message-passing.
 
@@ -60,9 +68,7 @@ several of its use-cases, like:
 ## Quick Start
 
 ```
-git clone https://github.com/leostera/riot
-cd riot
-opam install .
+opam install riot
 ```
 
 After that, you can use any of the [examples](./examples) as a base for your app, and run them:

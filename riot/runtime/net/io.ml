@@ -181,6 +181,7 @@ let accept (_t : t) (socket : Fd.t) : accept =
   Log.debug (fun f -> f "Accepting client at fd=%a" Fd.pp socket);
   match Unix.accept ~cloexec:true fd with
   | raw_fd, client_addr ->
+      Unix.set_nonblock raw_fd;
       let addr = Addr.of_unix client_addr in
       let fd = Fd.make raw_fd in
       Log.debug (fun f -> f "connected client with fd=%a" Fd.pp fd);

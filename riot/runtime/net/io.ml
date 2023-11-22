@@ -92,7 +92,8 @@ let gc t =
   Dashmap.remove_by t.fds (fun (fd, idx) ->
       let is_open = Fd.is_open fd in
       if not is_open then Poll.invalidate_index t.poll idx;
-      is_open)
+      is_open);
+  Dashmap.remove_by t.procs (fun (_fd, (proc, _)) -> Process.is_alive proc)
 
 let poll t fn =
   gc t;

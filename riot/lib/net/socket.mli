@@ -18,15 +18,15 @@ type nonrec ('ok, 'err) result = ('ok, 'err) result
   constraint 'err = [> unix_error ]
 
 val default_listen_opts : listen_opts
-val close : Runtime.Fd.t -> unit
-val listen : ?opts:listen_opts -> port:int -> unit -> (Runtime.Fd.t, 'a) result
+val close : Fd.t -> unit
+val listen : ?opts:listen_opts -> port:int -> unit -> (Fd.t, 'a) result
 
 val connect :
-  Net.Addr.stream_addr -> (Runtime.Fd.t, [> `Unix_error of Unix.error ]) result
+  Net.Addr.stream_addr -> (Fd.t, [> `Unix_error of Unix.error ]) result
 
 val accept :
   ?timeout:timeout ->
-  Runtime.Fd.t ->
+  Fd.t ->
   ( Net.Socket.stream_socket * Net.Addr.stream_addr,
     [> `Unix_error of Unix.error ] )
   result
@@ -36,8 +36,10 @@ val controlling_process : 'a -> new_owner:'b -> (unit, 'c) result
 val receive :
   ?timeout:timeout ->
   len:int ->
-  Runtime.Fd.t ->
+  Fd.t ->
   (Bigstringaf.t, [> `Unix_error of Unix.error | `Closed ]) result
 
 val send :
-  Bigstringaf.t -> Runtime.Fd.t -> (int, [> `Unix_error of Unix.error ]) result
+  Bigstringaf.t ->
+  Fd.t ->
+  (int, [> `Unix_error of Unix.error | `Closed ]) result

@@ -68,7 +68,7 @@ module Scheduler = struct
       Log.trace (fun f ->
           f "Process %a is awaiting for new messages" Pid.pp (Process.pid proc));
       Process.mark_as_awaiting_message proc;
-      k Delay)
+      k Suspend)
     else
       let fuel = Process.message_count proc in
       Log.trace (fun f -> f "Skimming mailbox with %d messages" fuel);

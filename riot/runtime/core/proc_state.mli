@@ -10,6 +10,7 @@ type 'a step =
   | Discontinue of exn
   | Reperform : 'a Effect.t -> 'a step
   | Delay : 'a step
+  | Suspend : 'a step
   | Yield : unit step
 
 type ('a, 'b) step_callback = ('a step -> 'b t) -> 'a Effect.t -> 'b t

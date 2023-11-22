@@ -10,6 +10,7 @@ type 'a step =
   | Discontinue of exn
   | Reperform : 'a Effect.t -> 'a step
   | Delay : 'a step
+  | Suspend : 'a step
   | Yield : unit step
 
 type ('a, 'b) step_callback = ('a step -> 'b t) -> 'a Effect.t -> 'b t
@@ -68,6 +69,7 @@ let run : type a. reductions:int -> perform:perform -> a t -> a t =
             | Discontinue exn -> discontinue_with fn exn
             | Reperform eff -> unhandled_with fn (Effect.perform eff)
             | Yield -> raise_notrace (Yield (continue_with fn ()))
+            | Suspend -> raise_notrace (Yield suspended)
           in
           t := perform.perform (k fn) e;
           reductions := !reductions - 1

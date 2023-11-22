@@ -425,6 +425,12 @@ module Net : sig
       (Bigstringaf.t, [> `Closed | `Timeout ]) result
 
     val send : Bigstringaf.t -> stream_socket -> (int, [> `Closed ]) result
+    val pp : Format.formatter -> _ socket -> unit
+
+    val pp_err :
+      Format.formatter ->
+      [ unix_error | `Closed | `Timeout | `System_limit ] ->
+      unit
   end
 end
 

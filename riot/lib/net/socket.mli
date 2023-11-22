@@ -43,3 +43,10 @@ val send :
   Bigstringaf.t ->
   Fd.t ->
   (int, [> `Unix_error of Unix.error | `Closed ]) result
+
+val pp : Format.formatter -> _ socket -> unit
+
+val pp_err :
+  Format.formatter ->
+  [ unix_error | `Closed | `Timeout | `System_limit ] ->
+  unit

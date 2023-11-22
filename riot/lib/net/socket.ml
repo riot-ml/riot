@@ -81,3 +81,10 @@ let rec send data socket =
   | `Wrote bytes ->
       Logger.debug (fun f -> f "sent: %S" (Bigstringaf.to_string data));
       Ok bytes
+
+let pp_err fmt = function
+  | `Timeout -> Format.fprintf fmt "Timeout"
+  | `System_limit -> Format.fprintf fmt "System_limit"
+  | `Closed -> Format.fprintf fmt "Closed"
+  | `Unix_error err ->
+      Format.fprintf fmt "Unix_error(%s)" (Unix.error_message err)

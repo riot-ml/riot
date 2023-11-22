@@ -260,7 +260,14 @@ module Pool = struct
   let register_process pool _scheduler proc =
     Proc_table.register_process pool.processes proc
 
+  let setup () =
+    (* NOTE(@leostera): we want the Net subsystem to be able to write to closed
+       sockets and handle that as a regular value rather than as a signal. *)
+    Sys.set_signal Sys.sigpipe Sys.Signal_ignore
+
   let make ?(rnd = Random.State.make_self_init ()) ~domains ~main () =
+    setup ();
+
     Log.debug (fun f -> f "Making scheduler pool...");
     let schedulers = List.init domains @@ fun _ -> Scheduler.make ~rnd () in
     let pool =

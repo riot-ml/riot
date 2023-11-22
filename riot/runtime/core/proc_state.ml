@@ -53,13 +53,12 @@ let run : type a. reductions:int -> perform:perform -> a t -> a t =
   let t = ref t in
   try
     while true do
+      Log.trace (fun f -> f "stepping process %d" !reductions);
       if !reductions = 0 then raise_notrace (Yield !t);
+      reductions := !reductions - 1;
       match !t with
       | Finished _ as finished -> raise_notrace (Yield finished)
-      | Unhandled (fn, v) ->
-          t := continue_with fn v;
-          reductions := !reductions - 1;
-          raise_notrace (Yield !t)
+      | Unhandled (fn, v) -> raise_notrace (Yield (continue_with fn v))
       | Suspended (fn, e) as suspended ->
           let k : type c. (c, a) continuation -> c step -> a t =
            fun fn step ->
@@ -71,8 +70,7 @@ let run : type a. reductions:int -> perform:perform -> a t -> a t =
             | Yield -> raise_notrace (Yield (continue_with fn ()))
             | Suspend -> raise_notrace (Yield suspended)
           in
-          t := perform.perform (k fn) e;
-          reductions := !reductions - 1
+          t := perform.perform (k fn) e
     done;
     !t
   with Yield t -> t

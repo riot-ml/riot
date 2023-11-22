@@ -17,7 +17,7 @@ type fd = Unix.file_descr
 type state = [ `Open of fd | `Closed ]
 type t = { state : state Atomic.t; fd : fd }
 
-exception Fd_already_closed of string
+exception Already_closed of string
 
 let is_closed t = Atomic.get t.state = `Closed
 let is_open t = not (is_closed t)
@@ -52,4 +52,4 @@ let make fd = { state = Atomic.make (`Open fd); fd }
 let use ~op_name t fn =
   match get t with
   | Some sock -> fn sock
-  | None -> raise (Fd_already_closed (op_name ^ ": fd already closed"))
+  | None -> raise (Already_closed (op_name ^ ": fd already closed"))

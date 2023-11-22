@@ -8,6 +8,8 @@ end
 type fd = Unix.file_descr
 type t
 
+exception Already_closed of string
+
 val get : t -> fd option
 val to_int : t -> int
 val make : fd -> t

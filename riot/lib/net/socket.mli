@@ -37,7 +37,7 @@ val receive :
   ?timeout:timeout ->
   len:int ->
   Runtime.Fd.t ->
-  (Bigstringaf.t, [> `Unix_error of Unix.error ]) result
+  (Bigstringaf.t, [> `Unix_error of Unix.error | `Closed ]) result
 
 val send :
   Bigstringaf.t -> Runtime.Fd.t -> (int, [> `Unix_error of Unix.error ]) result

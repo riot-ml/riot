@@ -58,6 +58,7 @@ let rec receive ?(timeout = Infinity) ~len socket =
   match Io.read socket bytes 0 len with
   | `Abort reason -> Error (`Unix_error reason)
   | `Retry -> syscall "read" `r socket @@ receive ~timeout ~len
+  | `Read 0 -> Error `Closed
   | `Read len ->
       let data = Bigstringaf.create len in
       Bigstringaf.blit_from_bytes bytes ~src_off:0 data ~dst_off:0 ~len;

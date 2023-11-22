@@ -28,7 +28,7 @@ val accept :
   ?timeout:timeout ->
   Fd.t ->
   ( Net.Socket.stream_socket * Net.Addr.stream_addr,
-    [> `Unix_error of Unix.error ] )
+    [> `Unix_error of Unix.error | `Closed ] )
   result
 
 val controlling_process : 'a -> new_owner:'b -> (unit, 'c) result

@@ -47,6 +47,7 @@ let rec connect addr =
 let rec accept ?(timeout = Infinity) (socket : Socket.listen_socket) =
   let sch = Scheduler.get_current_scheduler () in
   match Io.accept sch.io_tbl socket with
+  | exception Fd.(Already_closed _) -> Error `Closed
   | `Abort reason -> Error (`Unix_error reason)
   | `Retry -> syscall "accept" `r socket @@ accept ~timeout
   | `Connected (socket, addr) -> Ok (socket, addr)
@@ -56,6 +57,7 @@ let controlling_process _socket ~new_owner:_ = Ok ()
 let rec receive ?(timeout = Infinity) ~len socket =
   let bytes = Bytes.create len in
   match Io.read socket bytes 0 len with
+  | exception Fd.(Already_closed _) -> Error `Closed
   | `Abort reason -> Error (`Unix_error reason)
   | `Retry -> syscall "read" `r socket @@ receive ~timeout ~len
   | `Read 0 -> Error `Closed
@@ -71,6 +73,7 @@ let rec send data socket =
   let bytes = Bytes.create len in
   Bigstringaf.blit_to_bytes data ~src_off:off bytes ~dst_off:0 ~len;
   match Io.write socket bytes off len with
+  | exception Fd.(Already_closed _) -> Error `Closed
   | `Abort reason -> Error (`Unix_error reason)
   | `Retry ->
       Logger.debug (fun f -> f "retrying");

@@ -52,7 +52,9 @@ module Scheduler = struct
     Proc_set.remove sch.sleep_set proc;
     Proc_queue.queue sch.run_queue proc;
     Log.trace (fun f ->
-        f "Adding process to run_queue queue: %a" Pid.pp proc.pid)
+        f "Adding process to run_queue queue[%d]: %a"
+          (Proc_queue.size sch.run_queue)
+          Pid.pp proc.pid)
 
   let awake_process pool (proc : Process.t) =
     List.iter

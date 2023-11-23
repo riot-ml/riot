@@ -54,7 +54,10 @@ let send pid msg =
       Scheduler.awake_process pool proc;
       Log.trace (fun f ->
           f "sent message from %a to %a" Pid.pp (self ()) Process.pp proc)
-  | None -> Log.debug (fun f -> f "COULD NOT DELIVER message to %a" Pid.pp pid)
+  | None ->
+      Log.debug (fun f ->
+          f "COULD NOT DELIVER message from %a to %a" Pid.pp (self ()) Pid.pp
+            pid)
 
 exception Link_no_process of Pid.t
 

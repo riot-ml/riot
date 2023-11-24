@@ -1,5 +1,15 @@
 # Changes
 
+## 0.0.4
+
+* Internally immediately suspend (bypassing reduction counts) when on a receive expression
+* Fix reads from closed Unix sockets
+* Fix writes to closed Unix sockets
+* Ignore SIGPIPEs on setup
+* Fix always mark connected sockets as nonblocking 
+* Fix GC i/o process table
+* Surface pretty-printing of socket values 
+
 ## 0.0.3
 
 * Big namespace refactor. `Riot.Runtime` includes the lower-level runtime

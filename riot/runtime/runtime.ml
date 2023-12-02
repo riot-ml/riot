@@ -3,3 +3,4 @@ module Net = Net
 include Core
 include Import
 include Util
+include Core.Proc_registry.Exn

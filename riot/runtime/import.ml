@@ -59,6 +59,12 @@ let send pid msg =
           f "COULD NOT DELIVER message from %a to %a" Pid.pp (self ()) Pid.pp
             pid)
 
+let send_by_name ~name msg =
+  let pool = _get_pool () in
+  match Proc_registry.find_pid pool.registry name with
+  | Some pid -> send pid msg
+  | None -> ()
+
 exception Link_no_process of Pid.t
 
 let _link (proc1 : Process.t) (proc2 : Process.t) =
@@ -116,6 +122,14 @@ let monitor pid1 pid2 =
   match Proc_table.get pool.processes pid2 with
   | Some proc -> Process.add_monitor proc pid1
   | None -> ()
+
+let register pid name =
+  let pool = _get_pool () in
+  Proc_registry.register pool.registry pid name
+
+let unregister name =
+  let pool = _get_pool () in
+  Proc_registry.unregister pool.registry name
 
 let processes () =
   yield ();

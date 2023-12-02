@@ -15,6 +15,7 @@ type pool = {
   mutable stop : bool;
   schedulers : t list;
   processes : Proc_table.t;
+  registry : Proc_registry.t;
 }
 
 val make : rnd:Random.State.t -> unit -> t

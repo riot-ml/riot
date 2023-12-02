@@ -18,6 +18,7 @@ type pool = {
   mutable stop : bool;
   schedulers : t list;
   processes : Proc_table.t;
+  registry : Proc_registry.t;
 }
 
 module Scheduler = struct
@@ -277,6 +278,7 @@ module Pool = struct
         stop = false;
         schedulers = [ main ] @ schedulers;
         processes = Proc_table.create ();
+        registry = Proc_registry.create ();
       }
     in
     let spawn scheduler =

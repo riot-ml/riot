@@ -2,6 +2,7 @@
  (names
   application_test
   telemetry_test
+  process_registration_test
   spawn_and_exit
   selective_receive
   add_monitor

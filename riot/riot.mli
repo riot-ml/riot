@@ -152,11 +152,26 @@ val exit : Pid.t -> Process.exit_reason -> unit
 val send : Pid.t -> Message.t -> unit
 (** Sends a message to process with this pid. *)
 
+val send_by_name : name:string -> Message.t -> unit
+(** Sends a message to a process registered with [name]. *)
+
 val spawn : (unit -> unit) -> Pid.t
 (** Spawns a new process. *)
 
 val spawn_link : (unit -> unit) -> Pid.t
 (** Spawns a new process and links it to the current process before returning. *)
+
+exception Name_already_registered of string * Pid.t
+
+val register : string -> Pid.t -> unit
+(** [register name pid] registers a process by a given name. The name will be
+    uniquely associated to this process and attempting to register the same
+    name twice will result in an exception [Name_already_registered] being
+    raised. *)
+
+val unregister : string -> unit
+(** [unregister name] frees a name and allows it to be re-registered. If the
+    name was not registered before, this operation does nothing. *)
 
 exception Link_no_process of Pid.t
 

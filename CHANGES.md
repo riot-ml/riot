@@ -1,5 +1,11 @@
 # Changes
 
+## Unreleased
+
+* Adds `register name pid`
+* Adds `unregister name`
+* Adds `send_by_name ~name msg`
+
 ## 0.0.4
 
 * Internally immediately suspend (bypassing reduction counts) when on a receive expression

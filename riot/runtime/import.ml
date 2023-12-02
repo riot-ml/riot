@@ -59,11 +59,13 @@ let send pid msg =
           f "COULD NOT DELIVER message from %a to %a" Pid.pp (self ()) Pid.pp
             pid)
 
+exception Invalid_destination of string
+
 let send_by_name ~name msg =
   let pool = _get_pool () in
   match Proc_registry.find_pid pool.registry name with
   | Some pid -> send pid msg
-  | None -> ()
+  | None -> raise (Invalid_destination name)
 
 exception Link_no_process of Pid.t
 

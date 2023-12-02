@@ -8,3 +8,5 @@ val create : unit -> t
 val register : t -> string -> Pid.t -> unit
 val unregister : t -> string -> unit
 val find_pid : t -> string -> Pid.t option
+
+val remove : t -> Pid.t -> unit

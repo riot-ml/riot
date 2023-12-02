@@ -32,6 +32,14 @@ let unregister t name =
   Hashtbl.remove t.names pid;
   Mutex.unlock t.lock
 
+let remove t pid =
+  Mutex.lock t.lock;
+  (match Hashtbl.find_opt t.names pid with
+  | Some name -> Hashtbl.remove t.processes name
+  | None -> ());
+  Hashtbl.remove t.names pid;
+  Mutex.unlock t.lock
+
 let find_pid t name =
   Mutex.lock t.lock;
   let pid = Hashtbl.find_opt t.processes name in

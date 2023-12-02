@@ -152,8 +152,12 @@ val exit : Pid.t -> Process.exit_reason -> unit
 val send : Pid.t -> Message.t -> unit
 (** Sends a message to process with this pid. *)
 
+exception Invalid_destination of string
+
 val send_by_name : name:string -> Message.t -> unit
-(** Sends a message to a process registered with [name]. *)
+(** Sends a message to a process registered with [name]. If [name] is not a
+    valid destination for a message, this function raises an
+    [Invalid_destination name] exception. *)
 
 val spawn : (unit -> unit) -> Pid.t
 (** Spawns a new process. *)

@@ -10,6 +10,16 @@ module Registry_test = struct
     let pid = self () in
     let pid_name = "my pid" in
 
+    (* send to unregistered process raises *)
+    (try send_by_name ~name:pid_name Hello with
+    | Invalid_destination "my pid" ->
+        Logger.info (fun f ->
+            f "process_registration_test: unregistered send raises correctly")
+    | Invalid_destination name2 ->
+        Runtime.Log.error (fun f ->
+            f "process_registration_test: invalid destination! %s" name2);
+        Stdlib.exit 1);
+
     (* register the process once *)
     register pid_name pid;
 
@@ -35,11 +45,29 @@ module Registry_test = struct
     register pid_name pid;
     Logger.info (fun f -> f "process_registration_test: unregistering works");
 
+    (* test sending a message by name to a registered process that died *)
+    let pid2 = spawn (fun () -> sleep 0.1) in
+    let pid2_name = "another-name" in
+    register pid2_name pid2;
+    (* wait at least the same amount as it will be alive *)
+    sleep 0.5;
+    (* send to unregistered process raises *)
+    (match send_by_name ~name:pid2_name Hello with
+    | exception Invalid_destination "another-name" ->
+        Logger.info (fun f ->
+            f "process_registration_test: dead send by name raises correctly")
+    | _ ->
+        Runtime.Log.error (fun f ->
+            f
+              "process_registration_test: send to dead process by name \
+               should've raised!");
+        Stdlib.exit 1);
+
     sleep 0.5;
     shutdown ()
 
   let start () =
-    let pid = spawn test in
+    let pid = spawn_link test in
     Ok pid
 end
 

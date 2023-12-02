@@ -134,6 +134,9 @@ module Scheduler = struct
 
   let handle_exit_proc pool sch proc reason =
     Io.unregister_process sch.io_tbl proc;
+
+    Proc_registry.remove pool.registry (Process.pid proc);
+
     (* send monitors a process-down message *)
     let monitoring_pids = Process.monitors proc in
     Log.debug (fun f -> f "notifying %d monitors" (List.length monitoring_pids));

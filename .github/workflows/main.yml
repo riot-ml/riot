@@ -17,9 +17,21 @@ jobs:
         os:
           - macos-latest
           - ubuntu-latest
-          - windows-latest
         ocaml-compiler:
           - "5.1"
+        allow-prerelease-opam:
+          - true
+        opam-repositories:
+          - |-
+            default: https://github.com/ocaml/opam-repository.git
+        include:
+          - os: windows-latest
+            ocaml-compiler: ocaml-variants.5.1.0+options,ocaml-option-mingw
+            allow-prerelease-opam: false
+            opam-repositories: |-
+              windows-5.0: https://github.com/dra27/opam-repository.git#windows-5.0
+              sunset: https://github.com/ocaml-opam/opam-repository-mingw.git#sunset
+              default: https://github.com/ocaml/opam-repository.git
 
     runs-on: ${{ matrix.os }}
 
@@ -27,10 +39,12 @@ jobs:
       - name: Checkout tree
         uses: actions/checkout@v4
 
-      - name: Set-up OCaml ${{ matrix.ocaml-compiler }}
+      - name: Set-up OCaml
         uses: ocaml/setup-ocaml@v2
         with:
           ocaml-compiler: ${{ matrix.ocaml-compiler }}
+          allow-prerelease-opam: ${{ matrix.allow-prerelease-opam }}
+          opam-repositories: ${{ matrix.opam-repositories }}
 
       - run: opam install . --deps-only --with-test
 

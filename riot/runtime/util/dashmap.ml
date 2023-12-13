@@ -24,3 +24,9 @@ let rec replace t k v =
   let tbl1 = entries t in
   let tbl2 = (k, v) :: List.remove_assoc k tbl1 in
   if Atomic.compare_and_set t.tbl tbl1 tbl2 then () else replace t k v
+
+let pp k_pp fmt t =
+  Format.pp_print_list
+    ~pp_sep:(fun fmt _ -> Format.fprintf fmt ", ")
+    (fun fmt (k, _) -> k_pp fmt k)
+    fmt (entries t)

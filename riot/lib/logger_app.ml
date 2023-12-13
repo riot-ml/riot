@@ -39,7 +39,7 @@ end
 let name = "Riot.Logger"
 
 let default_opts =
-  { print_time = false; print_source = false; color_output = true }
+  { print_time = true; print_source = false; color_output = true }
 
 let start () =
   let child_specs = [ Formatter.child_spec default_opts ] in

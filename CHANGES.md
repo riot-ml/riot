@@ -1,10 +1,12 @@
 # Changes
 
-## Unreleased
+## 0.0.5
 
-* Adds `register name pid`
-* Adds `unregister name`
-* Adds `send_by_name ~name msg`
+* Add `register name pid`
+* Add `unregister name`
+* Add `send_by_name ~name msg`
+* Fix timer wheel making it remove timers correctly
+* Add better test for `Timer.send_after`
 
 ## 0.0.4
 

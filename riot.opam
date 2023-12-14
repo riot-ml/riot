@@ -6,7 +6,7 @@ description:
 maintainer: ["Leandro Ostera <leandro@abstractmachines.dev>"]
 authors: ["Leandro Ostera <leandro@abstractmachines.dev>"]
 license: "MIT"
-tags: ["topics" "multicore" "erlang" "actor" "message-passing" "processes"]
+tags: ["multicore" "erlang" "actor" "message-passing" "processes"]
 homepage: "https://github.com/leostera/riot"
 bug-reports: "https://github.com/leostera/riot/issues"
 depends: [

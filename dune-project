@@ -28,4 +28,4 @@
    (odoc (and :with-doc (>= "2.2.2")))
  )
  (tags
-  (topics multicore erlang actor "message-passing" processes)))
+  (multicore erlang actor "message-passing" processes)))

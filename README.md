@@ -1,4 +1,7 @@
-<h1 align="center"> riot </h1>
+
+<h1 align="center">
+  <img alt="riot logo" src="https://github.com/leostera/riot/assets/854222/bdae366b-6547-49df-a3c7-fe4f506b5d23" width="300"/>
+</h1>
 
 <p align="center">
 An actor-model multi-core scheduler for OCaml 5.

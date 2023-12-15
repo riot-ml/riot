@@ -8,7 +8,7 @@ exception Reregistering_process of Process.t
 let register_process t (proc : Process.t) =
   Mutex.lock t.lock;
   let pid = Process.pid proc in
-  if Hashtbl.mem t.processes pid then raise (Reregistering_process proc)
+  if Hashtbl.mem t.processes pid then (Mutex.unlock t.lock; raise (Reregistering_process proc))
   else Hashtbl.add t.processes pid proc;
   Mutex.unlock t.lock
 

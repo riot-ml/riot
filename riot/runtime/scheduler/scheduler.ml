@@ -256,7 +256,7 @@ module Scheduler = struct
          done;
          Mutex.unlock sch.idle_mutex;
 
-         for _ = 0 to Int.min (Proc_queue.size sch.run_queue) 10 do
+         for _ = 0 to Int.min (Proc_queue.size sch.run_queue) 5_000 do
            match Proc_queue.next sch.run_queue with
            | Some proc ->
                set_current_process_pid proc.pid;

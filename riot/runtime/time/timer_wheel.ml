@@ -31,6 +31,7 @@ type t = {
 }
 
 let create () = { timers = Dashmap.create (); last_t = Ptime_clock.now () }
+let can_tick t = not (Dashmap.is_empty t.timers)
 
 let make_timer t time mode fn =
   let timer = Timer.make time mode fn in

@@ -1,0 +1,3 @@
+(executables
+  (names spawn_many)
+  (libraries riot))

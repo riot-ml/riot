@@ -9,6 +9,8 @@ type t = {
   sleep_set : Proc_set.t;
   timers : Time.Timer_wheel.t;
   io_tbl : Net.Io.t;
+  idle_mutex : Mutex.t;
+  idle_condition : Condition.t;
 }
 
 type pool = {

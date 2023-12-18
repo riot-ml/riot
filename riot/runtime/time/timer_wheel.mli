@@ -17,3 +17,4 @@ val make_timer :
 
 val ends_at : Ptime.t -> Ptime.span -> Ptime.t
 val tick : t -> unit
+val can_tick : t -> bool

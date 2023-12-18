@@ -16,6 +16,7 @@ val pp : Format.formatter -> t -> unit
 val register : t -> Process.t -> [ `r | `rw | `w ] -> Fd.t -> unit
 val unregister_process : t -> Process.t -> unit
 val poll : t -> (Process.t * Fd.Mode.t -> unit) -> unit
+val can_poll : t -> bool
 val close : t -> Fd.t -> unit
 
 val getaddrinfo :

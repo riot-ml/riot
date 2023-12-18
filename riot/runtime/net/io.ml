@@ -95,6 +95,8 @@ let gc t =
       is_open);
   Dashmap.remove_by t.procs (fun (_fd, (proc, _)) -> Process.is_waiting_io proc)
 
+let can_poll t = not (Dashmap.is_empty t.procs)
+
 let poll t fn =
   gc t;
   let ready_count = Poll.ppoll_or_poll t.poll t.poll_idx t.poll_timeout in

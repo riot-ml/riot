@@ -12,6 +12,8 @@ type t = {
   sleep_set : Proc_set.t;
   timers : Timer_wheel.t;
   io_tbl : Io.t;
+  idle_mutex : Mutex.t;
+  idle_condition : Condition.t;
 }
 
 type pool = {
@@ -32,6 +34,8 @@ module Scheduler = struct
       sleep_set = Proc_set.create ();
       io_tbl = Io.create ();
       timers = Timer_wheel.create ();
+      idle_mutex = Mutex.create ();
+      idle_condition = Condition.create ();
     }
 
   let get_current_scheduler, set_current_scheduler =
@@ -50,8 +54,10 @@ module Scheduler = struct
     Timer_wheel.make_timer sch.timers time mode fn
 
   let add_to_run_queue sch (proc : Process.t) =
+    Mutex.protect sch.idle_mutex @@ fun () ->
     Proc_set.remove sch.sleep_set proc;
     Proc_queue.queue sch.run_queue proc;
+    Condition.signal sch.idle_condition;
     Log.trace (fun f ->
         f "Adding process to run_queue queue[%d]: %a"
           (Proc_queue.size sch.run_queue)
@@ -239,6 +245,17 @@ module Scheduler = struct
        while true do
          if pool.stop then raise_notrace Exit;
 
+         Mutex.lock sch.idle_mutex;
+         while
+           (not pool.stop)
+           && Proc_queue.is_empty sch.run_queue
+           && (not (Timer_wheel.can_tick sch.timers))
+           && not (Io.can_poll sch.io_tbl)
+         do
+           Condition.wait sch.idle_condition sch.idle_mutex
+         done;
+         Mutex.unlock sch.idle_mutex;
+
          for _ = 0 to Int.min (Proc_queue.size sch.run_queue) 10 do
            match Proc_queue.next sch.run_queue with
            | Some proc ->
@@ -260,8 +277,15 @@ module Pool = struct
   let get_pool, set_pool = Thread_local.make ~name:"POOL"
 
   let shutdown pool =
+    let rec wake_up_scheduler sch =
+      if Mutex.try_lock sch.idle_mutex then (
+        Condition.signal sch.idle_condition;
+        Mutex.unlock sch.idle_mutex)
+      else wake_up_scheduler sch
+    in
     Log.trace (fun f -> f "shutdown called");
-    pool.stop <- true
+    pool.stop <- true;
+    List.iter wake_up_scheduler pool.schedulers
 
   let register_process pool _scheduler proc =
     Proc_table.register_process pool.processes proc

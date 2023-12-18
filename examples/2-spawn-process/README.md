@@ -29,7 +29,7 @@ Inside of a process, we can get the pid of the process by calling `self ()`. A
 Pid can also be pretty-printed with `Pid.pp` but it is not serializable.
 
 ```ocaml
-  let pid = spawn (fun () -> Printf.printff "Hello, %a!" Pid.pp (self ())) in
+  let pid = spawn (fun () -> Format.printf "Hello, %a!" Pid.pp (self ())) in
 ```
 
 A common scenario is waiting for a number of pids to terminate. For this Riot

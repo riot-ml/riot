@@ -10,10 +10,10 @@ tags: ["multicore" "erlang" "actor" "message-passing" "processes"]
 homepage: "https://github.com/leostera/riot"
 bug-reports: "https://github.com/leostera/riot/issues"
 depends: [
-  "dune" {>= "3.11"}
   "ocaml" {>= "5.1"}
+  "dune" {>= "3.11"}
   "ptime" {>= "1.1.0"}
-  "iomux" {>= "0.3"}
+  "poll" {>= "0.3.1"}
   "bigstringaf" {>= "0.9.1"}
   "uri" {>= "4.4.0"}
   "telemetry" {>= "0.0.1"}

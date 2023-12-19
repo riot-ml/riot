@@ -1,10 +1,10 @@
 open Core
 open Util
-module Poll = Iomux.Poll
+module Poll = Poll
 
 type t = {
   poll : Poll.t;
-  poll_timeout : Poll.ppoll_timeout;
+  poll_timeout : Poll.Timeout.t;
   mutable poll_idx : int;
   fds : (Fd.t, int) Dashmap.t;
   procs : (Fd.t, Process.t * [ `r | `w | `rw ]) Dashmap.t;
@@ -21,8 +21,8 @@ type write = [ `Wrote of int | op ]
 
 let create () =
   {
-    poll = Poll.create ~maxfds:1024 ();
-    poll_timeout = Poll.Nanoseconds 10L;
+    poll = Poll.create ();
+    poll_timeout = Poll.Timeout.After 500L;
     poll_idx = 0;
     fds = Dashmap.create 1024;
     procs = Dashmap.create 1024;
@@ -49,18 +49,18 @@ and pp_proc_table ppf tbl =
     entries;
   Format.fprintf ppf "]"
 
-let mode_of_flags flags =
-  match (Poll.Flags.(mem flags pollin), Poll.Flags.(mem flags pollout)) with
-  | true, false -> Some `r
-  | false, true -> Some `w
-  | true, true -> Some `rw
-  | _, _ -> None
-
-let flags_of_mode mode =
+let event_of_mode mode =
   match mode with
-  | `rw -> Poll.Flags.(pollin + pollout)
-  | `r -> Poll.Flags.(pollin)
-  | `w -> Poll.Flags.(pollout)
+  | `r -> Poll.Event.read
+  | `rw -> Poll.Event.read_write
+  | `w -> Poll.Event.write
+
+let mode_of_event event =
+  match event with
+  | Poll.Event.{ writable = false; readable = true } -> Some `r
+  | Poll.Event.{ writable = true; readable = true } -> Some `rw
+  | Poll.Event.{ writable = true; readable = false } -> Some `w
+  | Poll.Event.{ writable = false; readable = false } -> None
 
 (* NOTE(leostera): when we add a new Fd.t to our collection here, we need
    to update the current poller so that it knows of it.
@@ -73,8 +73,8 @@ let add_fd t fd mode =
     Log.trace (fun f ->
         f "adding fd %d to poll slot %d" (Fd.to_int fd) t.poll_idx);
     let unix_fd = Fd.get fd |> Option.get in
-    let flags = flags_of_mode mode in
-    Poll.set_index t.poll t.poll_idx unix_fd flags;
+    let flags = event_of_mode mode in
+    Poll.set t.poll unix_fd flags;
     Dashmap.replace t.fds fd t.poll_idx;
     t.poll_idx <- t.poll_idx + 1)
 
@@ -89,51 +89,44 @@ let unregister_process t proc =
   Dashmap.remove_by t.procs this_proc
 
 let gc t =
-  Dashmap.remove_by t.fds (fun (fd, idx) ->
-      let is_open = Fd.is_open fd in
-      if not is_open then Poll.invalidate_index t.poll idx;
-      is_open);
+  Dashmap.remove_by t.fds (fun (fd, _idx) -> Fd.is_open fd);
   Dashmap.remove_by t.procs (fun (_fd, (proc, _)) -> Process.is_waiting_io proc)
 
 let can_poll t = not (Dashmap.is_empty t.procs)
 
 let poll t fn =
+  Poll.clear t.poll;
   gc t;
-  let ready_count = Poll.ppoll_or_poll t.poll t.poll_idx t.poll_timeout in
-  Poll.iter_ready t.poll ready_count @@ fun _idx raw_fd fd_flags ->
-  match mode_of_flags fd_flags with
-  | None ->
-      Log.trace (fun f ->
-          let buf = Buffer.create 128 in
-          let fmt = Format.formatter_of_buffer buf in
-          if Poll.Flags.(mem fd_flags pollin) then Format.fprintf fmt "pollin,";
-          if Poll.Flags.(mem fd_flags pollout) then
-            Format.fprintf fmt "pollout,";
-          if Poll.Flags.(mem fd_flags pollerr) then
-            Format.fprintf fmt "pollerr,";
-          if Poll.Flags.(mem fd_flags pollhup) then
-            Format.fprintf fmt "pollhup,";
-          if Poll.Flags.(mem fd_flags pollnval) then
-            Format.fprintf fmt "pollnval,";
-          if Poll.Flags.(mem fd_flags pollpri) then Format.fprintf fmt "pollpri";
-          Format.fprintf fmt "%!";
-          f "io_poll(%d): unexpected flags: %s" (Obj.magic raw_fd)
-            (Buffer.contents buf))
-  | Some mode -> (
-      match
-        Dashmap.find_by t.fds (fun (fd, _idx) ->
-            match Fd.get fd with Some fd' -> fd' = raw_fd | _ -> false)
-      with
+  let should_wait = ref false in
+  Dashmap.iter t.procs (fun (fd, (_proc, mode)) ->
+      match Fd.get fd with
       | None -> ()
-      | Some (fd, _idx) ->
-          let mode_and_flag (fd', (proc, mode')) =
-            Log.trace (fun f ->
-                f "io_poll(%a=%a,%a=%a): %a" Fd.pp fd' Fd.pp fd Fd.Mode.pp mode'
-                  Fd.Mode.pp mode Process.pp proc);
-            Fd.equal fd fd' && Fd.Mode.equal mode' mode
-          in
-          Dashmap.find_all_by t.procs mode_and_flag
-          |> List.iter (fun (_fd, proc) -> fn proc))
+      | Some unix_fd -> 
+          should_wait := true;
+          Poll.set t.poll unix_fd (event_of_mode mode));
+  if not !should_wait then () 
+  else
+  match Poll.wait t.poll t.poll_timeout with
+  | `Timeout -> ()
+  | `Ok ->
+      Poll.iter_ready t.poll ~f:(fun raw_fd event ->
+          match mode_of_event event with
+          | None -> ()
+          | Some mode -> (
+              match
+                Dashmap.find_by t.fds (fun (fd, _idx) ->
+                    match Fd.get fd with Some fd' -> fd' = raw_fd | _ -> false)
+              with
+              | None -> ()
+              | Some (fd, _idx) ->
+                  let mode_and_flag (fd', (proc, mode')) =
+                    Log.trace (fun f ->
+                        f "io_poll(%a=%a,%a=%a): %a" Fd.pp fd' Fd.pp fd
+                          Fd.Mode.pp mode' Fd.Mode.pp mode Process.pp proc);
+                    Fd.equal fd fd' && Fd.Mode.equal mode' mode
+                  in
+                  Dashmap.find_all_by t.procs mode_and_flag
+                  |> List.iter (fun (_fd, proc) -> fn proc)))
 
 (* sockets api *)
 let socket sock_domain sock_type =
@@ -191,15 +184,15 @@ let accept (_t : t) (socket : Fd.t) : accept =
   | exception Unix.(Unix_error ((EINTR | EAGAIN | EWOULDBLOCK), _, _)) -> `Retry
   | exception Unix.(Unix_error (reason, _, _)) -> `Abort reason
 
-let read (conn : Socket.stream_socket) buf off len : read =
-  Fd.use ~op_name:"read" conn @@ fun fd ->
+let read (fd : Fd.t) buf off len : read =
+  Fd.use ~op_name:"read" fd @@ fun fd ->
   match Unix.read fd buf off len with
   | len -> `Read len
   | exception Unix.(Unix_error ((EINTR | EAGAIN | EWOULDBLOCK), _, _)) -> `Retry
   | exception Unix.(Unix_error (reason, _, _)) -> `Abort reason
 
-let write (conn : Socket.stream_socket) buf off len : write =
-  Fd.use ~op_name:"write" conn @@ fun fd ->
+let write (fd : Fd.t) buf off len : write =
+  Fd.use ~op_name:"write" fd @@ fun fd ->
   match Unix.write fd buf off len with
   | len -> `Wrote len
   | exception Unix.(Unix_error ((EINTR | EAGAIN | EWOULDBLOCK), _, _)) -> `Retry

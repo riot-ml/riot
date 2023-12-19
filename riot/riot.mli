@@ -439,7 +439,7 @@ module Net : sig
 
     val receive :
       ?timeout:timeout ->
-      len:int ->
+      buf:Bigstringaf.t ->
       stream_socket ->
       (Bigstringaf.t, [> `Closed | `Timeout ]) result
 

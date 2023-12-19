@@ -5,6 +5,7 @@ let entries t = Atomic.get t.tbl
 let find t k = List.assoc_opt k (entries t)
 let find_by t fn = List.find_opt fn (entries t)
 let find_all_by t fn = List.find_all fn (entries t)
+let iter t fn = List.iter fn (entries t)
 let has_key t k = find t k |> Option.is_some
 let is_empty t = entries t = []
 

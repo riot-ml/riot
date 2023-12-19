@@ -8,6 +8,13 @@ type t = {
   run_queue : Proc_queue.t;
   sleep_set : Proc_set.t;
   timers : Time.Timer_wheel.t;
+  idle_mutex : Mutex.t;
+  idle_condition : Condition.t;
+}
+
+type io = {
+  uid : Uid.t; [@warning "-69"]
+  rnd : Random.State.t;
   io_tbl : Net.Io.t;
   idle_mutex : Mutex.t;
   idle_condition : Condition.t;
@@ -15,6 +22,7 @@ type t = {
 
 type pool = {
   mutable stop : bool;
+  io_scheduler : io;
   schedulers : t list;
   processes : Proc_table.t;
   registry : Proc_registry.t;

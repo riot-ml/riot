@@ -1,4 +1,4 @@
 (library
  (package riot)
  (name net)
- (libraries core util log iomux uri unix telemetry bigstringaf))
+ (libraries core util log poll uri unix telemetry bigstringaf))

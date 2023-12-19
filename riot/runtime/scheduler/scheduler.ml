@@ -11,6 +11,13 @@ type t = {
   run_queue : Proc_queue.t;
   sleep_set : Proc_set.t;
   timers : Timer_wheel.t;
+  idle_mutex : Mutex.t;
+  idle_condition : Condition.t;
+}
+
+type io = {
+  uid : Uid.t; [@warning "-69"]
+  rnd : Random.State.t;
   io_tbl : Io.t;
   idle_mutex : Mutex.t;
   idle_condition : Condition.t;
@@ -18,6 +25,7 @@ type t = {
 
 type pool = {
   mutable stop : bool;
+  io_scheduler : io;
   schedulers : t list;
   processes : Proc_table.t;
   registry : Proc_registry.t;
@@ -32,13 +40,12 @@ module Scheduler = struct
       rnd = Random.State.copy rnd;
       run_queue = Proc_queue.create ();
       sleep_set = Proc_set.create ();
-      io_tbl = Io.create ();
       timers = Timer_wheel.create ();
       idle_mutex = Mutex.create ();
       idle_condition = Condition.create ();
     }
 
-  let get_current_scheduler, set_current_scheduler =
+  let get_current_scheduler, (set_current_scheduler : t -> unit) =
     Thread_local.make ~name:"CURRENT_SCHEDULER"
 
   let get_current_process_pid, set_current_process_pid =
@@ -53,7 +60,7 @@ module Scheduler = struct
   let set_timer sch time mode fn =
     Timer_wheel.make_timer sch.timers time mode fn
 
-  let add_to_run_queue sch (proc : Process.t) =
+  let add_to_run_queue (sch : t) (proc : Process.t) =
     Mutex.protect sch.idle_mutex @@ fun () ->
     Proc_set.remove sch.sleep_set proc;
     Proc_queue.queue sch.run_queue proc;
@@ -65,7 +72,7 @@ module Scheduler = struct
 
   let awake_process pool (proc : Process.t) =
     List.iter
-      (fun sch ->
+      (fun (sch : t) ->
         if Scheduler_uid.equal sch.uid proc.sid then add_to_run_queue sch proc)
       pool.schedulers
 
@@ -99,23 +106,24 @@ module Scheduler = struct
       in
       go fuel
 
-  let handle_syscall k sch (proc : Process.t) syscall mode fd =
+  let handle_syscall k pool (_sch : t) (proc : Process.t) syscall mode fd =
     let open Proc_state in
     Log.trace (fun f ->
         let mode = match mode with `r -> "r" | `w -> "w" | `rw -> "rw" in
         f "Registering %a for Syscall(%s,%s,%a)" Pid.pp proc.pid syscall mode
           Fd.pp fd);
-    Io.register sch.io_tbl proc mode fd;
+    Io.register pool.io_scheduler.io_tbl proc mode fd;
     Process.mark_as_awaiting_io proc syscall mode fd;
     k Yield
 
-  let perform sch (proc : Process.t) =
+  let perform pool (sch : t) (proc : Process.t) =
     let open Proc_state in
     let open Proc_effect in
     let perform : type a b. (a, b) step_callback =
      fun k eff ->
       match eff with
-      | Syscall { name; mode; fd } -> handle_syscall k sch proc name mode fd
+      | Syscall { name; mode; fd } ->
+          handle_syscall k pool sch proc name mode fd
       | Receive { ref } -> handle_receive k proc ref
       | Yield ->
           Log.trace (fun f ->
@@ -138,8 +146,8 @@ module Scheduler = struct
       Log.debug (fun f -> f "Hibernated process %a" Pid.pp proc.pid);
       Log.trace (fun f -> f "sleep_set: %d" (Proc_set.size sch.sleep_set)))
 
-  let handle_exit_proc pool sch proc reason =
-    Io.unregister_process sch.io_tbl proc;
+  let handle_exit_proc pool (_sch : t) proc reason =
+    Io.unregister_process pool.io_scheduler.io_tbl proc;
 
     Proc_registry.remove pool.registry (Process.pid proc);
 
@@ -188,12 +196,12 @@ module Scheduler = struct
             awake_process pool linked_proc)
       linked_pids
 
-  let handle_run_proc _pool sch proc =
+  let handle_run_proc pool (sch : t) proc =
     Log.trace (fun f -> f "Running process %a" Process.pp proc);
     let exception Terminated_while_running of Process.exit_reason in
     try
       Process.mark_as_running proc;
-      let perform = perform sch proc in
+      let perform = perform pool sch proc in
       let cont = Proc_state.run ~reductions:100 ~perform (Process.cont proc) in
       Process.set_cont proc cont;
       match cont with
@@ -218,7 +226,7 @@ module Scheduler = struct
         Log.trace (fun f -> f "Process %a finished" Pid.pp proc.pid);
         add_to_run_queue sch proc
 
-  let step_process pool sch (proc : Process.t) =
+  let step_process pool (sch : t) (proc : Process.t) =
     !Tracer.tracer_proc_run (sch.uid |> Scheduler_uid.to_int) proc;
     match Process.state proc with
     | Finalized -> failwith "finalized processes should never be stepped on"
@@ -227,18 +235,9 @@ module Scheduler = struct
     | Exited reason -> handle_exit_proc pool sch proc reason
     | Running | Runnable -> handle_run_proc pool sch proc
 
-  let poll_io pool (sch : t) =
-    Io.poll sch.io_tbl @@ fun (proc, mode) ->
-    Log.trace (fun f -> f "io_poll(%a): %a" Fd.Mode.pp mode Process.pp proc);
-    match Process.state proc with
-    | Waiting_io _ ->
-        Process.mark_as_runnable proc;
-        awake_process pool proc
-    | _ -> ()
-
   let tick_timers _pool (sch : t) = Timer_wheel.tick sch.timers
 
-  let run pool sch () =
+  let run pool (sch : t) () =
     Log.trace (fun f -> f "> enter worker loop");
     let exception Exit in
     (try
@@ -249,8 +248,7 @@ module Scheduler = struct
          while
            (not pool.stop)
            && Proc_queue.is_empty sch.run_queue
-           && (not (Timer_wheel.can_tick sch.timers))
-           && not (Io.can_poll sch.io_tbl)
+           && not (Timer_wheel.can_tick sch.timers)
          do
            Condition.wait sch.idle_condition sch.idle_mutex
          done;
@@ -264,7 +262,6 @@ module Scheduler = struct
            | None -> ()
          done;
 
-         poll_io pool sch;
          tick_timers pool sch
        done
      with Exit -> ());
@@ -273,11 +270,44 @@ end
 
 include Scheduler
 
+module Io_scheduler = struct
+  let make ~rnd () =
+    let uid = Uid.next () in
+    Log.debug (fun f -> f "Making Io_thread with id: %a" Uid.pp uid);
+    {
+      uid;
+      rnd = Random.State.copy rnd;
+      io_tbl = Io.create ();
+      idle_mutex = Mutex.create ();
+      idle_condition = Condition.create ();
+    }
+
+  let poll_io pool io =
+    Io.poll io.io_tbl @@ fun (proc, mode) ->
+    Log.trace (fun f -> f "io_poll(%a): %a" Fd.Mode.pp mode Process.pp proc);
+    match Process.state proc with
+    | Waiting_io _ ->
+        Process.mark_as_runnable proc;
+        awake_process pool proc
+    | _ -> ()
+
+  let run pool io () =
+    Log.trace (fun f -> f "> enter io loop");
+    let exception Exit in
+    (try
+       while true do
+         if pool.stop then raise_notrace Exit;
+         poll_io pool io
+       done
+     with Exit -> ());
+    Log.trace (fun f -> f "< exit worker loop")
+end
+
 module Pool = struct
   let get_pool, set_pool = Thread_local.make ~name:"POOL"
 
   let shutdown pool =
-    let rec wake_up_scheduler sch =
+    let rec wake_up_scheduler (sch : t) =
       if Mutex.try_lock sch.idle_mutex then (
         Condition.signal sch.idle_condition;
         Mutex.unlock sch.idle_mutex)
@@ -300,15 +330,18 @@ module Pool = struct
 
     Log.debug (fun f -> f "Making scheduler pool...");
     let schedulers = List.init domains @@ fun _ -> Scheduler.make ~rnd () in
+
+    let io_scheduler = Io_scheduler.make ~rnd () in
     let pool =
       {
         stop = false;
+        io_scheduler;
         schedulers = [ main ] @ schedulers;
         processes = Proc_table.create ();
         registry = Proc_registry.create ();
       }
     in
-    let spawn scheduler =
+    let spawn (scheduler : t) =
       Stdlib.Domain.spawn (fun () ->
           set_pool pool;
           Scheduler.set_current_scheduler scheduler;
@@ -326,5 +359,19 @@ module Pool = struct
             shutdown pool)
     in
     Log.debug (fun f -> f "Created %d schedulers" (List.length schedulers));
-    (pool, List.map spawn schedulers)
+
+    let io_thread =
+      Stdlib.Domain.spawn (fun () ->
+          try Io_scheduler.run pool io_scheduler ()
+          with exn ->
+            Log.error (fun f ->
+                f "Io_scheduler.run exception: %s due to: %s%!"
+                  (Printexc.to_string exn)
+                  (Printexc.raw_backtrace_to_string
+                     (Printexc.get_raw_backtrace ())));
+            shutdown pool)
+    in
+
+    let scheduler_threads = List.map spawn schedulers in
+    (pool, io_thread :: scheduler_threads)
 end

@@ -38,6 +38,9 @@ module Twitch = struct
           Ok { name = "Jonathan Archer"; email = "archer4eva@starfl.it" }
 
     let handle_info _msg _state = ()
+
+    let handle_cast : type res. res Gen_server.req -> state -> unit =
+     fun req _state -> match req with Profile _ -> ()
   end
 
   let start_link ?(verbose = false) () =

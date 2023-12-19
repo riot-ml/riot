@@ -283,6 +283,7 @@ module Gen_server : sig
     val init : args -> state init_result
     val handle_call : 'res. 'res req -> Pid.t -> state -> 'res
     val handle_info : Message.t -> state -> unit
+    val handle_cast : 'res. 'res req -> state -> unit
   end
 
   type ('args, 'state) impl =

@@ -1,4 +1,4 @@
 (library
- (public_name riot.core)
+ (package riot)
  (name core)
  (libraries log util))

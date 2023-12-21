@@ -1,5 +1,6 @@
 (tests
  (names
+  readme_example
   application_test
   telemetry_test
   process_registration_test

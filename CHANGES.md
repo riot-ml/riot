@@ -1,5 +1,9 @@
 # Changes
 
+## Unreleased
+
+* Redo packaging to expose a single public library: `riot`
+
 ## 0.0.5
 
 * Add `register name pid`

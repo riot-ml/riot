@@ -1,4 +1,4 @@
 (library
- (public_name riot.runtime.time)
+ (package riot)
  (name time)
  (libraries core ptime ptime.clock.os))

@@ -245,12 +245,12 @@ module Gen_server : sig
       custom request types, including the response type in its type variable.
       Like this: 
 
-      ```ocaml
+      {@ocaml[
       open Riot
       type _ Gen_server.req +=
         | Is_connected : bool Gen_server.req
         | Profile : profile_req -> profile_res Gen_server.req
-      ```
+      ]}
     *)
 
   (** [state init_result] is used to initialize a new generic server. *)
@@ -264,7 +264,7 @@ module Gen_server : sig
   (** [Impl] is the module type of the generic server base implementations. You
       can use this type when defining new gen servers like this:
 
-      ```ocaml
+      {@ocaml[
       type args = int
       module Server : Gen_server.Impl with type args = args = struct
         type nonrec args = args
@@ -274,7 +274,7 @@ module Gen_server : sig
 
         (* ... *)
       end
-      ```
+      ]}
   *)
   module type Impl = sig
     type args

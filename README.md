@@ -18,8 +18,10 @@ An actor-model multi-core scheduler for OCaml 5.
 Riot is an [actor-model][actors] multi-core scheduler for OCaml 5. It brings
 [Erlang][erlang]-style concurrency to the language, where lightweight processes communicate via message-passing.
 
+<!-- $MDX file=test/readme_example.ml,part=main -->
 ```ocaml
 open Riot
+
 type Message.t += Hello_world
 
 let () =
@@ -28,7 +30,8 @@ let () =
     spawn (fun () ->
         match receive () with
         | Hello_world ->
-            Logger.info (fun f -> f "hello world from %a!" Pid.pp (self ())))
+            Logger.info (fun f -> f "hello world from %a!" Pid.pp (self ()));
+            shutdown ())
   in
   send pid Hello_world
 ```

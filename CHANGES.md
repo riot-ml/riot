@@ -1,13 +1,18 @@
 # Changes
 
-## Unreleased
+## 0.0.6
 
 * Redo packaging to expose a single public library: `riot`
 * Fix issue with schedulers busy-waiting
-* Introduce separate IO Schedulers to polling
+* Introduce separate IO Schedulers for polling
 * Switch to `poll` to support kqueue on macOS
 * Reuse read-buffers on Io.read loops
+* Broaden IO socket types to file descriptors
+* Improved polling with shorter poll timeouts and safety checks
 * Add `Dashmap.iter` to iterate over a collection
+* Add `net_test` with an echo tcp server/client
+* Fix bugs with syscall suspension that was introduced with reduction counting
+
 
 ## 0.0.5
 

@@ -387,7 +387,27 @@ module Logger : sig
 end
 
 module Fd : sig
+  module Mode : sig
+    type t = [ `r | `rw | `w ]
+
+    val equal : t -> t -> bool
+    val pp : Format.formatter -> t -> unit
+  end
+
+  type fd = Unix.file_descr
   type t
+
+  exception Already_closed of string
+
+  val get : t -> fd option
+  val to_int : t -> int
+  val make : fd -> t
+  val is_open : t -> bool
+  val is_closed : t -> bool
+  val close : t -> unit
+  val use : op_name:string -> t -> (fd -> 'a) -> 'a
+  val equal : t -> t -> bool
+  val pp : Format.formatter -> t -> unit
 end
 
 module IO : sig
@@ -398,6 +418,7 @@ module IO : sig
   type write = [ `Abort of Unix.error | `Retry | `Wrote of int ]
 
   val write : Fd.t -> bytes -> int -> int -> write
+  val ready : Fd.t -> Fd.Mode.t -> (Fd.t -> 'a) -> 'a
 end
 
 module Net : sig

@@ -386,8 +386,18 @@ module Logger : sig
   include Intf
 end
 
-module File : sig
-  type fd
+module Fd : sig
+  type t
+end
+
+module IO : sig
+  type read = [ `Abort of Unix.error | `Read of int | `Retry ]
+
+  val read : Fd.t -> bytes -> int -> int -> read
+
+  type write = [ `Abort of Unix.error | `Retry | `Wrote of int ]
+
+  val write : Fd.t -> bytes -> int -> int -> write
 end
 
 module Net : sig

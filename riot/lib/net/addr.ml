@@ -10,7 +10,9 @@ let of_addr_info
       Unix.ADDR_INET (addr, port) ) -> (
       Logger.debug (fun f ->
           f "of_addr_info %s or %s" ai_canonname (Obj.magic addr));
-      match ai_protocol with 6 -> Some (tcp (Unix.string_of_inet_addr addr) port) | _ -> None)
+      match ai_protocol with
+      | 6 -> Some (tcp (Unix.string_of_inet_addr addr) port)
+      | _ -> None)
   | _ -> None
 
 let rec get_info host service =

@@ -38,5 +38,5 @@ val connect :
   [> `Abort of Unix.error | `Connected of Fd.t | `In_progress of Fd.t | `Retry ]
 
 val accept : t -> Fd.t -> accept
-val read : Socket.stream_socket -> bytes -> int -> int -> read
-val write : Socket.stream_socket -> bytes -> int -> int -> write
+val read : Fd.t -> bytes -> int -> int -> read
+val write : Fd.t -> bytes -> int -> int -> write

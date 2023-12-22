@@ -3,6 +3,11 @@
 ## Unreleased
 
 * Redo packaging to expose a single public library: `riot`
+* Fix issue with schedulers busy-waiting
+* Introduce separate IO Schedulers to polling
+* Switch to `poll` to support kqueue on macOS
+* Reuse read-buffers on Io.read loops
+* Add `Dashmap.iter` to iterate over a collection
 
 ## 0.0.5
 

@@ -439,11 +439,11 @@ module Net : sig
 
     val receive :
       ?timeout:timeout ->
-      len:int ->
+      buf:Bigstringaf.t ->
       stream_socket ->
-      (Bigstringaf.t, [> `Closed | `Timeout ]) result
+      (int, [> `Closed | `Timeout ]) result
 
-    val send : Bigstringaf.t -> stream_socket -> (int, [> `Closed ]) result
+    val send : data:Bigstringaf.t -> stream_socket -> (int, [> `Closed ]) result
     val pp : Format.formatter -> _ socket -> unit
 
     val pp_err :

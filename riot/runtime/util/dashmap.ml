@@ -5,6 +5,7 @@ let entries t = Atomic.get t.tbl
 let find t k = List.assoc_opt k (entries t)
 let find_by t fn = List.find_opt fn (entries t)
 let find_all_by t fn = List.find_all fn (entries t)
+let iter t fn = List.iter fn (entries t)
 let has_key t k = find t k |> Option.is_some
 let is_empty t = entries t = []
 
@@ -18,7 +19,7 @@ let rec insert t k v =
 
 let rec remove_by t fn =
   let tbl1 = entries t in
-  let tbl2 = List.filter fn tbl1 in
+  let tbl2 = List.filter (fun pair -> not (fn pair)) tbl1 in
   if Atomic.compare_and_set t.tbl tbl1 tbl2 then () else remove_by t fn
 
 let rec replace t k v =

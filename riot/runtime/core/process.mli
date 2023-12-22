@@ -36,6 +36,7 @@ type t = {
   mutable read_save_queue : bool;
   links : Pid.t list Atomic.t;
   monitors : Pid.t list Atomic.t;
+  ready_fds : Fd.t list Atomic.t;
 }
 
 exception Process_reviving_is_forbidden of t
@@ -60,6 +61,8 @@ val is_running : t -> bool
 val is_finalized : t -> bool
 val has_empty_mailbox : t -> bool
 val has_messages : t -> bool
+val has_ready_fds : t -> bool
+val set_ready_fds : t -> Fd.t list -> unit
 val message_count : t -> int
 val should_awake : t -> bool
 val mark_as_awaiting_io : t -> string -> [ `r | `rw | `w ] -> Fd.t -> unit

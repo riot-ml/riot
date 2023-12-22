@@ -53,7 +53,7 @@ let run_timer t now (timer, ()) =
     (match timer.mode with
     | `one_off ->
         Dashmap.remove_by t.timers (fun (timer', ()) ->
-            not (Timer.equal timer timer'))
+            Timer.equal timer timer')
     | `interval -> timer.started_at <- now);
     timer.fn ())
 

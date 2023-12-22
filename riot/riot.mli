@@ -386,6 +386,10 @@ module Logger : sig
   include Intf
 end
 
+module File : sig
+  type fd
+end
+
 module Net : sig
   module Addr : sig
     type tcp_addr

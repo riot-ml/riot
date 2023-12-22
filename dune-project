@@ -33,7 +33,7 @@
    (>= "4.4.0"))
   (telemetry
    (>= "0.0.1"))
-   (mdx (and :with-test (>= "2.3.1")))
+  (mdx (and :with-test (>= "2.3.1")))
   (odoc
    (and
     :with-doc

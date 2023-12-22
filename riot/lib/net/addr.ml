@@ -8,9 +8,9 @@ let of_addr_info
   | ( (Unix.PF_INET | Unix.PF_INET6),
       (Unix.SOCK_DGRAM | Unix.SOCK_STREAM),
       Unix.ADDR_INET (addr, port) ) -> (
-      Logger.error (fun f ->
+      Logger.debug (fun f ->
           f "of_addr_info %s or %s" ai_canonname (Obj.magic addr));
-      match ai_protocol with 6 -> Some (tcp (Obj.magic addr) port) | _ -> None)
+      match ai_protocol with 6 -> Some (tcp (Unix.string_of_inet_addr addr) port) | _ -> None)
   | _ -> None
 
 let rec get_info host service =
@@ -28,7 +28,7 @@ let of_uri uri =
     | _ -> Uri.scheme uri |> Option.value ~default:"http"
   in
   let host = Uri.host_with_default ~default:"0.0.0.0" uri in
-  Logger.error (fun f -> f "host: %s port: %s" host port);
+  Logger.debug (fun f -> f "host: %s port: %s" host port);
   match get_info host port with ip :: _ -> Some ip | [] -> None
 
 let get_info (`Tcp (host, port)) = get_info host (Int.to_string port)

@@ -1,15 +1,16 @@
 (tests
  (names
-  readme_example
-  application_test
-  telemetry_test
-  process_registration_test
-  spawn_and_exit
-  selective_receive
   add_monitor
+  application_test
+  link_processes
+  net_test
+  process_registration_test
+  readme_example
+  selective_receive
   send_after
   send_interval
-  link_processes
   send_order
-  supervisor_shutdown)
+  spawn_and_exit
+  supervisor_shutdown
+  telemetry_test)
  (libraries riot))

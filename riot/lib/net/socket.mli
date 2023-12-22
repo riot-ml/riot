@@ -37,10 +37,10 @@ val receive :
   ?timeout:timeout ->
   buf:Bigstringaf.t ->
   Fd.t ->
-  (Bigstringaf.t, [> `Unix_error of Unix.error | `Closed ]) result
+  (int, [> `Unix_error of Unix.error | `Closed ]) result
 
 val send :
-  Bigstringaf.t ->
+  data:Bigstringaf.t ->
   Fd.t ->
   (int, [> `Unix_error of Unix.error | `Closed ]) result
 

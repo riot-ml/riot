@@ -19,7 +19,7 @@ let rec insert t k v =
 
 let rec remove_by t fn =
   let tbl1 = entries t in
-  let tbl2 = List.filter fn tbl1 in
+  let tbl2 = List.filter (fun pair -> not (fn pair)) tbl1 in
   if Atomic.compare_and_set t.tbl tbl1 tbl2 then () else remove_by t fn
 
 let rec replace t k v =

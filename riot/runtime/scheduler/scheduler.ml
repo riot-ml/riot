@@ -108,13 +108,15 @@ module Scheduler = struct
 
   let handle_syscall k pool (_sch : t) (proc : Process.t) syscall mode fd =
     let open Proc_state in
-    Log.trace (fun f ->
-        let mode = match mode with `r -> "r" | `w -> "w" | `rw -> "rw" in
-        f "Registering %a for Syscall(%s,%s,%a)" Pid.pp proc.pid syscall mode
-          Fd.pp fd);
-    Io.register pool.io_scheduler.io_tbl proc mode fd;
-    Process.mark_as_awaiting_io proc syscall mode fd;
-    k Yield
+    if Process.has_ready_fds proc then k (Continue ())
+    else (
+      Log.debug (fun f ->
+          let mode = match mode with `r -> "r" | `w -> "w" | `rw -> "rw" in
+          f "Registering %a for Syscall(%s,%s,%a)" Pid.pp proc.pid syscall mode
+            Fd.pp fd);
+      Io.register pool.io_scheduler.io_tbl proc mode fd;
+      Process.mark_as_awaiting_io proc syscall mode fd;
+      k Suspend)
 
   let perform pool (sch : t) (proc : Process.t) =
     let open Proc_state in
@@ -147,6 +149,7 @@ module Scheduler = struct
       Log.trace (fun f -> f "sleep_set: %d" (Proc_set.size sch.sleep_set)))
 
   let handle_exit_proc pool (_sch : t) proc reason =
+    Log.debug (fun f -> f "unregistering process %a" Pid.pp (Process.pid proc));
     Io.unregister_process pool.io_scheduler.io_tbl proc;
 
     Proc_registry.remove pool.registry (Process.pid proc);
@@ -283,10 +286,13 @@ module Io_scheduler = struct
     }
 
   let poll_io pool io =
+    Log.debug (fun f -> f "io_tbl(%a)" Io.pp io.io_tbl);
     Io.poll io.io_tbl @@ fun (proc, mode) ->
-    Log.trace (fun f -> f "io_poll(%a): %a" Fd.Mode.pp mode Process.pp proc);
+    Io.unregister_process io.io_tbl proc;
+    Log.debug (fun f -> f "io_poll(%a): %a" Fd.Mode.pp mode Process.pp proc);
     match Process.state proc with
-    | Waiting_io _ ->
+    | Waiting_io { fd; _ } ->
+        Process.set_ready_fds proc [ fd ];
         Process.mark_as_runnable proc;
         awake_process pool proc
     | _ -> ()

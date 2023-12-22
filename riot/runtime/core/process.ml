@@ -37,6 +37,7 @@ type t = {
       (** the save queue is a temporary queue used for storing messages during a selective receive *)
   links : Pid.t list Atomic.t;
   monitors : Pid.t list Atomic.t;
+  ready_fds : Fd.t list Atomic.t;
 }
 (** The process descriptor. *)
 
@@ -56,6 +57,7 @@ let make sid fn =
       save_queue = Mailbox.create ();
       read_save_queue = false;
       flags = default_flags ();
+      ready_fds = Atomic.make [];
     }
   in
   proc
@@ -117,6 +119,13 @@ let is_finalized t = Atomic.get t.state = Finalized
 
 let has_empty_mailbox t =
   Mailbox.is_empty t.save_queue && Mailbox.is_empty t.mailbox
+
+let has_ready_fds t = not (Atomic.get t.ready_fds = [])
+
+let rec set_ready_fds t fds =
+  let last_fds = Atomic.get t.ready_fds in
+  if Atomic.compare_and_set t.ready_fds last_fds fds then ()
+  else set_ready_fds t fds
 
 let has_messages t = not (has_empty_mailbox t)
 let message_count t = Mailbox.size t.mailbox + Mailbox.size t.save_queue

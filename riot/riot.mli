@@ -439,9 +439,9 @@ module IO : sig
   val await_writeable : Fd.t -> (Fd.t -> 'a) -> 'a
   val await : Fd.t -> Fd.Mode.t -> (Fd.t -> 'a) -> 'a
 
-  val single_read : File.read_file -> buf:Cstruct.t -> (int,  [> | `Unix_error of Unix.error]) result
+  val single_read : Fd.t -> buf:Cstruct.t -> (int,  [> | `Unix_error of Unix.error]) result
 
-  val single_write : File.write_file -> data:Cstruct.t -> (int,  [> | `Unix_error of Unix.error]) result
+  val single_write : Fd.t -> data:Cstruct.t -> (int,  [> | `Unix_error of Unix.error]) result
 end
 
 module Net : sig

@@ -19,7 +19,7 @@ let run ?(rnd = Random.State.make_self_init ())
   Scheduler.set_current_scheduler sch0;
   Scheduler.Pool.set_pool pool;
 
-  let _pid = _spawn pool sch0 main in
+  let _pid = _spawn ~shutdown:true pool sch0 main in
   Scheduler.run pool sch0 ();
 
   Log.debug (fun f -> f "Riot runtime shutting down...");

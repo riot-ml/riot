@@ -84,8 +84,8 @@ let link pid =
       else raise (Link_no_process pid)
   | None -> ()
 
-let _spawn ?(do_link = false) (pool : Scheduler.pool) (scheduler : Scheduler.t)
-    fn =
+let _spawn ?(shutdown = false) ?(do_link = false) (pool : Scheduler.pool)
+    (scheduler : Scheduler.t) fn =
   let proc =
     Process.make scheduler.uid (fun () ->
         try
@@ -96,6 +96,9 @@ let _spawn ?(do_link = false) (pool : Scheduler.pool) (scheduler : Scheduler.t)
               f "Process %a died with unhandled exception %s:\n%s" Pid.pp
                 (self ()) (Printexc.to_string exn)
                 (Printexc.get_backtrace ()));
+
+          if shutdown then Stdlib.exit 1;
+
           Exception exn)
   in
 

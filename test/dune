@@ -2,8 +2,10 @@
  (names
   add_monitor
   application_test
-  net_addr_uri_test
+  io_readv_test
+  io_writev_test
   link_processes
+  net_addr_uri_test
   net_test
   process_registration_test
   readme_example

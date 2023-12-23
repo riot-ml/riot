@@ -3,3 +3,4 @@
 _build
 *.beam
 *.trace
+test/generated/*

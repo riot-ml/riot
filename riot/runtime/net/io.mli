@@ -40,3 +40,6 @@ val connect :
 val accept : t -> Fd.t -> accept
 val read : Fd.t -> bytes -> int -> int -> read
 val write : Fd.t -> bytes -> int -> int -> write
+
+val readv : Fd.t -> Cstruct.t array -> read
+val writev : Fd.t -> Cstruct.t array -> read

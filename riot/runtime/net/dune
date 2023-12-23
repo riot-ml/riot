@@ -1,4 +1,8 @@
 (library
  (package riot)
  (name net)
- (libraries core util log poll uri unix telemetry bigstringaf))
+ (foreign_stubs 
+   (language c)
+   (names io_posix_stubs)
+   (flags (:standard -O2)))
+ (libraries core util log poll uri unix telemetry bigstringaf cstruct))

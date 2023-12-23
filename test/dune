@@ -1,19 +1,81 @@
-(tests
- (names
-  add_monitor
-  application_test
-  io_readv_test
-  io_writev_test
-  link_processes
-  net_addr_uri_test
-  net_test
-  process_registration_test
-  readme_example
-  selective_receive
-  send_after
-  send_interval
-  send_order
-  spawn_and_exit
-  supervisor_shutdown
-  telemetry_test)
+(test
+ (name add_monitor)
+ (modules add_monitor)
+ (libraries riot))
+
+(test
+ (name application_test)
+ (modules application_test)
+ (libraries riot))
+
+(test
+ (name io_readv_test)
+ (deps fixtures/io_readv.txt)
+ (modules io_readv_test)
+ (libraries riot))
+
+(test
+ (name io_writev_test)
+ (modules io_writev_test)
+ (deps generated/.gitkeep)
+ (libraries riot))
+
+(test
+ (name link_processes)
+ (modules link_processes)
+ (libraries riot))
+
+(test
+ (name net_addr_uri_test)
+ (modules net_addr_uri_test)
+ (libraries riot))
+
+(test
+ (name net_test)
+ (modules net_test)
+ (libraries riot))
+
+(test
+ (name process_registration_test)
+ (modules process_registration_test)
+ (libraries riot))
+
+(test
+ (name readme_example)
+ (modules readme_example)
+ (libraries riot))
+
+(test
+ (name selective_receive)
+ (modules selective_receive)
+ (libraries riot))
+
+(test
+ (name send_after)
+ (modules send_after)
+ (libraries riot))
+
+(test
+ (name send_interval)
+ (modules send_interval)
+ (libraries riot))
+
+(test
+ (name send_order)
+ (modules send_order)
+ (libraries riot))
+
+(test
+ (name spawn_and_exit)
+ (modules spawn_and_exit)
+ (libraries riot))
+
+(test
+ (name supervisor_shutdown)
+ (modules supervisor_shutdown)
+ (libraries riot))
+
+(test
+ (name telemetry_test)
+ (modules telemetry_test)
  (libraries riot))

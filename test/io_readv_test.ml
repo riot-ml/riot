@@ -4,9 +4,9 @@ let () =
   Riot.run @@ fun () ->
   let _ = Logger.start () |> Result.get_ok in
   Logger.set_log_level (Some Info);
-  let fd = File.open_read "./test/fixtures/io_readv.txt" in
+  let fd = File.open_read "./fixtures/io_readv.txt" in
   let buf = Cstruct.create 8 in
-  let len = Riot.IO.single_read fd ~buf |> Result.get_ok in
+  let len = Riot.IO.single_read (File.fd fd) ~buf |> Result.get_ok in
   let str = Cstruct.to_string ~off:0 ~len buf in
   match str with
   | "hello wo" ->

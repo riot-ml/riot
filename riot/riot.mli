@@ -411,20 +411,17 @@ module Fd : sig
 end
 
 module File : sig
-type 'kind file
-type read_file = [ `r ] file
-type write_file = [ `w ] file
-type rw_file = [ `w | `r ] file
+  type 'kind file
+  type read_file = [ `r ] file
+  type write_file = [ `w ] file
+  type rw_file = [ `w | `r ] file
 
-val fd : _ file -> Fd.t
-
-val open_read : string -> read_file
-val open_write : string -> write_file
-
-val close : _ file -> unit
-val remove : string -> unit
+  val fd : _ file -> Fd.t
+  val open_read : string -> read_file
+  val open_write : string -> write_file
+  val close : _ file -> unit
+  val remove : string -> unit
 end
-
 
 module IO : sig
   type read = [ `Abort of Unix.error | `Read of int | `Retry ]
@@ -434,14 +431,15 @@ module IO : sig
   type write = [ `Abort of Unix.error | `Retry | `Wrote of int ]
 
   val write : Fd.t -> bytes -> int -> int -> write
-
   val await_readable : Fd.t -> (Fd.t -> 'a) -> 'a
   val await_writeable : Fd.t -> (Fd.t -> 'a) -> 'a
   val await : Fd.t -> Fd.Mode.t -> (Fd.t -> 'a) -> 'a
 
-  val single_read : Fd.t -> buf:Cstruct.t -> (int,  [> | `Unix_error of Unix.error]) result
+  val single_read :
+    Fd.t -> buf:Cstruct.t -> (int, [> `Unix_error of Unix.error ]) result
 
-  val single_write : Fd.t -> data:Cstruct.t -> (int,  [> | `Unix_error of Unix.error]) result
+  val single_write :
+    Fd.t -> data:Cstruct.t -> (int, [> `Unix_error of Unix.error ]) result
 end
 
 module Net : sig

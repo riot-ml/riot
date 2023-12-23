@@ -182,9 +182,10 @@ let write (fd : Fd.t) buf off len : write =
   | exception Unix.(Unix_error ((EINTR | EAGAIN | EWOULDBLOCK), _, _)) -> `Retry
   | exception Unix.(Unix_error (reason, _, _)) -> `Abort reason
 
-external riot_readv : Unix.file_descr -> Cstruct.t array -> int = "caml_riot_posix_readv"
+external riot_readv : Unix.file_descr -> Cstruct.t array -> int
+  = "caml_riot_posix_readv"
 
-let readv (fd : Fd.t) (cs: Cstruct.t array) : read =
+let readv (fd : Fd.t) (cs : Cstruct.t array) : read =
   Fd.use ~op_name:"readv" fd @@ fun unix_fd ->
   Log.debug (fun f -> f "Readv-ing from fd=%a" Fd.pp fd);
   match riot_readv unix_fd cs with
@@ -194,9 +195,10 @@ let readv (fd : Fd.t) (cs: Cstruct.t array) : read =
   | exception Unix.(Unix_error ((EINTR | EAGAIN | EWOULDBLOCK), _, _)) -> `Retry
   | exception Unix.(Unix_error (reason, _, _)) -> `Abort reason
 
-external riot_writev : Unix.file_descr -> Cstruct.t array -> int = "caml_riot_posix_writev"
+external riot_writev : Unix.file_descr -> Cstruct.t array -> int
+  = "caml_riot_posix_writev"
 
-let writev (fd : Fd.t) (cs: Cstruct.t array) : read =
+let writev (fd : Fd.t) (cs : Cstruct.t array) : read =
   Fd.use ~op_name:"readv" fd @@ fun unix_fd ->
   Log.debug (fun f -> f "Readv-ing from fd=%a" Fd.pp fd);
   match riot_writev unix_fd cs with

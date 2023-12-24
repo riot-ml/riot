@@ -417,10 +417,11 @@ module IO : sig
   module Buffer : sig
     type t
 
+    val with_capacity : int -> t
+    val of_cstruct : filled:int -> Cstruct.t -> t
+    val as_cstruct : t -> Cstruct.t
     val to_string : t -> string
     val of_string : string -> t
-    val with_capacity : int -> t
-    val as_cstruct : t -> Cstruct.t
     val sub : t -> off:int -> len:int -> t
   end
 

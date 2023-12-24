@@ -14,6 +14,9 @@ module Buffer = struct
     mutable filled : int;
   }
 
+  let position t = t.position
+  let filled t = t.filled
+
   let discard t =
     t.position <- 0;
     t.filled <- 0

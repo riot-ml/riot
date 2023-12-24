@@ -421,11 +421,13 @@ module IO : sig
     val consume : t -> int -> unit
     val copy : src:t -> dst:t -> int
     val discard : t -> unit
+    val filled: t -> int
     val is_empty : t -> bool
     val is_full : t -> bool
     val length : t -> int
     val of_cstruct : filled:int -> Cstruct.t -> t
     val of_string : string -> t
+    val position: t -> int
     val sub : t -> off:int -> len:int -> t
     val to_string : t -> string
     val with_capacity : int -> t

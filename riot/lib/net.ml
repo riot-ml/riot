@@ -41,10 +41,6 @@ end
 module Socket = struct
   include Runtime.Net.Socket
 
-  module Logger = Logger.Make (struct
-    let namespace = [ "riot"; "net"; "socket" ]
-  end)
-
   type listen_opts = {
     reuse_addr : bool;
     reuse_port : bool;
@@ -108,6 +104,7 @@ module Socket = struct
   let controlling_process _socket ~new_owner:_ = Ok ()
 
   let rec receive ?(timeout = Infinity) ~buf socket =
+    Logger.trace (fun f -> f "Riot.Net.Socket.receive");
     match Low_level.readv socket [| Io.Buffer.as_cstruct buf |] with
     | exception Fd.(Already_closed _) -> Error `Closed
     | `Abort reason -> Error (`Unix_error reason)

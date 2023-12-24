@@ -130,6 +130,7 @@ module Reader = struct
 
   let read : type src. src t -> buf:Buffer.t -> (int, [> `Closed ]) result =
    fun (Reader ((module R), src)) ~buf ->
+    Logger.trace (fun f -> f " IO.Reader.read");
     match R.read src ~buf with
     | Ok len -> Ok len
     | Error `Eof -> Ok 0

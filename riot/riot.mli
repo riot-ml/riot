@@ -451,7 +451,9 @@ module IO : sig
 
   module Writer : sig
     type 'src t
+    type 'src write = (module Write with type t = 'src)
 
+    val of_write_src : 'src. 'src write -> 'src -> 'src t
     val write : 'src t -> data:Buffer.t -> (int, [> `Closed ]) result
 
     module Make (B : Write) : sig
@@ -471,7 +473,9 @@ module IO : sig
   module Reader : sig
     type 'src t
     type 'src reader = 'src t
+    type 'src read = (module Read with type t = 'src)
 
+    val of_read_src : 'src. 'src read -> 'src -> 'src t
     val read : 'src reader -> buf:Buffer.t -> (int, [> `Closed ]) result
 
     module Make (B : Read) : sig

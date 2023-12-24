@@ -6,8 +6,12 @@ let shutdown () =
   let pool = _get_pool () in
   Scheduler.Pool.shutdown pool
 
-let run ?(rnd = Random.State.make_self_init ())
-    ?(workers = max 0 (Stdlib.Domain.recommended_domain_count () - 1)) main =
+let run ?(rnd = Random.State.make_self_init ()) ?workers main =
+  let max_workers = Int.max 0 (Stdlib.Domain.recommended_domain_count () - 2) in
+  let workers =
+    match workers with Some w -> Int.min w max_workers | None -> max_workers
+  in
+
   Log.debug (fun f -> f "Initializing Riot runtime...");
   Printexc.record_backtrace true;
   Pid.reset ();

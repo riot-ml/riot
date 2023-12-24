@@ -411,7 +411,8 @@ module Fd : sig
 end
 
 module IO : sig
-  type 'ok result = ('ok, [ `Unix_error of Unix.error | `Closed ]) Stdlib.result
+  type unix_error = [ `Unix_error of Unix.error ]
+  type ('ok, 'err) result = ('ok, ([> unix_error ] as 'err)) Stdlib.result
 
   module Buffer : sig
     type t
@@ -420,36 +421,35 @@ module IO : sig
     val of_string : string -> t
     val with_capacity : int -> t
     val as_cstruct : t -> Cstruct.t
+    val sub : t -> off:int -> len:int -> t
   end
 
   type read = [ `Abort of Unix.error | `Read of int | `Retry ]
-
-  val read : Fd.t -> bytes -> int -> int -> read
-
   type write = [ `Abort of Unix.error | `Retry | `Wrote of int ]
 
+  val read : Fd.t -> bytes -> int -> int -> read
   val write : Fd.t -> bytes -> int -> int -> write
   val await_readable : Fd.t -> (Fd.t -> 'a) -> 'a
   val await_writeable : Fd.t -> (Fd.t -> 'a) -> 'a
   val await : Fd.t -> Fd.Mode.t -> (Fd.t -> 'a) -> 'a
-  val single_read : Fd.t -> buf:Buffer.t -> int result
-  val single_write : Fd.t -> data:Buffer.t -> int result
+  val single_read : Fd.t -> buf:Buffer.t -> (int, [> `Closed ]) result
+  val single_write : Fd.t -> data:Buffer.t -> (int, [> `Closed ]) result
 
   module type Read = sig
     type t
 
-    val read : t -> buf:Buffer.t -> int result
+    val read : t -> buf:Buffer.t -> (int, [> `Closed ]) result
   end
 
   module Reader : sig
     type 'src reader
 
-    val read : 'src reader -> buf:Buffer.t -> int result
+    val read : 'src reader -> buf:Buffer.t -> (int, [> `Closed ]) result
 
     module Make (B : Read) : sig
       type t = B.t
 
-      val read : t -> buf:Buffer.t -> int result
+      val read : t -> buf:Buffer.t -> (int, [> `Closed ]) result
     end
 
     module Buffered : sig
@@ -499,41 +499,41 @@ module Net : sig
     }
 
     type timeout = Infinity | Bounded of float
-    type unix_error = [ `Unix_error of Unix.error ]
-    type ('ok, 'err) result = ('ok, ([> unix_error ] as 'err)) Stdlib.result
 
     val listen :
       ?opts:listen_opts ->
       port:int ->
       unit ->
-      (listen_socket, [> `System_limit ]) result
+      (listen_socket, [> `System_limit ]) IO.result
 
-    val connect : Addr.stream_addr -> (stream_socket, [> `Closed ]) result
+    val connect : Addr.stream_addr -> (stream_socket, [> `Closed ]) IO.result
 
     val accept :
       ?timeout:timeout ->
       listen_socket ->
       ( stream_socket * Addr.stream_addr,
         [> `Closed | `Timeout | `System_limit ] )
-      result
+      IO.result
 
     val close : _ socket -> unit
 
     val controlling_process :
-      _ socket -> new_owner:Pid.t -> (unit, [> `Closed | `Not_owner ]) result
+      _ socket -> new_owner:Pid.t -> (unit, [> `Closed | `Not_owner ]) IO.result
 
     val receive :
       ?timeout:timeout ->
-      buf:Bigstringaf.t ->
+      buf:IO.Buffer.t ->
       stream_socket ->
-      (int, [> `Closed | `Timeout ]) result
+      (int, [> `Closed | `Timeout ]) IO.result
 
-    val send : data:Bigstringaf.t -> stream_socket -> (int, [> `Closed ]) result
+    val send :
+      data:IO.Buffer.t -> stream_socket -> (int, [> `Closed ]) IO.result
+
     val pp : Format.formatter -> _ socket -> unit
 
     val pp_err :
       Format.formatter ->
-      [ unix_error | `Closed | `Timeout | `System_limit ] ->
+      [ IO.unix_error | `Closed | `Timeout | `System_limit ] ->
       unit
   end
 end

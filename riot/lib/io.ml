@@ -1,4 +1,5 @@
-type 'ok result = ('ok, [ `Unix_error of Unix.error | `Closed ]) Stdlib.result
+type unix_error = [ `Unix_error of Unix.error ]
+type ('ok, 'err) result = ('ok, ([> unix_error ] as 'err)) Stdlib.result
 
 let ( let* ) = Result.bind
 
@@ -46,6 +47,11 @@ module Buffer = struct
     Cstruct.to_string ~off:0 ~len:t.filled t.inner
 
   let with_capacity capacity = of_cstruct ~filled:0 (Cstruct.create capacity)
+
+  let sub t ~off ~len =
+    let inner = Cstruct.sub t.inner off len in
+    let capacity = inner.len in
+    { inner; capacity; position = 0; filled = capacity }
 end
 
 type read = Low_level.read
@@ -63,7 +69,7 @@ let rec single_read fd ~buf =
 let rec single_write fd ~data =
   match Low_level.writev fd [| Buffer.as_cstruct data |] with
   | `Abort err -> Error (`Unix_error err)
-  | `Read read -> Ok read
+  | `Wrote bytes -> Ok bytes
   | `Retry -> Runtime.syscall "single_write" `w fd @@ single_write ~data
 
 let await_readable fd fn = Runtime.syscall "custom" `r fd fn
@@ -74,11 +80,7 @@ let copy _fd _cs = ()
 module type Read = sig
   type t
 
-  val read : t -> buf:Buffer.t -> int result
-end
-
-module type BufRead = sig
-  include Read
+  val read : t -> buf:Buffer.t -> (int, [> `Closed ]) result
 end
 
 module Reader = struct
@@ -94,7 +96,8 @@ module Reader = struct
   let of_read_src : type src. src read -> src -> src reader =
    fun read src -> Reader (read, src)
 
-  let read : type src. src reader -> buf:Buffer.t -> int result =
+  let read : type src. src reader -> buf:Buffer.t -> (int, [> `Closed ]) result
+      =
    fun (Reader ((module R), src)) ~buf -> R.read src ~buf
 
   module Buffered = struct

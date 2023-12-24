@@ -16,7 +16,7 @@ let server port =
         f "Closed client %a (%a)" Net.Addr.pp addr Net.Socket.pp conn)
   in
 
-  let buf = Bigstringaf.create 1024 in
+  let buf = IO.Buffer.with_capacity 1024 in
   let rec echo () =
     Logger.debug (fun f ->
         f "Reading from client client %a (%a)" Net.Addr.pp addr Net.Socket.pp
@@ -24,7 +24,7 @@ let server port =
     match Net.Socket.receive conn ~buf with
     | Ok len -> (
         Logger.debug (fun f -> f "Server received %d bytes" len);
-        let data = Bigstringaf.sub ~off:0 ~len buf in
+        let data = IO.Buffer.sub ~off:0 ~len buf in
         match Net.Socket.send ~data conn with
         | Ok bytes ->
             Logger.debug (fun f -> f "Server sent %d bytes" bytes);
@@ -46,8 +46,7 @@ let client port main =
   let addr = Net.Addr.(tcp loopback port) in
   let conn = Net.Socket.connect addr |> Result.get_ok in
   Logger.debug (fun f -> f "Connected to server on %d" port);
-  let data = "hello world" in
-  let data = Bigstringaf.of_string data ~off:0 ~len:(String.length data) in
+  let data = IO.Buffer.of_string "hello world" in
   let rec send_loop n =
     sleep 0.001;
     if n = 0 then Logger.error (fun f -> f "client retried too many times")
@@ -63,14 +62,14 @@ let client port main =
   in
   send_loop 10_000;
 
-  let buf = Bigstringaf.create 128 in
+  let buf = IO.Buffer.with_capacity 128 in
   let recv_loop () =
     match Net.Socket.receive ~buf conn with
     | Ok bytes ->
         Logger.debug (fun f -> f "Client received %d bytes" bytes);
         bytes
     | Error (`Closed | `Timeout) ->
-        Logger.debug (fun f -> f "Server closed the connection");
+        Logger.error (fun f -> f "Server closed the connection");
         0
     | Error (`Unix_error unix_err) ->
         Logger.error (fun f ->
@@ -80,7 +79,7 @@ let client port main =
   let len = recv_loop () in
 
   if len = 0 then send main (Received "empty paylaod")
-  else send main (Received (Bigstringaf.substring buf ~off:0 ~len))
+  else send main (Received (IO.Buffer.to_string buf))
 
 let () =
   Riot.run @@ fun () ->

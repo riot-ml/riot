@@ -18,7 +18,10 @@ module Formatter = struct
 
         if config.color_output then
           Format.fprintf stdout "%s" (Level.to_color_string level);
-        if config.print_time then Format.fprintf stdout "%a " pp_now ts;
+        if config.print_time then 
+          let parts = Format.asprintf "%a" pp_now ts |> String.split_on_char ' ' in
+          let time = List.nth parts 1 in
+          Format.fprintf stdout "%s" time;
         if config.print_source then
           Format.fprintf stdout "[thread=%a,pid=%a] " Scheduler_uid.pp sch
             Pid.pp pid;

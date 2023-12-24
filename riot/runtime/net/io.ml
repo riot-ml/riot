@@ -198,12 +198,12 @@ let readv (fd : Fd.t) (cs : Cstruct.t array) : read =
 external riot_writev : Unix.file_descr -> Cstruct.t array -> int
   = "caml_riot_posix_writev"
 
-let writev (fd : Fd.t) (cs : Cstruct.t array) : read =
+let writev (fd : Fd.t) (cs : Cstruct.t array) : write =
   Fd.use ~op_name:"readv" fd @@ fun unix_fd ->
   Log.debug (fun f -> f "Readv-ing from fd=%a" Fd.pp fd);
   match riot_writev unix_fd cs with
   | len ->
       Log.debug (fun f -> f "read %d bytes from fd=%a" len Fd.pp fd);
-      `Read len
+      `Wrote len
   | exception Unix.(Unix_error ((EINTR | EAGAIN | EWOULDBLOCK), _, _)) -> `Retry
   | exception Unix.(Unix_error (reason, _, _)) -> `Abort reason

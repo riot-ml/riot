@@ -8,8 +8,8 @@ let () =
   Logger.set_log_level (Some Info);
   let now = Ptime_clock.now () in
   let path =
-    Format.asprintf "./test/generated/%a.io_writer_test.txt"
-      (Ptime.pp_rfc3339 ()) now
+    Format.asprintf "./generated/%a.io_writer_test.txt" (Ptime.pp_rfc3339 ())
+      now
   in
   let file = File.open_write path in
   let writer = File.to_writer file in

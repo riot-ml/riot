@@ -443,9 +443,9 @@ module IO : sig
   end
 
   module Writer : sig
-    type 'src writer
+    type 'src t
 
-    val write : 'src writer -> data:Buffer.t -> (int, [> `Closed ]) result
+    val write : 'src t -> data:Buffer.t -> (int, [> `Closed ]) result
 
     module Make (B : Write) : sig
       type t = B.t
@@ -462,7 +462,8 @@ module IO : sig
   end
 
   module Reader : sig
-    type 'src reader
+    type 'src t
+    type 'src reader = 'src t
 
     val read : 'src reader -> buf:Buffer.t -> (int, [> `Closed ]) result
 
@@ -488,8 +489,8 @@ module File : sig
   val open_write : string -> [ `w ] file
   val close : _ file -> unit
   val remove : string -> unit
-  val to_reader : [ `r ] file -> [ `r ] file IO.Reader.reader
-  val to_writer : [ `w ] file -> [ `w ] file IO.Writer.writer
+  val to_reader : [ `r ] file -> [ `r ] file IO.Reader.t
+  val to_writer : [ `w ] file -> [ `w ] file IO.Writer.t
 end
 
 module Net : sig
@@ -556,6 +557,9 @@ module Net : sig
       Format.formatter ->
       [ IO.unix_error | `Closed | `Timeout | `System_limit ] ->
       unit
+
+    val to_reader : stream_socket -> stream_socket IO.Reader.t
+    val to_writer : stream_socket -> stream_socket IO.Writer.t
   end
 end
 

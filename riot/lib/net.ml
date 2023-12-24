@@ -143,4 +143,13 @@ module Socket = struct
   end)
 
   let to_reader t = Io.Reader.of_read_src (module Read) t
+
+  module Write = Io.Writer.Make (struct
+    type t = stream_socket
+
+    let write t ~data = send ~data t
+    let flush _t = Ok ()
+  end)
+
+  let to_writer t = Io.Writer.of_write_src (module Write) t
 end

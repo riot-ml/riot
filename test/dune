@@ -42,6 +42,11 @@
  (libraries riot))
 
 (test
+ (name net_reader_writer_test)
+ (modules net_reader_writer_test)
+ (libraries riot))
+
+(test
  (name net_test)
  (modules net_test)
  (libraries riot))

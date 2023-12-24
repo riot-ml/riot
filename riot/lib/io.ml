@@ -92,14 +92,13 @@ module Writer = struct
     let flush = B.flush
   end
 
-  type 't write = (module Write with type t = 't)
-  type 't writer = Writer : ('t write * 't) -> 't writer
+  type 'src write = (module Write with type t = 'src)
+  type 'src t = Writer : ('src write * 'src) -> 'src t
 
-  let of_write_src : type src. src write -> src -> src writer =
+  let of_write_src : type src. src write -> src -> src t =
    fun write src -> Writer (write, src)
 
-  let write :
-      type src. src writer -> data:Buffer.t -> (int, [> `Closed ]) result =
+  let write : type src. src t -> data:Buffer.t -> (int, [> `Closed ]) result =
    fun (Writer ((module W), src)) ~data -> W.write src ~data
 end
 
@@ -116,14 +115,14 @@ module Reader = struct
     let read = B.read
   end
 
-  type 't read = (module Read with type t = 't)
-  type 't reader = Reader : ('t read * 't) -> 't reader
+  type 'src read = (module Read with type t = 'src)
+  type 'src t = Reader : ('src read * 'src) -> 'src t
+  type 'src reader = 'src t
 
-  let of_read_src : type src. src read -> src -> src reader =
+  let of_read_src : type src. src read -> src -> src t =
    fun read src -> Reader (read, src)
 
-  let read : type src. src reader -> buf:Buffer.t -> (int, [> `Closed ]) result
-      =
+  let read : type src. src t -> buf:Buffer.t -> (int, [> `Closed ]) result =
    fun (Reader ((module R), src)) ~buf -> R.read src ~buf
 
   module Buffered = struct

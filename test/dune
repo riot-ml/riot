@@ -1,4 +1,9 @@
 (test
+ (name io_reader_test)
+ (modules io_reader_test)
+ (libraries riot))
+
+(test
  (name add_monitor)
  (modules add_monitor)
  (libraries riot))

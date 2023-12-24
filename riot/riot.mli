@@ -410,20 +410,18 @@ module Fd : sig
   val pp : Format.formatter -> t -> unit
 end
 
-module File : sig
-  type 'kind file
-  type read_file = [ `r ] file
-  type write_file = [ `w ] file
-  type rw_file = [ `w | `r ] file
-
-  val fd : _ file -> Fd.t
-  val open_read : string -> read_file
-  val open_write : string -> write_file
-  val close : _ file -> unit
-  val remove : string -> unit
-end
-
 module IO : sig
+  type 'ok result = ('ok, [ `Unix_error of Unix.error | `Closed ]) Stdlib.result
+
+  module Buffer : sig
+    type t
+
+    val to_string : t -> string
+    val of_string : string -> t
+    val with_capacity : int -> t
+    val as_cstruct : t -> Cstruct.t
+  end
+
   type read = [ `Abort of Unix.error | `Read of int | `Retry ]
 
   val read : Fd.t -> bytes -> int -> int -> read
@@ -434,12 +432,43 @@ module IO : sig
   val await_readable : Fd.t -> (Fd.t -> 'a) -> 'a
   val await_writeable : Fd.t -> (Fd.t -> 'a) -> 'a
   val await : Fd.t -> Fd.Mode.t -> (Fd.t -> 'a) -> 'a
+  val single_read : Fd.t -> buf:Buffer.t -> int result
+  val single_write : Fd.t -> data:Buffer.t -> int result
 
-  val single_read :
-    Fd.t -> buf:Cstruct.t -> (int, [> `Unix_error of Unix.error ]) result
+  module type Read = sig
+    type t
 
-  val single_write :
-    Fd.t -> data:Cstruct.t -> (int, [> `Unix_error of Unix.error ]) result
+    val read : t -> buf:Buffer.t -> int result
+  end
+
+  module Reader : sig
+    type 'src reader
+
+    val read : 'src reader -> buf:Buffer.t -> int result
+
+    module Make (B : Read) : sig
+      type t = B.t
+
+      val read : t -> buf:Buffer.t -> int result
+    end
+
+    module Buffered : sig
+      type 'src t
+
+      val of_reader : ?capacity:int -> 'src reader -> 'src t reader
+    end
+  end
+end
+
+module File : sig
+  type 'kind file
+
+  val fd : _ file -> Fd.t
+  val open_read : string -> [ `r ] file
+  val open_write : string -> [ `r | `rw ] file
+  val close : _ file -> unit
+  val remove : string -> unit
+  val to_reader : 'kind file -> 'kind file IO.Reader.reader
 end
 
 module Net : sig

@@ -1,8 +1,6 @@
 open Riot
 
-let data =
-  let str = {| this is some data |} in
-  Cstruct.of_string ~off:0 ~len:(String.length str) str
+let data = IO.Buffer.of_string {| this is some data |}
 
 let () =
   Riot.run @@ fun () ->
@@ -15,11 +13,11 @@ let () =
   let fd = File.open_write file in
   let len = IO.single_write (File.fd fd) ~data |> Result.get_ok in
   File.close fd;
-  let buf = Cstruct.create len in
+  let buf = IO.Buffer.with_capacity len in
   let fd = File.open_read file in
   let len = IO.single_read (File.fd fd) ~buf |> Result.get_ok in
   File.close fd;
-  match Cstruct.to_string ~off:0 ~len buf with
+  match Cstruct.to_string ~off:0 ~len (IO.Buffer.as_cstruct buf) with
   | {| this is some data |} ->
       File.remove file;
       Logger.info (fun f -> f "io_readv_test: OK");

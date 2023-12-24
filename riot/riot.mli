@@ -417,12 +417,18 @@ module IO : sig
   module Buffer : sig
     type t
 
-    val with_capacity : int -> t
-    val of_cstruct : filled:int -> Cstruct.t -> t
     val as_cstruct : t -> Cstruct.t
-    val to_string : t -> string
+    val consume : t -> int -> unit
+    val copy : src:t -> dst:t -> int
+    val discard : t -> unit
+    val is_empty : t -> bool
+    val is_full : t -> bool
+    val length : t -> int
+    val of_cstruct : filled:int -> Cstruct.t -> t
     val of_string : string -> t
     val sub : t -> off:int -> len:int -> t
+    val to_string : t -> string
+    val with_capacity : int -> t
   end
 
   type read = [ `Abort of Unix.error | `Read of int | `Retry ]

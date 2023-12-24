@@ -32,7 +32,7 @@ let test_with_buffer capacity =
 let () =
   Riot.run @@ fun () ->
   let _ = Logger.start () |> Result.get_ok in
-  Logger.set_log_level (Some Trace);
+  Logger.set_log_level (Some Info);
   (* smallest buffer that will work than the target and the source*)
   test_with_buffer 4;
   (* smallest than the target and the source*)

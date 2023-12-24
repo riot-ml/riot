@@ -435,6 +435,26 @@ module IO : sig
   val single_read : Fd.t -> buf:Buffer.t -> (int, [> `Closed ]) result
   val single_write : Fd.t -> data:Buffer.t -> (int, [> `Closed ]) result
 
+  module type Write = sig
+    type t
+
+    val write : t -> data:Buffer.t -> (int, [> `Closed ]) result
+    val flush : t -> (unit, [> `Closed ]) result
+  end
+
+  module Writer : sig
+    type 'src writer
+
+    val write : 'src writer -> data:Buffer.t -> (int, [> `Closed ]) result
+
+    module Make (B : Write) : sig
+      type t = B.t
+
+      val write : t -> data:Buffer.t -> (int, [> `Closed ]) result
+      val flush : t -> (unit, [> `Closed ]) result
+    end
+  end
+
   module type Read = sig
     type t
 
@@ -465,10 +485,11 @@ module File : sig
 
   val fd : _ file -> Fd.t
   val open_read : string -> [ `r ] file
-  val open_write : string -> [ `r | `rw ] file
+  val open_write : string -> [ `w ] file
   val close : _ file -> unit
   val remove : string -> unit
-  val to_reader : 'kind file -> 'kind file IO.Reader.reader
+  val to_reader : [ `r ] file -> [ `r ] file IO.Reader.reader
+  val to_writer : [ `w ] file -> [ `w ] file IO.Writer.writer
 end
 
 module Net : sig

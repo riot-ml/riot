@@ -77,6 +77,32 @@ let await_writeable fd fn = Runtime.syscall "custom" `w fd fn
 let await fd mode fn = Runtime.syscall "custom" mode fd fn
 let copy _fd _cs = ()
 
+module type Write = sig
+  type t
+
+  val write : t -> data:Buffer.t -> (int, [> `Closed ]) result
+  val flush : t -> (unit, [> `Closed ]) result
+end
+
+module Writer = struct
+  module Make (B : Write) = struct
+    type t = B.t
+
+    let write = B.write
+    let flush = B.flush
+  end
+
+  type 't write = (module Write with type t = 't)
+  type 't writer = Writer : ('t write * 't) -> 't writer
+
+  let of_write_src : type src. src write -> src -> src writer =
+   fun write src -> Writer (write, src)
+
+  let write :
+      type src. src writer -> data:Buffer.t -> (int, [> `Closed ]) result =
+   fun (Writer ((module W), src)) ~data -> W.write src ~data
+end
+
 module type Read = sig
   type t
 

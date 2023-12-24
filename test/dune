@@ -1,6 +1,12 @@
 (test
+ (name io_writer_test)
+ (modules io_writer_test)
+ (libraries riot))
+
+(test
  (name io_reader_test)
  (modules io_reader_test)
+ (deps fixtures/io_readv.txt)
  (libraries riot))
 
 (test

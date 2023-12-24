@@ -27,3 +27,18 @@ module Read = Io.Reader.Make (struct
 end)
 
 let to_reader t = Io.Reader.of_read_src (module Read) t
+
+module Write = Io.Writer.Make (struct
+  type t = write_file
+
+  let rec write t ~data =
+    match Runtime.Net.Io.writev t [| Io.Buffer.as_cstruct data |] with
+    | exception Fd.(Already_closed _) -> Error `Closed
+    | `Abort reason -> Error (`Unix_error reason)
+    | `Retry -> Runtime.syscall "File.write" `r t @@ write ~data
+    | `Wrote len -> Ok len
+
+  let flush _t = Ok ()
+end)
+
+let to_writer t = Io.Writer.of_write_src (module Write) t

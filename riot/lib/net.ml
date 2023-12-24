@@ -114,7 +114,7 @@ module Socket = struct
     | `Retry -> syscall "receive" `r socket @@ receive ~timeout ~buf
     | `Read 0 -> Error `Closed
     | `Read len ->
-        buf.filled <- len;
+        Io.Buffer.set_filled buf ~filled:len;
         Ok len
 
   let rec send ~data socket =

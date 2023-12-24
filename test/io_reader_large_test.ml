@@ -1,30 +1,31 @@
 open Riot
 
 let test_with_buffer capacity =
-  let file = File.open_read "./fixtures/io_readv.txt" in
+  let file = File.open_read "./fixtures/ocaml_org.html" in
   let reader = File.to_reader file in
-  let reader = IO.Reader.Buffered.of_reader ~capacity reader in
-  let buf = IO.Buffer.with_capacity 8 in
+  let buf = IO.Buffer.with_capacity 57946 in
 
   let op1 = IO.Reader.read reader ~buf in
   let str1 = IO.Buffer.to_string buf in
-  Logger.debug (fun f -> f "read #1: %d bytes" (Result.get_ok op1));
+  Logger.debug (fun f -> f "read #1: %d bytes – %S" (Result.get_ok op1) str1);
 
+  let buf = IO.Buffer.with_capacity 57946 in
   let op2 = IO.Reader.read reader ~buf in
   Logger.debug (fun f -> f "read #2: %d bytes" (Result.get_ok op2));
   let str2 = IO.Buffer.to_string buf in
 
+  let buf = IO.Buffer.with_capacity 57946 in
   let op3 = IO.Reader.read reader ~buf in
   Logger.debug (fun f -> f "read #3: %d bytes" (Result.get_ok op3));
   let str3 = IO.Buffer.to_string buf in
 
   let final_str = str1 ^ str2 ^ str3 in
-  if String.equal final_str "hello world\n" then
-    Logger.info (fun f -> f "io_reader_test(%d): OK" capacity)
+  if String.length final_str = 57946 then
+    Logger.info (fun f -> f "io_reader_large_test(%d): OK" capacity)
   else (
     Logger.error (fun f ->
-        f "io_readv_test(%d): unexpected input  %S %S %S" capacity str1 str2
-          str3);
+        f "io_reader_large_test(%d): %d unexpected input  %S %S %S"
+          (String.length final_str) capacity str1 str2 str3);
     sleep 0.1;
     let exception Fail in
     raise Fail)

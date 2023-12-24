@@ -37,7 +37,7 @@ let server port =
             Logger.error (fun f ->
                 f "send unix error %s" (Unix.error_message unix_err));
             close ())
-    | Error (`Closed | `Timeout) -> close ()
+    | Error (`Eof | `Closed | `Timeout) -> close ()
     | Error (`Unix_error unix_err) ->
         Logger.error (fun f ->
             f "recv unix error %s" (Unix.error_message unix_err));
@@ -75,7 +75,7 @@ let client port main =
     | Ok bytes ->
         Logger.debug (fun f -> f "Client received %d bytes" bytes);
         bytes
-    | Error (`Closed | `Timeout) ->
+    | Error (`Eof | `Closed | `Timeout) ->
         Logger.error (fun f -> f "Server closed the connection");
         0
     | Error (`Unix_error unix_err) ->

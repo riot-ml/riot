@@ -6,6 +6,9 @@ let ( let* ) = Result.bind
 module Low_level = Runtime.Net.Io
 
 module Buffer = struct
+  type buffer =
+    (char, Bigarray.int8_unsigned_elt, Bigarray.c_layout) Bigarray.Array1.t
+
   type t = {
     inner : Cstruct.t;
     mutable capacity : int;
@@ -17,15 +20,14 @@ module Buffer = struct
   let position t = t.position
   let filled t = t.filled
   let set_filled t ~filled = t.filled <- Int.min filled t.capacity
-
-  let discard t =
-    t.position <- 0;
-    t.filled <- 0
-
   let consume t off = t.position <- Int.min (t.position + off) t.filled
   let is_empty t = t.position = 0 && t.filled = 0
   let is_full t = t.position = t.filled && not (is_empty t)
   let length t = t.capacity
+
+  let discard t =
+    t.position <- 0;
+    t.filled <- 0
 
   let copy ~src ~dst =
     let actual_fill = Int.min dst.capacity (src.filled - src.position) in
@@ -109,7 +111,7 @@ end
 module type Read = sig
   type t
 
-  val read : t -> buf:Buffer.t -> (int, [> `Closed ]) result
+  val read : t -> buf:Buffer.t -> (int, [> `Closed | `Eof ]) result
 end
 
 module Reader = struct
@@ -127,7 +129,11 @@ module Reader = struct
    fun read src -> Reader (read, src)
 
   let read : type src. src t -> buf:Buffer.t -> (int, [> `Closed ]) result =
-   fun (Reader ((module R), src)) ~buf -> R.read src ~buf
+   fun (Reader ((module R), src)) ~buf ->
+    match R.read src ~buf with
+    | Ok len -> Ok len
+    | Error `Eof -> Ok 0
+    | Error err -> Error err
 
   module Buffered = struct
     let default_buffer_size = 1_024 * 4

@@ -10,6 +10,12 @@
  (libraries riot))
 
 (test
+ (name io_reader_large_test)
+ (modules io_reader_large_test)
+ (deps fixtures/ocaml_org.html)
+ (libraries riot))
+
+(test
  (name add_monitor)
  (modules add_monitor)
  (libraries riot))

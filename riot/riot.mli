@@ -470,7 +470,7 @@ module IO : sig
   module type Read = sig
     type t
 
-    val read : t -> buf:Buffer.t -> (int, [> `Closed ]) result
+    val read : t -> buf:Buffer.t -> (int, [> `Closed | `Eof ]) result
   end
 
   module Reader : sig
@@ -479,12 +479,12 @@ module IO : sig
     type 'src read = (module Read with type t = 'src)
 
     val of_read_src : 'src. 'src read -> 'src -> 'src t
-    val read : 'src reader -> buf:Buffer.t -> (int, [> `Closed ]) result
+    val read : 'src reader -> buf:Buffer.t -> (int, [> `Closed | `Eof ]) result
 
     module Make (B : Read) : sig
       type t = B.t
 
-      val read : t -> buf:Buffer.t -> (int, [> `Closed ]) result
+      val read : t -> buf:Buffer.t -> (int, [> `Closed | `Eof ]) result
     end
 
     module Buffered : sig

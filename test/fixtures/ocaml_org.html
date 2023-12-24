@@ -1,0 +1,1091 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head id="htmx-head">
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+    
+    <meta name="description" content="OCaml is a general-purpose, industrial-strength programming language with an emphasis on expressiveness and safety.">
+    
+    <meta name="twitter:title" content="Welcome to a World of OCaml">
+    
+    <meta name="twitter:description" content="OCaml is a general-purpose, industrial-strength programming language with an emphasis on expressiveness and safety.">
+    
+    <meta name="twitter:image" content="https://ocaml.org/_/MWIyY2ZmMWM5YzdkYWNmYWI4NGQ0MDBjOGFiZTYxOTg/ocaml_org_social_media.png">
+    <meta property="og:site_name" content="OCaml">
+    <meta property="og:type" content="object">
+    <meta property="og:title" content="Welcome to a World of OCaml">
+    
+    <meta property="og:description" content="OCaml is a general-purpose, industrial-strength programming language with an emphasis on expressiveness and safety.">
+    
+    <meta name="og:image" content="https://ocaml.org/_/MWIyY2ZmMWM5YzdkYWNmYWI4NGQ0MDBjOGFiZTYxOTg/ocaml_org_social_media.png">
+    <meta name="theme-color" content="#fff" >
+    <meta name="color-scheme" content="white">
+    
+    <link rel="canonical" href="https://ocaml.org">
+    
+    <link rel="icon" type="image/x-icon" href="/_/ZDJmMjgzN2NkZmJlMzgxNGQxMTMxNGVlMzk1NzZkN2I/favicon.ico">
+    <link rel="manifest" href="/manifest.json">
+    
+    <link rel="stylesheet" href="/_/NmYyMWIxMjE1ODUwZDliOGNmNTdiMTY2OWU2NWFmMmI/css/main.css">
+    
+    <link rel="stylesheet" href="/_/NmFjYjY5ZmIxYWRhMWQxMTQxODM4ZDEwYTgwMDcwNmI/vendors/font-files/inter.css">
+    <link rel="stylesheet" href="/_/YjM3OGY4YzIwN2E2ZmUxZTczOWVkNDQwZWRhMDU0MGM/vendors/font-files/roboto-mono.css">
+    <script defer src="/_/OWYyZDQyZjg4MTFlNWEzZjE4ZGY0YWM0OTU1NGEzYTI/vendors/alpine-clipboard.js"></script>
+    <script defer src="/_/NGI1NjQzZjdkODY0MTY2MmViNThhM2VlZTYwMDk3NTI/vendors/alpine.min.js"></script>
+    <script defer src="/_/YTNhODI2Yzg0Yzk4M2ZiNDcxYmRiYzdhY2FiN2Y0OWQ/vendors/htmx.min.js"></script>
+    <script defer data-domain="ocaml.org" src="https://plausible.ci.dev/js/script.js"></script>
+    
+    <link rel="stylesheet" href="/_/YmM5NjJlN2E4YzVkMDBmMDQ2ODEwNTQyNTBkNzE2MmM/vendors/swiper-bundle.min.css">
+    <link rel="alternate" type="application/rss+xml" title="OCaml RSS Feed" href="/feed.xml">
+    <script src="/_/ZDJiMGNkNGMzMjBlYjNmZGUxNTMxOTAyNjA0MDU2N2Q/vendors/swiper-bundle.min.js"></script>
+    
+    <link rel="search" href="/opensearch.xml" type="application/opensearchdescription+xml" title="OCaml">
+    <title>Welcome to a World of OCaml</title>
+  </head>
+
+  <body class="light">
+    
+
+    <header
+  class="h-20 flex items-center bg-sand dark:bg-dark-background_navigation"
+  x-data="{ open: false }">
+  <nav class="container-fluid wide header flex justify-between items-center gap-5 xl:gap-8">
+    <ul class="order-0 space space-x-5 xl:space-x-8 items-center flex text-legacy-lighter font-medium dark:text-white dark:text-opacity-60 dark:font-semibold">
+      <li style="width:132px">
+        <a href="/" class="block pb-2">
+          <img src="/_/MDBjN2M4YjIxY2Y1YWExZWE3Njk4M2FiZTg1NWZjNTM/logo-with-name.svg" width="132" alt="OCaml logo" class="dark:hidden">
+          <img src="/_/MTE3YWE5YzJlZmExNmYyMmI3ZmEwYjliMDEwNDBkMDY/logo-with-name-white.svg" width="132" alt="OCaml logo" class="hidden dark:inline">
+        </a>
+      </li>
+    </ul>
+    <ul class="order-2 hidden lg:flex items-center">
+      <li>
+        <form
+           x-data="{ row: null, col: 0, max: 0, total: 0 }"
+       @submit="if (row !== null) { window.location = document.getElementById('package-autocomplete-'+row+'-'+col).getAttribute('href'); $event.stopPropagation(); $event.preventDefault(); return false }" 
+          action="/packages/search" method="GET">
+          <div class="dropdown-container flex items-center justify-center h-10 rounded-md focus-within:outline-primary_40 dark:focus-within:outline-dark-primary_40 focus-within:outline focus-within:outline-2 lg:w-56 xl:w-80" tabindex="0">
+  <label for="q" class="sr-only">Search OCaml packages</label>
+  <input
+      type="search"
+      name="q"
+      placeholder="Search OCaml packages"
+      class="bg-white dark:bg-dark-card h-full w-full font-medium focus:border-primary dark:focus:border-dark-primary focus:ring-0 text-gray-800 dark:text-dark-title border-primary dark:border-dark-primary rounded-md rounded-r-none px-3 py-1 placeholder-text-content dark:placeholder-dark-title appearance-none focus:outline-none"
+      @keydown.stop   @keyup.down="if (row === null) { row = 0; col = 0; } else { row +=1; if (row > max) { row = max } }"
+        @keyup.up="if (row !== null) { row -=1; if (row < 0) { row = null } }"
+        @keyup.right="if (col < 1) col++"
+        @keyup.left="if (col >= 1) col--"
+        :aria-activedescendant="row !== null ? 'package-autocomplete-'+row+'-'+col : null"
+
+        hx-get="/packages/autocomplete"
+        hx-params="q"
+        hx-trigger="keyup changed, search"
+        hx-target="#header-search-results"
+        hx-indicator="#header-search-indicator"
+        autocomplete="off"
+        
+  >
+  
+  <button
+      aria-label="search"
+      class="h-full flex items-center justify-center rounded-r-md bg-primary dark:bg-dark-primary text-white dark:text-dark-card px-4"
+      type="submit"
+  ><svg xmlns="http://www.w3.org/2000/svg" class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+</svg>
+
+</button>
+
+  <div class="dropdown w-full lg:w-[32rem] xl:w-[32rem] z-10 absolute rounded-md mt-12 shadow-2xl top-1 p-2 bg-legacy-default dark:bg-legacy-dark-default shadow-3xl">
+    <div id="header-search-results" aria-live="polite"></div>
+<a class="flex py-2 px-2 mx-2 gap-4 hover:bg-legacy-primary-100 font-normal rounded-md text-primary" href="/releases/latest/api/index.html">
+  Standard Library API
+  <svg xmlns="http://www.w3.org/2000/svg" class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"></path>
+</svg>
+
+
+</a>
+
+</div>
+
+</div>
+
+
+        </form>
+      </li>
+    </ul>
+    <ul class="order-1 mr-auto items-center hidden lg:flex font-medium dark:text-white dark:text-opacity-60 dark:font-semibold">
+      <li><a href="/docs" class="font-normal py-3 mg:py-4 px-1 lg:px-3 hover:text-primary dark:hover:text-dark-primary  text-title dark:text-dark-title">Learn</a>
+
+
+</li>
+      <li><a href="/packages" class="font-normal py-3 mg:py-4 px-1 lg:px-3 hover:text-primary dark:hover:text-dark-primary  text-title dark:text-dark-title">Packages</a>
+
+
+</li>
+      <li><a href="/community" class="font-normal py-3 mg:py-4 px-1 lg:px-3 hover:text-primary dark:hover:text-dark-primary  text-title dark:text-dark-title">Community</a>
+
+
+</li>
+      <li><a href="/blog" class="font-normal py-3 mg:py-4 px-1 lg:px-3 hover:text-primary dark:hover:text-dark-primary  text-title dark:text-dark-title">Blog</a>
+
+
+</li>
+      <li><a href="/play" class="font-normal py-3 mg:py-4 px-1 lg:px-3 hover:text-primary dark:hover:text-dark-primary  text-title dark:text-dark-title">Playground</a>
+
+
+</li>
+    </ul>
+    
+    <ul class="order-3 hidden lg:flex items-center">
+      <li><a href="/docs/get-started" class="border border-primary dark:border-dark-primary text-primary dark:text-dark-primary font-bold py-2.5 px-7 whitespace-nowrap rounded">Get Started</a></li>
+    </ul>
+    
+    <ul class="order-1 lg:hidden flex items-center">
+      <li
+        class="h-12 w-12 hover:bg-legacy-primary-100 flex items-center justify-center rounded-full text-content dark:text-dark-title">
+        <button aria-label="open menu" @click="open = ! open">
+          <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 10h16M4 14h16M4 18h16" />
+</svg>
+
+
+        </button>
+      </li>
+    </ul>
+  </nav>
+
+  <div class="bg-black fixed w-full h-full left-0 top-0 opacity-60 z-40" x-show='open' x-cloak></div>
+
+  <nav class="z-50 h-full fixed right-0 top-0 max-w-full w-96 bg-legacy-default dark:bg-legacy-dark-default shadow-lg" x-show="open" x-cloak
+    @click.away="open = false" x-transition:enter="transition duration-200 ease-out"
+    x-transition:enter-start="translate-x-full" x-transition:leave="transition duration-100 ease-in"
+    x-transition:leave-end="translate-x-full">
+    <ul class="text-legacy-lighter p-6 font-semibold">
+      <li class="flex justify-between items-center">
+        <a href="/">
+          <img src="/_/MDBjN2M4YjIxY2Y1YWExZWE3Njk4M2FiZTg1NWZjNTM/logo-with-name.svg" width="132" alt="OCaml logo" class="dark:hidden">
+          <img src="/_/MTE3YWE5YzJlZmExNmYyMmI3ZmEwYjliMDEwNDBkMDY/logo-with-name-white.svg" width="132" alt="OCaml logo" class="hidden dark:inline">
+        </a>
+
+        <div class=""
+          x-on:click="open = false">
+          <button aria-label="close" class="text-content dark:text-dark-title">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+</svg>
+
+
+          </button>
+        </div>
+      </li>
+      <li class="mt-6 mb-3">
+        <form action="/packages/search" method="GET">
+          <div class="dropdown-container flex items-center justify-center h-10 rounded-md focus-within:outline-primary_40 dark:focus-within:outline-dark-primary_40 focus-within:outline focus-within:outline-2 " tabindex="0">
+  <label for="q" class="sr-only">Search OCaml packages</label>
+  <input
+      type="search"
+      name="q"
+      placeholder="Search OCaml packages"
+      class="bg-white dark:bg-dark-card h-full w-full font-medium focus:border-primary dark:focus:border-dark-primary focus:ring-0 text-gray-800 dark:text-dark-title border-primary dark:border-dark-primary rounded-md rounded-r-none px-3 py-1 placeholder-text-content dark:placeholder-dark-title appearance-none focus:outline-none"
+      
+  >
+  
+  <button
+      aria-label="search"
+      class="h-full flex items-center justify-center rounded-r-md bg-primary dark:bg-dark-primary text-white dark:text-dark-card px-4"
+      type="submit"
+  ><svg xmlns="http://www.w3.org/2000/svg" class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+</svg>
+
+</button>
+
+  
+</div>
+
+
+        </form>
+      </li>
+
+      <li><a href="/docs" class="font-normal py-3 mg:py-4 px-1 lg:px-3 hover:text-primary dark:hover:text-dark-primary block text-title dark:text-dark-title">Learn</a>
+
+
+</li>
+      <li><a href="/packages" class="font-normal py-3 mg:py-4 px-1 lg:px-3 hover:text-primary dark:hover:text-dark-primary block text-title dark:text-dark-title">Packages</a>
+
+
+</li>
+      <li><a href="/community" class="font-normal py-3 mg:py-4 px-1 lg:px-3 hover:text-primary dark:hover:text-dark-primary block text-title dark:text-dark-title">Community</a>
+
+
+</li>
+      <li><a href="/blog" class="font-normal py-3 mg:py-4 px-1 lg:px-3 hover:text-primary dark:hover:text-dark-primary block text-title dark:text-dark-title">Blog</a>
+
+
+</li>
+      <li><a href="/play" class="font-normal py-3 mg:py-4 px-1 lg:px-3 hover:text-primary dark:hover:text-dark-primary block text-title dark:text-dark-title">Playground</a>
+
+
+</li>
+      <li>
+        <a href="/releases/latest/api/index.html" class="flex py-3 px-1 gap-4 font-semibold text-primary dark:text-dark-primary">Standard Library API<svg xmlns="http://www.w3.org/2000/svg" class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"></path>
+</svg>
+
+</a>
+      </li>
+      <li class="mt-3 mb-6">
+        <a href="/docs/get-started" class="w-full rounded font-normal py-3 px-7 flex items-center justify-center bg-primary dark:bg-dark-primary text-white dark:text-dark-title">Get started</a>
+      </li>
+      <li>
+        <div class="space-x-6 text-2xl flex items-center">
+          <a aria-label="OCaml's Discord" href="https://discord.gg/cCYQbqN" class="opacity-60 hover:opacity-100 text-content dark:text-dark-title hover:text-primary dark:hover:text-dark-primary">
+            <svg xmlns="http://www.w3.org/2000/svg" class="w-6 h-6" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+  <path fill-rule="evenodd" d="M18.9419 5.29661C17.6473 4.69088 16.263 4.25066 14.8157 4C14.638 4.32134 14.4304 4.75355 14.2872 5.09738C12.7487 4.86601 11.2245 4.86601 9.7143 5.09738C9.57116 4.75355 9.3588 4.32134 9.17947 4C7.73067 4.25066 6.3448 4.6925 5.05016 5.29982C2.43887 9.24582 1.73099 13.0938 2.08493 16.8872C3.81688 18.1805 5.49534 18.9662 7.14548 19.4804C7.55291 18.9196 7.91628 18.3235 8.22931 17.6953C7.63313 17.4688 7.06211 17.1892 6.52256 16.8647C6.6657 16.7586 6.80571 16.6478 6.94098 16.5337C10.2318 18.0729 13.8074 18.0729 17.0589 16.5337C17.1958 16.6478 17.3358 16.7586 17.4774 16.8647C16.9362 17.1908 16.3637 17.4704 15.7675 17.697C16.0805 18.3235 16.4423 18.9212 16.8513 19.4819C18.503 18.9678 20.183 18.1822 21.915 16.8872C22.3303 12.4897 21.2056 8.67705 18.9419 5.29661ZM8.67765 14.5543C7.68977 14.5543 6.87963 13.632 6.87963 12.509C6.87963 11.3859 7.67247 10.4621 8.67765 10.4621C9.68285 10.4621 10.493 11.3843 10.4757 12.509C10.4772 13.632 9.68285 14.5543 8.67765 14.5543ZM15.3223 14.5543C14.3344 14.5543 13.5243 13.632 13.5243 12.509C13.5243 11.3859 14.3171 10.4621 15.3223 10.4621C16.3275 10.4621 17.1376 11.3843 17.1203 12.509C17.1203 13.632 16.3275 14.5543 15.3223 14.5543Z" clip-rule="evenodd" />
+</svg>
+
+
+          </a>
+          <a aria-label="The OCaml Compiler on GitHub" href="https://github.com/ocaml/ocaml" class="opacity-60 hover:opacity-100 text-content dark:text-dark-title hover:text-primary dark:hover:text-dark-primary">
+            <svg xmlns="http://www.w3.org/2000/svg" class="w-6 h-6" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+  <path fill-rule="evenodd" d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.531 1.032 1.531 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.019 10.019 0 0022 12.017C22 6.484 17.522 2 12 2z" clip-rule="evenodd" />
+</svg>
+
+
+          </a>
+          <a aria-label="The OCaml Language Twitter Account" href="https://twitter.com/ocamllang" class="opacity-60 hover:opacity-100 text-content dark:text-dark-title hover:text-primary dark:hover:text-dark-primary">
+            <svg xmlns="http://www.w3.org/2000/svg" class="w-6 h-6" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+  <path d="M8.29 20.251c7.547 0 11.675-6.253 11.675-11.675 0-.178 0-.355-.012-.53A8.348 8.348 0 0022 5.92a8.19 8.19 0 01-2.357.646 4.118 4.118 0 001.804-2.27 8.224 8.224 0 01-2.605.996 4.107 4.107 0 00-6.993 3.743 11.65 11.65 0 01-8.457-4.287 4.106 4.106 0 001.27 5.477A4.072 4.072 0 012.8 9.713v.052a4.105 4.105 0 003.292 4.022 4.095 4.095 0 01-1.853.07 4.108 4.108 0 003.834 2.85A8.233 8.233 0 012 18.407a11.616 11.616 0 006.29 1.84" />
+</svg>
+
+
+          </a>
+        </div>
+      </li>
+    </ul>
+  </nav>
+</header>
+
+    <main><div class="lg:py-24 py-2">
+  <div class="container-fluid space-y-24 lg:space-y-32">
+    <div class="flex flex-col lg:flex-row gap-6">
+      <div class="lg:flex-1 lg:mt-16 my-12">
+        <h1 class="lg:pr-10 text-7xl font-bold">
+          OCaml
+        </h1>
+        <p class="my-7 text-2xl">
+          An industrial-strength functional programming language
+          with an emphasis on expressiveness and safety
+        </p>
+        <div class="space-x-0 lg:space-x-6">
+          <a class="btn btn-lg mb-4 lg:mb-0" href="/install">Install</a>
+          <a class="btn btn-lg btn-ghost" href="/about">
+            About OCaml
+          </a>
+        </div>
+        <div class="mt-6">
+          <a class="text-2xl text-primary font-semibold" href="/releases/5.1.1">Latest release: 5.1.1</a>
+        </div>
+        <div class="mt-2">
+          <a class="text-2xl text-primary font-semibold" href="/releases/4.14.1">Long Term Support release: 4.14.1</a>
+        </div>
+      </div>
+      <div class="lg:flex-1 flex justify-center">
+        <div class="bg-code-background flex flex-col w-full max-w-xl min-w-xl rounded-3xl codebox">
+          <div class="border-solid border-b border-gray-50 border-opacity-30 p-5">
+            <div class="flex space-x-2 mt-2">
+              <div class="h-3 w-3 rounded-full border-2 border-solid border-orange-500 border-opacity-80"></div>
+              <div class="h-3 w-3 rounded-full border-2 border-solid border-yellow-500 border-opacity-80"></div>
+              <div class="h-3 w-3 rounded-full border-2 border-solid border-green-500 border-opacity-80"></div>
+            </div>
+          </div>
+          <div style="flex: 1 1 50%" class="py-2 px-6 text-white text-opacity-50 overflow-auto">
+            <div class="text-left overflow-auto">
+              <pre id="output" class="flex flex-col w-full code-preview text-white text-sm space-y-1 font-medium">
+<code><span title="prompt">#</span> <span><span class="text-blue-500 ">let</span> <span class="text-code-yellow ">square</span> x = x * x</span>
+<span aria-label="OCaml responds with"><i class="text-legacy-lighter ">val square : int -&gt; int = &lt; fun &gt;</i></span>
+<span><span title="prompt">#</span> square 3</span>
+<span aria-label="OCaml responds with"><i class="text-legacy-lighter ">- : int = 9</i></span>
+<span><span title="prompt">#</span> <span class="text-blue-500 ">let rec</span> <span class="text-code-yellow ">fac</span> x =</span>
+<span><span class="text-blue-500  ml-4">if</span> x &lt;= 1 <span class="text-blue-500 ">then</span> 1 <span class="text-blue-500">else</span> x * fac (x - 1)</span>
+<span aria-label="OCaml responds with"><i class="text-legacy-lighter">val fac : int -&gt; int = &lt; fun &gt;</i></span>
+<span><span title="prompt">#</span> fac 5</span>
+<span aria-label="OCaml responds with"><i class="text-legacy-lighter ">- : int = 120</i></span>
+<span><span title="prompt">#</span> square 120</span>
+<span aria-label="OCaml responds with"><i class="text-legacy-lighter">- : int = 14400</i></span></code>
+              </pre>
+            </div>
+          </div>
+          <div class="flex-1 flex py-2 px-6 text-white text-opacity-50">
+            <a
+              href="/play"
+              class="px-4 ml-2 h-10 text-sm items-center text-white border border-gray-100 rounded-lg border-opacity-50 flex">
+              <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+</svg>
+
+
+              Try the Playground
+            </a>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+<div class="py-8 md:py-12 py-2 bg-acm-award">
+  <div class="container-fluid space-y-24 lg:space-y-32">
+    <div class="text-center md:text-left flex flex-col md:flex-row gap-6">
+      <div class="md:w-60">
+        <img class="mx-auto w-40" src="/_/NDBkZDQ2N2U3Y2VmM2I1NWZkNTk0NWJjOTNjNGYyYmE/img/acm_award_banner/acm_award_cup.svg" alt="illustration of a cup">
+      </div>
+      <div class="space-y-6">
+        <h2 class="font-regular text-white">The <strong>OCaml Compiler</strong> has been <strong>recognised</strong> by <strong>SIGPLAN</strong> for their prestigious Programming Languages Software Award</h2>
+        <div class="text-xl text-white mt-3 italic">
+          <strong>Fourteen core OCaml developers</strong> are featured for their
+          significant contributions to the project
+        </div>
+        <div class="inline-flex md:flex gap-8">
+        <a class="btn btn-md" href="/news/sigplan_announcement">Read more</a>
+        <div class="hidden md:block md:flex-grow">
+          <img class="ml-auto" src="/_/MWI2MzIxNGY1MGU1YjI5YWEzMzE5N2NkZjYxOTk2OWE/img/acm_award_banner/acm_logo.png" alt="illustration of a cup">
+        </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+<div class="py-12 lg:py-24 py-2">
+  <div class="container-fluid space-y-24 lg:space-y-32">
+    <div class="text-center">
+      <h2 class="font-bold text-legacy-default">Trusted by Industry Leaders</h2>
+      <div class="text-legacy-lighter text-base mt-3">
+        These companies and organisations rely on OCaml every day — along with thousands of other developers. See <a href="/industrial-users" class="link-orange">Success Stories</a>
+      </div>
+      <div class="flex flex-row justify-center m-auto flex-wrap py-8 items-center">
+          <div class="mx-8 my-4">
+              <img class="h-6" src="/_/OGI2M2JmY2NkYzQ0NzNjNTRhNGQ3ZDhiZTQyMjhjNTY/logos/facebook.svg" alt="Facebook">
+          </div>
+          <div class="mx-8 my-4">
+              <img class="h-8" src="/_/ODdlNDViNTBkNGY4YjFiNzBkY2E2ZTA5OTQwMmJiMWY/logos/microsoft.svg" alt="Microsoft">
+          </div>
+          <div class="mx-8 my-4">
+              <img class="h-8" src="/_/OGNjZjBhMjg4MjQ2NDlmMWNiODE0ZGJjYjM5YzhiMmU/logos/docker.svg" alt="Docker">
+          </div>
+          <div class="mx-8 my-4">
+              <img class="h-10" src="/_/ZWM0YjRlOTUwOTU3MzcyODMwODRkMDM4NjNmNjc5ODg/logos/janestreet.svg" alt="Jane Street">
+          </div>
+          <div class="mx-8 my-4">
+              <img class="h-6" src="/_/ZGJiYTQ0NTA0MjQyMDIzMGU2YTJjZDFiNDAxY2E5YjA/logos/bloomberg.svg" alt="Bloomberg">
+          </div>
+          <div class="mx-8 my-4">
+              <img class="h-10" src="/_/ZGVjYTI0ZGJjNzYzZmRlZGQ3OWI0MjgxYTUyZGFmZjU/logos/tezos.svg" alt="Tezos">
+          </div>
+          <div class="mx-8 my-4">
+              <img class="h-6" src="/_/MjcxNDQ0ZThiMDY2NjA0Y2ExNWRmZTRiOTQ2Y2M5ZWQ/logos/ahrefs.svg" alt="Ahrefs">
+          </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="bg-legacy-default dark:bg-legacy-dark-default">
+  <div class="container-fluid">
+    <h2 class="font-bold text-center text-legacy-default pt-12">Why OCaml?</h2>
+    <div class="pt-4 pb-24 lg:pt-24 space-y-20 md:space-y-40">
+      <div class="flex gap-10 lg:gap-24 flex-col lg:flex-row-reverse justify-between items-center">
+        <div class="lg:flex-1 mt-10 lg:mt-0">
+          <div class="text-legacy-lighter text-base">
+            <div class="h-12 w-12 text-white rounded-xl flex bg-gradient-to-br from-blue-400 to-blue-600">
+              <svg xmlns="http://www.w3.org/2000/svg" class="h-7 w-7 m-auto" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+</svg>
+
+
+            </div>
+            <h3>
+              <div class="text-lg my-4 font-bold" style="color: #225b90">
+                RELIABILITY
+              </div>
+              <div class="text-legacy-default font-bold">Powerful Type Safety Made Simple</div>
+            </h3>
+            <div class="my-4 text-lg">
+              OCaml’s lightweight but highly expressive type system catches more bugs at compile time while garbage collection allows you to focus on application logic instead of memory management.
+              Large, complex codebases become easy to maintain and refactor.
+              OCaml empowers you to create mission-critical software with
+              highest security- and safety-requirements in environments with
+              ever-changing requirements!
+            </div>
+          </div>
+        </div>
+        <div class="lg:flex-1 lg:mt-0 mt-10 flex justify-center">
+          <img src="/_/ZTM4NWExMjJiZjAwZjEzMWY5MTNjYjZiZjNhNTFiODc/img/home/safe-stable.svg" alt="An example OCaml program defining nested lists in OCaml. A terminal output also shows the compiler catching a type error where a pattern-match was not exhaustive.">
+        </div>
+      </div>
+
+      <div class="flex gap-10 lg:gap-24 flex-col lg:flex-row justify-between">
+         <div class="lg:flex-1 mt-10 lg:mt-0 flex items-center">
+          <div class="text-legacy-lighter text-base">
+            <div class="h-12 w-12 text-white rounded-xl flex bg-gradient-to-br from-purple-400 to-purple-600">
+              <svg xmlns="http://www.w3.org/2000/svg" class="h-7 w-7 m-auto" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 14v3m4-3v3m4-3v3M3 21h18M3 10h18M3 7l9-4 9 4M4 10h16v11H4V10z" />
+</svg>
+
+
+            </div>
+            <div class="text-lg my-4 font-bold text-purple-600">
+              PRODUCTIVITY
+            </div>
+            <h3 class="text-legacy-default font-bold">
+              First-Class Editor and Tooling
+            </h3>
+            <div class="my-4 text-lg">
+              OCaml comes with deep integrations for VS Code, Vim or Emacs to provide type inspection, autocomplete and more.
+              Between Opam, a popular package manager; Utop, a powerful interactive REPL; and <code>odoc</code>,
+              an easy-to-use documentation generator, OCaml programmers have access to a complete, modern developer experience.
+            </div>
+          </div>
+        </div>
+        <div class="lg:flex-1 lg:mt-0 mt-10 flex justify-center">
+          <div style="--swiper-navigation-color: #fff;--swiper-pagination-color: #fff;" class="swiper mySwiper">
+            <div class="swiper-wrapper">
+              <div class="swiper-slide">
+                <div>
+                  <img src="/_/YTgwYjYyMzhlYzQwNTRhNmRlMzJkNTZmMDk3YWM2NTY/logos/vscode.svg" width="56" alt="VS Code">
+                  <img src="/_/YzA5ZWY4OTQ5Mjc1NjA4MmQ3NzAyNThmMWJmZmZlZTE/img/home/vscode-preview.png" alt="">
+                </div>
+              </div>
+              <div class="swiper-slide">
+                <div>
+                <img src="/_/MzEyZWI2NmFiMWY4ZGEwZmRkMDcxYTgzNzU5NjM5NzA/logos/vim.svg" width="56" alt="Vim">
+                <img src="/_/ZDkzZDYxMDlmMmZjMTdhNjdhNTBhMTg4MTE1ZjFjMGI/img/home/vim-preview.png" alt="">
+                </div>
+              </div>
+              <div class="swiper-slide">
+                <div>
+                <img src="/_/NjBkMWJkNDgzZjAwMTQ4MjlmYjUyN2Q1ZDMwZDAxMzk/logos/emacs.svg" width="56" alt="Emacs">
+                <img src="/_/YjEyNTk1YjM2ZmIyMWFlNGFlYTM2MTAxYWQ1NDU1Yzg/img/home/emac-preview.png" alt="">
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="flex gap-10 lg:gap-24 flex-col lg:flex-row-reverse justify-between">
+        <div class="lg:flex-1">
+          <div class="text-legacy-lighter text-base">
+            <div class="h-12 w-12 text-white rounded-xl flex bg-gradient-to-br from-teal-400 to-teal-600">
+              <svg xmlns="http://www.w3.org/2000/svg" class="h-7 w-7 m-auto" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
+</svg>
+
+
+            </div>
+            <h3>
+              <div class="text-lg my-4 font-bold text-teal-800">PERFORMANCE</div>
+              <div class="text-legacy-default font-bold">
+                Fast Compiler and Applications
+              </div>
+            </h3>
+            <div class="my-4 font-normal text-lg">
+              OCaml offers great runtime performance without compromising on developer experience:
+              The bytecode compiler generates small, highly portable executables blazingly fast;
+              the native code compiler produces highly-efficient machine code. Despite this focus
+              on performance, the OCaml compiler has always been exceptionally reliable and stable
+              - going all the way back to its inception in 1996.
+
+            </div>
+          </div>
+        </div>
+        <div class="lg:flex-1 lg:mt-0 mt-10 flex justify-center">
+          <img src="/_/ZWVmZmU2MzczN2FjZTk2OGE5MDViNTdmMmNmNmQwMTA/img/home/workfaster.svg" alt="">
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+<div class="py-24 overflow-hidden">
+  <div class="container-fluid">
+    <div class="prose mx-auto">
+        <h2 class="font-bold">Exceptionally Robust and Reliable</h2>
+        <blockquote class="font-normal">
+        Despite all this testing, we have never had a single XenServer defect reported from
+        internal testing or from the field that can be traced back to a bug in the
+        OCaml runtime or compiler. (During development we did once find a minor compiler bug,
+        triggered when compiling auto-generated OCaml code with many function arguments,
+        but this was already fixed in the development branch by the time we reported it
+        and so no interaction with the maintainers at INRIA was required.)
+        </blockquote>
+
+        -- Scott, D. & Sharp, R. & Gazagnaire, T. & Madhavapeddy, A. (2010).
+          <a href="https://anil.recoil.org/papers/2010-icfp-xen.pdf">Using Functional Programming within an Industrial Product Group: Perspectives and Perceptions.</a>
+          ACM SIGPLAN Notices. 45. 87-92. 10.1145/1863543.1863557.
+    </div>
+  </div>
+</div>
+<div class="bg-legacy-default py-12 overflow-hidden">
+  <div class="container-fluid flex flex-col items-center">
+    <h3 class="font-bold">Releases</h3>
+    <div class="bg-pattern p-6 mt-8 rounded-xl w-full lg:w-2/3 text-white">
+      <a href="/releases/5.1.1">
+        <div class="text-primary text-sm mb-4 uppercase">Recent Release</div>
+        <h3 class="font-bold mb-6">
+          5.1.1 <span class="text-sm font-medium">(2023-12-08)</span>
+        </h3>
+      </a>
+      <div class="prose prose-sm text-white"><ul>
+<li>Marshall.Compression flag removed from the standard library</li>
+<li>Bug fixes for 5.1.0</li>
+</ul>
+</div>
+    </div>
+    <a href="/releases" class="btn btn-lg btn-ghost mt-8">
+      <span>See all Releases</span>
+      <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true">
+  <path stroke-linecap="round" stroke-linejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" />
+</svg>
+
+
+    </a>
+  </div>
+</div>
+<div class="bg-pattern py-24 overflow-hidden">
+  <div class="container-fluid">
+    <div class="">
+      <div class="text-center px-15">
+        <h2 class="font-bold mb-6">The OCaml Ecosystem</h2>
+        <div class="text-lg">
+          OCaml has a passionate and diverse community, with more than ten thousand developers
+          and over four thousand open source packages.
+          Existing packages cover a variety of problem areas,
+          including data science, bioinformatics, and programming language design.
+          OCaml's roots in academic and theoretical computer science provide for a solid foundation
+          on which application developers build command-line utilities, performant,
+          dynamic web apps, or embedded applications!
+        </div>
+      </div>
+    </div>
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 md:gap-4 py-8 px-1 md:px-2 lg:px-2 xl:px-8 relative">
+      <a href="https://mirage.io/" target="_blank"
+  class="bg-legacy-default dark:bg-legacy-dark-default text-legacy-default dark:text-legacy-dark-default p-4 rounded-xl flex md:gap-2 items-center legacy-card-hover">
+    <div class="w-4/12">
+      <img src="/_/MzkyNDVlYWZmYzhiY2Q1MGM0MGJjMDBkMmMwYzRkYWE/img/home/mirage.png" alt="MirageOS logo" class="w-1/2 md:w-2/3">
+    </div>
+    <div class="flex-col w-8/12">
+      <div class="text-base font-semibold">MirageOS</div>
+      <div class="font-normal text-xs mt-1">
+        Library operating system to construct unikernels
+      </div>
+    </div>
+</a>
+
+
+      <a href="https://ocsigen.org/js_of_ocaml" target="_blank"
+  class="bg-legacy-default dark:bg-legacy-dark-default text-legacy-default dark:text-legacy-dark-default p-4 rounded-xl flex md:gap-2 items-center legacy-card-hover">
+    <div class="w-4/12">
+      <img src="/_/MDc2MDVkMmM5M2ZiZDJiMzRhZjg4ZGQ3ZGQ2N2M1YTI/img/home/js_of_ocaml.png" alt="Js_of_ocaml logo" class="w-1/2 md:w-2/3">
+    </div>
+    <div class="flex-col w-8/12">
+      <div class="text-base font-semibold">Js_of_ocaml</div>
+      <div class="font-normal text-xs mt-1">
+        Compiler from OCaml to Javascript.
+      </div>
+    </div>
+</a>
+
+
+      <a href="https://erratique.ch/software/cmdliner" target="_blank"
+  class="bg-legacy-default dark:bg-legacy-dark-default text-legacy-default dark:text-legacy-dark-default p-4 rounded-xl flex md:gap-2 items-center legacy-card-hover">
+    <div class="w-4/12">
+      <img src="/_/Y2QwY2UxNDgyZmRiYmYwMGNhMGEwZTRmMWZlZjcyNWQ/img/home/cmdliner.png" alt="Cmdliner logo" class="w-1/2 md:w-2/3">
+    </div>
+    <div class="flex-col w-8/12">
+      <div class="text-base font-semibold">Cmdliner</div>
+      <div class="font-normal text-xs mt-1">
+        Declarative definition of command line interfaces for OCaml
+      </div>
+    </div>
+</a>
+
+
+      <a href="https://irmin.org/" target="_blank"
+  class="bg-legacy-default dark:bg-legacy-dark-default text-legacy-default dark:text-legacy-dark-default p-4 rounded-xl flex md:gap-2 items-center legacy-card-hover">
+    <div class="w-4/12">
+      <img src="/_/MDAwYzI5MmNmNTE4YjMzMzhjZjU2ZDIxNzI1ZDYyNTQ/img/home/irmin.png" alt="Irmin logo" class="w-1/2 md:w-2/3">
+    </div>
+    <div class="flex-col w-8/12">
+      <div class="text-base font-semibold">Irmin</div>
+      <div class="font-normal text-xs mt-1">
+        Distributed database that follows the same design principles as Git
+      </div>
+    </div>
+</a>
+
+
+      <a href="https://dune.build/" target="_blank"
+  class="bg-legacy-default dark:bg-legacy-dark-default text-legacy-default dark:text-legacy-dark-default p-4 rounded-xl flex md:gap-2 items-center legacy-card-hover">
+    <div class="w-4/12">
+      <img src="/_/MzRmODE3MGNiZWZhYmYzNTk5MmVkYTIyZjVlM2I2NDg/img/home/dune.png" alt="Dune logo" class="w-1/2 md:w-2/3">
+    </div>
+    <div class="flex-col w-8/12">
+      <div class="text-base font-semibold">Dune</div>
+      <div class="font-normal text-xs mt-1">
+        A composable build system for OCaml
+      </div>
+    </div>
+</a>
+
+
+      <a href="https://ocsigen.org/lwt/latest/manual/manual" target="_blank"
+  class="bg-legacy-default dark:bg-legacy-dark-default text-legacy-default dark:text-legacy-dark-default p-4 rounded-xl flex md:gap-2 items-center legacy-card-hover">
+    <div class="w-4/12">
+      <img src="/_/YmZhZmE3ZDE4ZGVjMDk1OTM0ZmNjYTM2MDU2NzM2YTQ/img/home/lwt.png" alt="Lwt logo" class="w-1/2 md:w-2/3">
+    </div>
+    <div class="flex-col w-8/12">
+      <div class="text-base font-semibold">Lwt</div>
+      <div class="font-normal text-xs mt-1">
+        OCaml promises and concurrent IO
+      </div>
+    </div>
+</a>
+
+
+      <a href="https://ocaml.xyz/" target="_blank"
+  class="bg-legacy-default dark:bg-legacy-dark-default text-legacy-default dark:text-legacy-dark-default p-4 rounded-xl flex md:gap-2 items-center legacy-card-hover">
+    <div class="w-4/12">
+      <img src="/_/NGMwMzUxZjFlNjY2MGJiNmZmNjY0ZDRkYzM4OTJhNjA/img/home/owl.png" alt="Owl logo" class="w-1/2 md:w-2/3">
+    </div>
+    <div class="flex-col w-8/12">
+      <div class="text-base font-semibold">Owl</div>
+      <div class="font-normal text-xs mt-1">
+        OCaml Scientific and Engineering Computing
+      </div>
+    </div>
+</a>
+
+
+      <a href="https://aantron.github.io/dream/" target="_blank"
+  class="bg-legacy-default dark:bg-legacy-dark-default text-legacy-default dark:text-legacy-dark-default p-4 rounded-xl flex md:gap-2 items-center legacy-card-hover">
+    <div class="w-4/12">
+      <img src="/_/NjgwMjgzNDQ2Y2FkYzQ0MjU4MDUxZmFiMDg4ZDFkYzI/img/home/dream.png" alt="Dream logo" class="w-1/2 md:w-2/3">
+    </div>
+    <div class="flex-col w-8/12">
+      <div class="text-base font-semibold">Dream</div>
+      <div class="font-normal text-xs mt-1">
+        Tidy Web framework for OCaml and ReasonML
+      </div>
+    </div>
+</a>
+
+
+  </div>  
+    
+  </div>
+</div>
+<div class="py-28 bg-legacy-default dark:bg-legacy-dark-default">
+  <div class="container-fluid">
+    <div class="text-center px-15">
+      <h2 class="text-legacy-default font-bold mb-6">Users of OCaml</h2>
+      <div class="text-lg text-legacy-lighter mb-16">
+        OCaml is used by thousands of developers, companies, research labs, teachers, and more. Learn how it fits your use case.
+      </div>
+    </div>
+    <div class="flex flex-col lg:flex-row justify-between lg:space-x-20 space-y-10 lg:space-y-0">
+      <div class="shadow-lg p-10 bg-legacy-default dark:bg-legacy-dark-default rounded-xl lg:mb-0">
+        <div class="flex flex-row items-center justify-between relative pb-8">
+          <h3 class="font-semibold">For Educators</h3>
+          <div>
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-14 w-14" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M7 12l3-3 3 3 4-4M8 21l4-4 4 4M3 4h18M4 4h16v12a1 1 0 01-1 1H5a1 1 0 01-1-1V4z" />
+</svg>
+
+
+            <div class="absolute w-20 h-20 top-0 -right-10 rounded-full bg-legacy-primary-100"></div>
+          </div>
+        </div>
+        <div>
+          <div class="text-base text-legacy-default">
+            With its mathematical roots, OCaml has always had strong ties to academia.
+            It is taught in universities around the world, and has accrued an ever-growing body of research.
+            Learn more about the academic rigor that defines the culture of OCaml.
+          </div>
+          <a class="btn mt-10" href="/academic-users">Learn more</a>
+        </div>
+      </div>
+      <div class="shadow-lg p-10 bg-legacy-default dark:bg-legacy-dark-default rounded-xl">
+        <div class="flex flex-row items-center justify-between relative pb-8">
+          <h3 class="font-semibold">For Industrial Users</h3>
+          <div>
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-14 w-14" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+</svg>
+
+
+            <div class="absolute w-20 h-20 top-0 -right-10 rounded-full bg-legacy-primary-100"></div>
+          </div>
+        </div>
+        <div>
+          <div class="text-base text-legacy-default">
+            OCaml's powerful compile-time guarantees and high performance empower
+            companies to provide reliable and speedy services and products.
+            Learn more about how OCaml is used in the industry: explore success stories and discover companies that use OCaml.
+          </div>
+          <a class="btn mt-10" href="/industrial-users">Learn more</a>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+<div class="bg-pattern lg:py-32 py-24">
+  <div class="container-fluid">
+    <div class="">
+      <div class="text-center">
+        <h2 class="font-bold text-primary mb-6">Curated Resources</h2>
+        <div class="text-lg text-white mb-16">
+          Get up to speed quickly to enjoy the benefits of the OCaml programming language across your projects.
+        </div>
+      </div>
+      <div class="grid lg:grid-cols-3 gap-8 lg:gap-16">
+        <a href="/install" class="resources-card">
+          <svg xmlns="http://www.w3.org/2000/svg" class="h-16 w-16 mb-8" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
+  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+</svg>
+
+
+          <p class="font-semibold text-xl mb-3">Getting Started</p>
+          <p>Install OCaml, set up your favorite text editor and start your first project.</p>
+        </a>
+        <a href="/releases/latest/manual.html" class="resources-card">
+          <svg xmlns="http://www.w3.org/2000/svg" class="h-16 w-16 mb-8" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+</svg>
+
+
+          <p class="font-semibold text-xl mb-3">Language Manual</p>
+          <p>Read the reference manual of the language and documentation on the compiler.</p>
+        </a>
+        <a href="/books" class="resources-card">
+          <svg xmlns="http://www.w3.org/2000/svg" class="h-16 w-16 mb-8" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
+</svg>
+
+
+          <p class="font-semibold text-xl mb-3">Books</p>
+          <p>Discover OCaml books from expert programmers and researchers - from beginner level to advanced topics.</p>
+        </a>
+        <a href="/releases/latest/api/index.html" class="resources-card">
+          <svg xmlns="http://www.w3.org/2000/svg" class="h-16 w-16 mb-8" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 9l3 3-3 3m5 0h3M5 20h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+</svg>
+
+
+          <p class="font-semibold text-xl mb-3">Standard Library</p>
+          <p>Searchable API documentation.</p>
+        </a>
+        <a href="/exercises" class="resources-card">
+          <svg xmlns="http://www.w3.org/2000/svg" class="h-16 w-16 mb-8" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 11.5V14m0-2.5v-6a1.5 1.5 0 113 0m-3 6a1.5 1.5 0 00-3 0v2a7.5 7.5 0 0015 0v-5a1.5 1.5 0 00-3 0m-6-3V11m0-5.5v-1a1.5 1.5 0 013 0v1m0 0V11m0-5.5a1.5 1.5 0 013 0v3m0 0V11" />
+</svg>
+
+
+          <p class="font-semibold text-xl mb-3">Exercises</p>
+          <p>Learn OCaml by solving problems on a variety of topics, from easy to challenging.</p>
+        </a>
+        <a href="/papers" class="resources-card">
+          <svg xmlns="http://www.w3.org/2000/svg" class="h-16 w-16 mb-8" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7v8a2 2 0 002 2h6M8 7V5a2 2 0 012-2h4.586a1 1 0 01.707.293l4.414 4.414a1 1 0 01.293.707V15a2 2 0 01-2 2h-2M8 7H6a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2v-2" />
+</svg>
+
+
+          <p class="font-semibold text-xl mb-3">Papers</p>
+          <p>Explore papers that have influenced OCaml and other functional programming languages.</p>
+        </a>
+      </div>
+    </div>
+  </div>
+</div>
+<div class="bg-legacy-default dark:bg-legacy-dark-default pt-20 lg:py-20 overflow-hidden">
+  <div class="container-fluid">
+    <div class="grid grid-cols-1 lg:grid-cols-2 items-center">
+      <div class="space-y-8">
+        <div class="space-y-6">
+          <h2 class="font-bold">OCaml Packages</h2>
+          <p class="text-lg text-legacy-lighter">
+            Explore thousands of open-source OCaml packages with their
+            documentation.
+          </p>
+        </div>
+        <a href="/packages" class="btn btn-primary btn-lg mt-8 flex items-center">
+          <span>Explore packages</span>
+          <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true">
+  <path stroke-linecap="round" stroke-linejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" />
+</svg>
+
+
+        </a>
+      </div>
+      <div class="m-auto">
+        <img src="/_/Y2JlMThmMGY1ZThjYWFhYjQxM2M4ZmM4YjJmOGY5NmE/img/home/packages-home.png" width="1047" class="max-w-none -mb-72 h-auto" alt="">
+      </div>
+    </div>
+  </div>
+</div>
+<script>
+  var swiper = new Swiper(".mySwiper", {
+    loop: true,
+    autoplay: { delay: 5000, disableOnInteraction: false, },
+    slidesPerView: 'auto',
+    spaceBetween: 10,
+    thumbs: {
+      swiper: swiper,
+    },
+  });
+</script>
+</main>
+
+    <button class="fixed bottom-8 right-10 md:bottom-[5rem] lg:bottom-[8.37rem] lg:right-[6.5rem] border-0 hidden focus:outline-none z-50 rounded-full shadow-custom p-4 bg-primary dark:bg-dark-primary" onclick="scrollToTop()" id="scrollToTop" title="Scroll to top"><svg class="h-6 w-6" viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
+  <path d="M4.5 10.5L12 3M12 3L19.5 10.5M12 3V21" stroke="white" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>
+
+</button>
+
+    <footer class="border-t border-separator_30 dark:border-dark-separator_30 bg-dark-sand dark:bg-dark-card" aria-labelledby="footer-heading">
+  <h2 id="footer-heading" class="sr-only">Footer</h2>
+  <div class="mx-auto max-w-7xl px-6 py-16 lg:px-8">
+    <div class="xl:grid xl:grid-cols-3 xl:gap-8">
+      <div class="space-y-8">
+        <a href="/"><img class="h-8 dark:hidden" src="/_/MDBjN2M4YjIxY2Y1YWExZWE3Njk4M2FiZTg1NWZjNTM/logo-with-name.svg" alt="OCaml">
+        <img class="h-8 hidden dark:inline" src="/_/MTE3YWE5YzJlZmExNmYyMmI3ZmEwYjliMDEwNDBkMDY/logo-with-name-white.svg" alt="OCaml"></a>
+        <p class="text-base leading-6 text-title dark:text-dark-content">Innovation. Community. Security.</p>
+        <div class="flex space-x-6">
+          
+          <a href="https://github.com/ocaml/ocaml" class="text-content dark:text-dark-title hover:text-primary dark:hover:text-dark-primary">
+  <span class="sr-only">GitHub</span>
+  <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+  <path fill-rule="evenodd" d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.531 1.032 1.531 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.019 10.019 0 0022 12.017C22 6.484 17.522 2 12 2z" clip-rule="evenodd" />
+</svg>
+
+
+</a>
+
+          
+          <a href="https://discord.gg/cCYQbqN" class="text-content dark:text-dark-title hover:text-primary dark:hover:text-dark-primary">
+  <span class="sr-only">Discord</span>
+  <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+  <path fill-rule="evenodd" d="M18.9419 5.29661C17.6473 4.69088 16.263 4.25066 14.8157 4C14.638 4.32134 14.4304 4.75355 14.2872 5.09738C12.7487 4.86601 11.2245 4.86601 9.7143 5.09738C9.57116 4.75355 9.3588 4.32134 9.17947 4C7.73067 4.25066 6.3448 4.6925 5.05016 5.29982C2.43887 9.24582 1.73099 13.0938 2.08493 16.8872C3.81688 18.1805 5.49534 18.9662 7.14548 19.4804C7.55291 18.9196 7.91628 18.3235 8.22931 17.6953C7.63313 17.4688 7.06211 17.1892 6.52256 16.8647C6.6657 16.7586 6.80571 16.6478 6.94098 16.5337C10.2318 18.0729 13.8074 18.0729 17.0589 16.5337C17.1958 16.6478 17.3358 16.7586 17.4774 16.8647C16.9362 17.1908 16.3637 17.4704 15.7675 17.697C16.0805 18.3235 16.4423 18.9212 16.8513 19.4819C18.503 18.9678 20.183 18.1822 21.915 16.8872C22.3303 12.4897 21.2056 8.67705 18.9419 5.29661ZM8.67765 14.5543C7.68977 14.5543 6.87963 13.632 6.87963 12.509C6.87963 11.3859 7.67247 10.4621 8.67765 10.4621C9.68285 10.4621 10.493 11.3843 10.4757 12.509C10.4772 13.632 9.68285 14.5543 8.67765 14.5543ZM15.3223 14.5543C14.3344 14.5543 13.5243 13.632 13.5243 12.509C13.5243 11.3859 14.3171 10.4621 15.3223 10.4621C16.3275 10.4621 17.1376 11.3843 17.1203 12.509C17.1203 13.632 16.3275 14.5543 15.3223 14.5543Z" clip-rule="evenodd" />
+</svg>
+
+
+</a>
+
+          
+          <a href="https://twitter.com/ocamllang" class="text-content dark:text-dark-title hover:text-primary dark:hover:text-dark-primary">
+  <span class="sr-only">Twitter</span>
+  <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+  <path d="M8.29 20.251c7.547 0 11.675-6.253 11.675-11.675 0-.178 0-.355-.012-.53A8.348 8.348 0 0022 5.92a8.19 8.19 0 01-2.357.646 4.118 4.118 0 001.804-2.27 8.224 8.224 0 01-2.605.996 4.107 4.107 0 00-6.993 3.743 11.65 11.65 0 01-8.457-4.287 4.106 4.106 0 001.27 5.477A4.072 4.072 0 012.8 9.713v.052a4.105 4.105 0 003.292 4.022 4.095 4.095 0 01-1.853.07 4.108 4.108 0 003.834 2.85A8.233 8.233 0 012 18.407a11.616 11.616 0 006.29 1.84" />
+</svg>
+
+
+</a>
+
+          
+          <a href="https://watch.ocaml.org/" class="text-content dark:text-dark-title hover:text-primary dark:hover:text-dark-primary">
+  <span class="sr-only">Peertube</span>
+  <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+  <path fill-rule="evenodd" d="M5 2V12L12.4998 7.00047" clip-rule="evenodd" />
+  <path fill-rule="evenodd" d="M5 12V22L12.4998 17.0005" clip-rule="evenodd" />
+  <path fill-rule="evenodd" d="M12.4998 6.99951V16.9995L19.9995 12" clip-rule="evenodd" />
+</svg>
+
+
+</a>
+
+          
+          <a href="/feed.xml" class="text-content dark:text-dark-title hover:text-primary dark:hover:text-dark-primary">
+  <span class="sr-only">RSS</span>
+  <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+  <path fill-rule="evenodd" d="M15.2692 22H11.3846C11.3846 16.8462 7.11538 12.6154 2 12.6154V8.73077C9.26923 8.73077 15.2692 14.7308 15.2692 22ZM18 22C18 13.2308 10.7692 6 2 6V2C12.9615 2 22 11.0385 22 22H18Z" clip-rule="evenodd" />
+  <path fill-rule="evenodd" d="M4.73077 22C6.23893 22 7.46154 20.7774 7.46154 19.2692C7.46154 17.7611 6.23893 16.5385 4.73077 16.5385C3.22261 16.5385 2 17.7611 2 19.2692C2 20.7774 3.22261 22 4.73077 22Z" clip-rule="evenodd" />
+</svg>
+
+
+</a>
+
+          
+        </div>
+      </div>
+      <div class="mt-16 grid grid-cols-2 gap-8 xl:col-span-2 xl:mt-0">
+        <div class="md:grid md:grid-cols-2 md:gap-8">
+          <div>
+            <h3 class="text-base font-semibold leading-6 text-title dark:text-dark-content">About OCaml</h3>
+            <ul class="mt-6 space-y-4">
+              
+              <li>
+  <a href="/changelog" class="text-base leading-6 text-content dark:text-dark-title hover:text-primary dark:hover:text-dark-primary">Changelog</a>
+</li>
+
+              
+              <li>
+  <a href="/releases" class="text-base leading-6 text-content dark:text-dark-title hover:text-primary dark:hover:text-dark-primary">Releases</a>
+</li>
+
+              
+              <li>
+  <a href="/industrial-users" class="text-base leading-6 text-content dark:text-dark-title hover:text-primary dark:hover:text-dark-primary">Industrial Users</a>
+</li>
+
+              
+              <li>
+  <a href="/academic-users" class="text-base leading-6 text-content dark:text-dark-title hover:text-primary dark:hover:text-dark-primary">Academic Users</a>
+</li>
+
+              
+              <li>
+  <a href="/about" class="text-base leading-6 text-content dark:text-dark-title hover:text-primary dark:hover:text-dark-primary">Why OCaml</a>
+</li>
+
+              
+            </ul>
+          </div>
+          <div class="mt-10 md:mt-0">
+            <h3 class="text-base font-semibold leading-6 text-title dark:text-dark-content">Resources</h3>
+            <ul class="mt-6 space-y-4">
+              
+              <li>
+  <a href="/install" class="text-base leading-6 text-content dark:text-dark-title hover:text-primary dark:hover:text-dark-primary">Install OCaml</a>
+</li>
+
+              
+              <li>
+  <a href="/docs/get-started" class="text-base leading-6 text-content dark:text-dark-title hover:text-primary dark:hover:text-dark-primary">Get Started</a>
+</li>
+
+              
+              <li>
+  <a href="/docs/platform" class="text-base leading-6 text-content dark:text-dark-title hover:text-primary dark:hover:text-dark-primary">Platform Tools</a>
+</li>
+
+              
+              <li>
+  <a href="/releases/latest/manual.html" class="text-base leading-6 text-content dark:text-dark-title hover:text-primary dark:hover:text-dark-primary">Language Manual</a>
+</li>
+
+              
+              <li>
+  <a href="/releases/latest/api/index.html" class="text-base leading-6 text-content dark:text-dark-title hover:text-primary dark:hover:text-dark-primary">Standard Library API</a>
+</li>
+
+              
+              <li>
+  <a href="/books" class="text-base leading-6 text-content dark:text-dark-title hover:text-primary dark:hover:text-dark-primary">Books</a>
+</li>
+
+              
+              <li>
+  <a href="/exercises" class="text-base leading-6 text-content dark:text-dark-title hover:text-primary dark:hover:text-dark-primary">Exercises</a>
+</li>
+
+              
+              <li>
+  <a href="/papers" class="text-base leading-6 text-content dark:text-dark-title hover:text-primary dark:hover:text-dark-primary">Papers</a>
+</li>
+
+              
+              <li>
+  <a href="/play" class="text-base leading-6 text-content dark:text-dark-title hover:text-primary dark:hover:text-dark-primary">OCaml Playground</a>
+</li>
+
+              
+              <li>
+  <a href="/logo" class="text-base leading-6 text-content dark:text-dark-title hover:text-primary dark:hover:text-dark-primary">Logo</a>
+</li>
+
+              
+            </ul>
+          </div>
+        </div>
+        <div class="md:grid md:grid-cols-2 md:gap-8">
+          <div>
+            <h3 class="text-base font-semibold leading-6 text-title dark:text-dark-content">Ecosystem</h3>
+            <ul class="mt-6 space-y-4">
+              
+              <li>
+  <a href="/packages" class="text-base leading-6 text-content dark:text-dark-title hover:text-primary dark:hover:text-dark-primary">Packages</a>
+</li>
+
+              
+              <li>
+  <a href="/community" class="text-base leading-6 text-content dark:text-dark-title hover:text-primary dark:hover:text-dark-primary">Community</a>
+</li>
+
+              
+              <li>
+  <a href="/blog" class="text-base leading-6 text-content dark:text-dark-title hover:text-primary dark:hover:text-dark-primary">Blog</a>
+</li>
+
+              
+              <li>
+  <a href="/jobs" class="text-base leading-6 text-content dark:text-dark-title hover:text-primary dark:hover:text-dark-primary">Jobs</a>
+</li>
+
+              
+            </ul>
+          </div>
+          <div class="mt-20 md:mt-0">
+            <h3 class="text-base font-semibold leading-6 text-title dark:text-dark-content">Policies</h3>
+            <ul class="mt-6 space-y-4">
+              
+              <li>
+  <a href="/policies/carbon-footprint" class="text-base leading-6 text-content dark:text-dark-title hover:text-primary dark:hover:text-dark-primary">Carbon Footprint</a>
+</li>
+
+              
+              <li>
+  <a href="/governance" class="text-base leading-6 text-content dark:text-dark-title hover:text-primary dark:hover:text-dark-primary">Governance</a>
+</li>
+
+              
+              <li>
+  <a href="/policies/privacy-policy" class="text-base leading-6 text-content dark:text-dark-title hover:text-primary dark:hover:text-dark-primary">Privacy</a>
+</li>
+
+              
+              <li>
+  <a href="/policies/code-of-conduct" class="text-base leading-6 text-content dark:text-dark-title hover:text-primary dark:hover:text-dark-primary">Code of Conduct</a>
+</li>
+
+              
+            </ul>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</footer>
+
+
+    
+    <script>
+        function scrollToTop() {
+          window.scrollTo(0, 0);
+        }
+
+        window.onscroll = function() {
+          showScrollButton();
+        };
+
+        function showScrollButton() {
+          if (document.body.scrollTop > 20 || document.documentElement.scrollTop > 20) {
+            document.getElementById("scrollToTop").style.display = "block";
+          } else {
+            document.getElementById("scrollToTop").style.display = "none";
+          }
+        }    
+    </script>
+  </body>
+</html>
+

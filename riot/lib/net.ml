@@ -10,7 +10,7 @@ module Addr = struct
     | ( (Unix.PF_INET | Unix.PF_INET6),
         (Unix.SOCK_DGRAM | Unix.SOCK_STREAM),
         Unix.ADDR_INET (addr, port) ) -> (
-        Logger.debug (fun f ->
+        Logger.trace (fun f ->
             f "of_addr_info %s or %s" ai_canonname (Obj.magic addr));
         match ai_protocol with
         | 6 -> Some (tcp (Unix.string_of_inet_addr addr) port)
@@ -32,7 +32,7 @@ module Addr = struct
       | _ -> Uri.scheme uri |> Option.value ~default:"http"
     in
     let host = Uri.host_with_default ~default:"0.0.0.0" uri in
-    Logger.debug (fun f -> f "host: %s port: %s" host port);
+    Logger.trace (fun f -> f "host: %s port: %s" host port);
     match get_info host port with ip :: _ -> Some ip | [] -> None
 
   let get_info (`Tcp (host, port)) = get_info host (Int.to_string port)
@@ -77,7 +77,7 @@ module Socket = struct
 
   let rec connect addr =
     let pool = Scheduler.Pool.get_pool () in
-    Logger.debug (fun f -> f "Connecting to %a" Addr.pp addr);
+    Logger.trace (fun f -> f "Connecting to %a" Addr.pp addr);
     match Low_level.connect pool.io_scheduler.io_tbl addr with
     | `Connected fd -> connected addr fd
     | `In_progress fd -> in_progress addr fd
@@ -89,12 +89,12 @@ module Socket = struct
   and in_progress addr fd = syscall "connect" `w fd @@ connected addr
 
   and connected addr fd =
-    Logger.debug (fun f -> f "Connecting to %a via %a" Addr.pp addr pp fd);
+    Logger.trace (fun f -> f "Connecting to %a via %a" Addr.pp addr pp fd);
     Ok fd
 
   let rec accept ?(timeout = Infinity) (socket : listen_socket) =
     let pool = Scheduler.Pool.get_pool () in
-    Log.debug (fun f -> f "Socket is Accepting client at fd=%a" Fd.pp socket);
+    Log.trace (fun f -> f "Socket is Accepting client at fd=%a" Fd.pp socket);
     match Low_level.accept pool.io_scheduler.io_tbl socket with
     | exception Fd.(Already_closed _) -> Error `Closed
     | `Abort reason -> Error (`Unix_error reason)
@@ -104,7 +104,6 @@ module Socket = struct
   let controlling_process _socket ~new_owner:_ = Ok ()
 
   let rec receive ?(timeout = Infinity) ~buf socket =
-    Logger.trace (fun f -> f "Riot.Net.Socket.receive");
     match Low_level.readv socket [| Io.Buffer.as_cstruct buf |] with
     | exception Fd.(Already_closed _) -> Error `Closed
     | `Abort reason -> Error (`Unix_error reason)
@@ -112,18 +111,19 @@ module Socket = struct
     | `Read 0 -> Error `Closed
     | `Read len ->
         Io.Buffer.set_filled buf ~filled:len;
+        Logger.trace (fun f -> f "received: %S" (Io.Buffer.to_string buf));
         Ok len
 
   let rec send ~data socket =
-    Logger.debug (fun f -> f "sending: %S" (Io.Buffer.to_string data));
+    Logger.trace (fun f -> f "sending: %S" (Io.Buffer.to_string data));
     match Low_level.writev socket [| Io.Buffer.as_cstruct data |] with
     | exception Fd.(Already_closed _) -> Error `Closed
     | `Abort reason -> Error (`Unix_error reason)
     | `Retry ->
-        Logger.debug (fun f -> f "retrying");
+        Logger.trace (fun f -> f "retrying");
         syscall "send" `w socket @@ send ~data
     | `Wrote bytes ->
-        Logger.debug (fun f -> f "sent: %S" (Io.Buffer.to_string data));
+        Logger.trace (fun f -> f "sent: %S" (Io.Buffer.to_string data));
         Ok bytes
 
   let pp_err fmt = function

@@ -16,6 +16,7 @@ module Buffer = struct
 
   let position t = t.position
   let filled t = t.filled
+  let set_filled t ~filled = t.filled <- Int.min filled t.capacity
 
   let discard t =
     t.position <- 0;

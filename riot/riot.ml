@@ -2,7 +2,7 @@ include Runtime
 include Lib
 
 let shutdown () =
-  Logger.warn (fun f -> f "RIOT IS SHUTTING DOWN!");
+  Logger.debug (fun f -> f "RIOT IS SHUTTING DOWN!");
   let pool = _get_pool () in
   Scheduler.Pool.shutdown pool
 

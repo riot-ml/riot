@@ -26,7 +26,7 @@ let main () =
   (* so we'll wait for both pids to be dead *)
   wait_pids [ pid1; pid2 ];
 
-  Logger.info (fun f -> f "link_procesess_test: linked processes terminated");
+  Logger.info (fun f -> f "link_procesess_test: OK");
   sleep 0.001;
   shutdown ()
 

@@ -13,7 +13,8 @@ let main () =
   let A = receive () in
   let A = receive () in
 
-  Logger.info (fun f -> f "send_interval_test: messages sent with interval");
+  Logger.debug (fun f -> f "send_interval_test: messages sent with interval");
+  Logger.info (fun f -> f "send_interval_test: OK");
 
   sleep 0.01;
   shutdown ()

@@ -27,7 +27,8 @@ let main () =
 
   match receive () with
   | Collected_messages [ A 1; A 2; A 3 ] ->
-      Logger.info (fun f -> f "send_order_test: received messages in order");
+      Logger.debug (fun f -> f "send_order_test: received messages in order");
+      Logger.info (fun f -> f "send_order_test: OK");
       sleep 0.001;
       shutdown ()
   | _ ->

@@ -13,7 +13,7 @@ module Registry_test = struct
     (* send to unregistered process raises *)
     (try send_by_name ~name:pid_name Hello with
     | Invalid_destination "my pid" ->
-        Logger.info (fun f ->
+        Logger.debug (fun f ->
             f "process_registration_test: unregistered send raises correctly")
     | Invalid_destination name2 ->
         Runtime.Log.error (fun f ->
@@ -27,12 +27,12 @@ module Registry_test = struct
 
     (match[@warning "-8"] receive () with
     | Hello ->
-        Logger.info (fun f -> f "process_registration_test: send_by_name works"));
+        Logger.debug (fun f -> f "process_registration_test: send_by_name works"));
 
     (* try to register it again *)
     (try register pid_name pid with
     | Name_already_registered ("my pid", pid2) when Pid.equal pid pid2 ->
-        Logger.info (fun f ->
+        Logger.debug (fun f ->
             f "process_registration_test: double register disallowed")
     | Name_already_registered (name, pid2) ->
         Runtime.Log.error (fun f ->
@@ -43,7 +43,7 @@ module Registry_test = struct
     (* unregister/register again *)
     unregister pid_name;
     register pid_name pid;
-    Logger.info (fun f -> f "process_registration_test: unregistering works");
+    Logger.debug (fun f -> f "process_registration_test: unregistering works");
 
     (* test sending a message by name to a registered process that died *)
     let pid2 = spawn (fun () -> sleep 0.1) in
@@ -54,7 +54,7 @@ module Registry_test = struct
     (* send to unregistered process raises *)
     (match send_by_name ~name:pid2_name Hello with
     | exception Invalid_destination "another-name" ->
-        Logger.info (fun f ->
+        Logger.debug (fun f ->
             f "process_registration_test: dead send by name raises correctly")
     | _ ->
         Runtime.Log.error (fun f ->
@@ -63,6 +63,7 @@ module Registry_test = struct
                should've raised!");
         Stdlib.exit 1);
 
+    Logger.info (fun f -> f "process_registration_test: OK");
     sleep 0.5;
     shutdown ()
 

@@ -29,7 +29,7 @@ let main () =
   let _ =
     match messages with
     | [ B; A; C; D; E ] ->
-        Logger.info (fun f ->
+        Logger.debug (fun f ->
             f "send_after_test: messages respected send_after time")
     | _ ->
         let messages = messages |> List.map msg_to_str |> String.concat "," in
@@ -37,6 +37,7 @@ let main () =
         assert false
   in
 
+  Logger.info (fun f -> f "send_after_test: OK");
   sleep 0.01;
   shutdown ()
 

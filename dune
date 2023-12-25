@@ -1,8 +1,2 @@
 (mdx
  (libraries riot))
-
-(env
- (release
-  (flags
-   (:standard -w +A)))
- )

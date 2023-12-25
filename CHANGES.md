@@ -1,5 +1,42 @@
 # Changes
 
+## 0.0.7
+
+* Introduce IO module with low-level IO operations such as performing direct
+  vectorized (or regular) reads/writes. New operations include:
+  * `read`, `write`
+  * `single_read`, `single_write` (vectorized)
+  * `await_readable`, `await_writeable`, `await`
+  * `write_all`
+  * `copy` and `copy_buffered`
+
+* Introduce Buffer module with support for converting from and to CStruct and
+  String, including position tracking.
+
+* Introduce Read/Reader interface for creating buffered and unbuffered readers
+  of arbitrary sources.
+
+* Introduce Write/Writer interfaces for creating unbuffered writers into
+  arbitrary destinations/sinks.
+
+* Introduce File module with Reader and Writer implementations
+
+* Implment Reader and Writer interfaces for Net.Socket
+
+* Dropped dependency on Bigstringaf and moved to Cstruct
+
+* Fix max number of domains to always be under the recommended domain count
+
+* Fix issue with tests where the runtime idled after the main would die. Now
+  the main process finishing with an exception is considered reason enough to
+  shutdown the system.
+
+* Refactor tests to always output `test_name: OK` when everything is fine and
+  all modules to end in `_test`.
+
+* Add several IO tests.
+
+
 ## 0.0.6
 
 * Redo packaging to expose a single public library: `riot`

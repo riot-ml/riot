@@ -410,36 +410,118 @@ module Fd : sig
   val pp : Format.formatter -> t -> unit
 end
 
-module File : sig
-  type 'kind file
-  type read_file = [ `r ] file
-  type write_file = [ `w ] file
-  type rw_file = [ `w | `r ] file
-
-  val fd : _ file -> Fd.t
-  val open_read : string -> read_file
-  val open_write : string -> write_file
-  val close : _ file -> unit
-  val remove : string -> unit
-end
-
 module IO : sig
+  type unix_error = [ `Unix_error of Unix.error ]
+  type ('ok, 'err) result = ('ok, ([> unix_error ] as 'err)) Stdlib.result
+
+  module Buffer : sig
+    type t
+
+    val as_cstruct : t -> Cstruct.t
+    val consume : t -> int -> unit
+    val copy : src:t -> dst:t -> int
+    val discard : t -> unit
+    val filled : t -> int
+    val is_empty : t -> bool
+    val is_full : t -> bool
+    val length : t -> int
+    val of_cstruct : ?filled:int -> Cstruct.t -> t
+    val of_string : string -> t
+    val position : t -> int
+    val set_filled : t -> filled:int -> unit
+    val sub : ?off:int -> len:int -> t -> t
+    val to_string : t -> string
+    val with_capacity : int -> t
+  end
+
   type read = [ `Abort of Unix.error | `Read of int | `Retry ]
-
-  val read : Fd.t -> bytes -> int -> int -> read
-
   type write = [ `Abort of Unix.error | `Retry | `Wrote of int ]
 
+  val read : Fd.t -> bytes -> int -> int -> read
   val write : Fd.t -> bytes -> int -> int -> write
   val await_readable : Fd.t -> (Fd.t -> 'a) -> 'a
   val await_writeable : Fd.t -> (Fd.t -> 'a) -> 'a
   val await : Fd.t -> Fd.Mode.t -> (Fd.t -> 'a) -> 'a
+  val single_read : Fd.t -> buf:Buffer.t -> (int, [> `Closed ]) result
+  val single_write : Fd.t -> data:Buffer.t -> (int, [> `Closed ]) result
 
-  val single_read :
-    Fd.t -> buf:Cstruct.t -> (int, [> `Unix_error of Unix.error ]) result
+  module type Write = sig
+    type t
 
-  val single_write :
-    Fd.t -> data:Cstruct.t -> (int, [> `Unix_error of Unix.error ]) result
+    val write : t -> data:Buffer.t -> (int, [> `Closed ]) result
+    val flush : t -> (unit, [> `Closed ]) result
+  end
+
+  module Writer : sig
+    type 'src t
+    type 'src write = (module Write with type t = 'src)
+
+    val of_write_src : 'src. 'src write -> 'src -> 'src t
+    val write : 'src t -> data:Buffer.t -> (int, [> `Closed ]) result
+
+    module Make (B : Write) : sig
+      type t = B.t
+
+      val write : t -> data:Buffer.t -> (int, [> `Closed ]) result
+      val flush : t -> (unit, [> `Closed ]) result
+    end
+  end
+
+  module type Read = sig
+    type t
+
+    val read : t -> buf:Buffer.t -> (int, [> `Closed | `Eof ]) result
+  end
+
+  module Reader : sig
+    type 'src t
+    type 'src reader = 'src t
+    type 'src read = (module Read with type t = 'src)
+
+    val of_read_src : 'src. 'src read -> 'src -> 'src t
+    val read : 'src reader -> buf:Buffer.t -> (int, [> `Closed | `Eof ]) result
+
+    module Make (B : Read) : sig
+      type t = B.t
+
+      val read : t -> buf:Buffer.t -> (int, [> `Closed | `Eof ]) result
+    end
+
+    module Buffered : sig
+      type 'src t
+
+      val of_reader : ?capacity:int -> 'src reader -> 'src t reader
+      val to_buffer : 'src t -> Buffer.t
+    end
+
+    val of_buffer : Buffer.t -> unit Buffered.t t
+  end
+
+  val write_all :
+    'dst Writer.t -> data:Buffer.t -> (int, [> `Closed | `Eof ]) result
+
+  val copy_buffered :
+    'src Reader.Buffered.t Reader.t ->
+    'dst Writer.t ->
+    (int, [> `Closed | `Eof ]) result
+
+  val copy :
+    ?buf:Buffer.t ->
+    'src Reader.t ->
+    'dst Writer.t ->
+    (int, [> `Closed | `Eof ]) result
+end
+
+module File : sig
+  type 'kind file
+
+  val fd : _ file -> Fd.t
+  val open_read : string -> [ `r ] file
+  val open_write : string -> [ `w ] file
+  val close : _ file -> unit
+  val remove : string -> unit
+  val to_reader : [ `r ] file -> [ `r ] file IO.Reader.t
+  val to_writer : [ `w ] file -> [ `w ] file IO.Writer.t
 end
 
 module Net : sig
@@ -470,42 +552,45 @@ module Net : sig
     }
 
     type timeout = Infinity | Bounded of float
-    type unix_error = [ `Unix_error of Unix.error ]
-    type ('ok, 'err) result = ('ok, ([> unix_error ] as 'err)) Stdlib.result
 
     val listen :
       ?opts:listen_opts ->
       port:int ->
       unit ->
-      (listen_socket, [> `System_limit ]) result
+      (listen_socket, [> `System_limit ]) IO.result
 
-    val connect : Addr.stream_addr -> (stream_socket, [> `Closed ]) result
+    val connect : Addr.stream_addr -> (stream_socket, [> `Closed ]) IO.result
 
     val accept :
       ?timeout:timeout ->
       listen_socket ->
       ( stream_socket * Addr.stream_addr,
         [> `Closed | `Timeout | `System_limit ] )
-      result
+      IO.result
 
     val close : _ socket -> unit
 
     val controlling_process :
-      _ socket -> new_owner:Pid.t -> (unit, [> `Closed | `Not_owner ]) result
+      _ socket -> new_owner:Pid.t -> (unit, [> `Closed | `Not_owner ]) IO.result
 
     val receive :
       ?timeout:timeout ->
-      buf:Bigstringaf.t ->
+      buf:IO.Buffer.t ->
       stream_socket ->
-      (int, [> `Closed | `Timeout ]) result
+      (int, [> `Closed | `Timeout ]) IO.result
 
-    val send : data:Bigstringaf.t -> stream_socket -> (int, [> `Closed ]) result
+    val send :
+      data:IO.Buffer.t -> stream_socket -> (int, [> `Closed ]) IO.result
+
     val pp : Format.formatter -> _ socket -> unit
 
     val pp_err :
       Format.formatter ->
-      [ unix_error | `Closed | `Timeout | `System_limit ] ->
+      [ IO.unix_error | `Closed | `Timeout | `System_limit ] ->
       unit
+
+    val to_reader : stream_socket -> stream_socket IO.Reader.t
+    val to_writer : stream_socket -> stream_socket IO.Writer.t
   end
 end
 

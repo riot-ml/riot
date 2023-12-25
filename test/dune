@@ -1,4 +1,31 @@
 (test
+ (name io_copy_buffered_test)
+ (modules io_copy_buffered_test)
+ (libraries riot))
+
+(test
+ (name io_copy_test)
+ (modules io_copy_test)
+ (libraries riot))
+
+(test
+ (name io_writer_test)
+ (modules io_writer_test)
+ (libraries riot))
+
+(test
+ (name io_reader_test)
+ (modules io_reader_test)
+ (deps fixtures/io_readv.txt)
+ (libraries riot))
+
+(test
+ (name io_reader_large_test)
+ (modules io_reader_large_test)
+ (deps fixtures/ocaml_org.html)
+ (libraries riot))
+
+(test
  (name add_monitor)
  (modules add_monitor)
  (libraries riot))
@@ -28,6 +55,11 @@
 (test
  (name net_addr_uri_test)
  (modules net_addr_uri_test)
+ (libraries riot))
+
+(test
+ (name net_reader_writer_test)
+ (modules net_reader_writer_test)
  (libraries riot))
 
 (test

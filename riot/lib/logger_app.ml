@@ -18,14 +18,19 @@ module Formatter = struct
 
         if config.color_output then
           Format.fprintf stdout "%s" (Level.to_color_string level);
-        if config.print_time then Format.fprintf stdout "%a " pp_now ts;
-        if config.print_source then
-          Format.fprintf stdout "[thread=%a,pid=%a] " Scheduler_uid.pp sch
-            Pid.pp pid;
-        Format.fprintf stdout "[%s%a] %s\x1b[0m\n%!" ns_str Level.pp level
-          message;
+        if config.print_time then (
+          let parts =
+            Format.asprintf "%a" pp_now ts |> String.split_on_char ' '
+          in
+          let time = List.nth parts 1 in
+          Format.fprintf stdout "%s" time;
+          if config.print_source then
+            Format.fprintf stdout "[thread=%a,pid=%a] " Scheduler_uid.pp sch
+              Pid.pp pid;
+          Format.fprintf stdout "[%s%a] %s\x1b[0m\n%!" ns_str Level.pp level
+            message;
 
-        formatter_loop config
+          formatter_loop config)
     | _ -> formatter_loop config
 
   let start_link config =

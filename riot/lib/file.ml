@@ -14,3 +14,34 @@ let open_read path = do_open path Unix.[ O_RDONLY ]
 let open_write path = do_open path Unix.[ O_WRONLY; O_CREAT ]
 let close t = Fd.close t
 let remove path = Unix.unlink path
+
+module Read = Io.Reader.Make (struct
+  type t = read_file
+
+  let rec read t ~buf =
+    match Runtime.Net.Io.readv t [| Io.Buffer.as_cstruct buf |] with
+    | exception Fd.(Already_closed _) -> Error `Closed
+    | `Abort reason -> Error (`Unix_error reason)
+    | `Retry -> Runtime.syscall "File.read" `r t @@ read ~buf
+    | `Read 0 -> Error `Eof
+    | `Read len ->
+        Io.Buffer.set_filled buf ~filled:len;
+        Ok len
+end)
+
+let to_reader t = Io.Reader.of_read_src (module Read) t
+
+module Write = Io.Writer.Make (struct
+  type t = write_file
+
+  let rec write t ~data =
+    match Runtime.Net.Io.writev t [| Io.Buffer.as_cstruct data |] with
+    | exception Fd.(Already_closed _) -> Error `Closed
+    | `Abort reason -> Error (`Unix_error reason)
+    | `Retry -> Runtime.syscall "File.write" `r t @@ write ~data
+    | `Wrote len -> Ok len
+
+  let flush _t = Ok ()
+end)
+
+let to_writer t = Io.Writer.of_write_src (module Write) t

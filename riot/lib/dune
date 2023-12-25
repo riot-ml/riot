@@ -1,4 +1,4 @@
 (library
  (package riot)
  (name lib)
- (libraries lib_net logger runtime))
+ (libraries logger runtime))

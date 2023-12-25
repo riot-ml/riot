@@ -5,6 +5,4 @@
  (release
   (flags
    (:standard -w +A)))
- (dev
-  (flags
-   (:standard -w -27-69-37))))
+ )

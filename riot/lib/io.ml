@@ -231,7 +231,7 @@ let copy ?(buf = default_copy_buffer ()) src dst =
     | Error `Eof | Ok 0 -> Ok copied
     | Ok len ->
         let data = Buffer.sub ~len buf in
-        let* written = write_all dst ~data in
+        let* _written = write_all dst ~data in
         read_all (copied + len)
     | Error err -> Error err
   in

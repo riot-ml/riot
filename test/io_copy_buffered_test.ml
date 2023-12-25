@@ -11,7 +11,8 @@ let data = String.make size '7'
 let data = IO.Buffer.of_string data
 
 let test_copy () =
-  Logger.debug (fun f -> f "io_copy_buffered_test: start (copying %d bytes)" size);
+  Logger.debug (fun f ->
+      f "io_copy_buffered_test: start (copying %d bytes)" size);
   let path = "./generated/super_large_file" in
 
   let dev_null = File.open_write path |> File.to_writer in

@@ -38,7 +38,8 @@ module Buffer = struct
     dst.filled <- actual_fill;
     actual_fill
 
-  let of_cstruct ~filled inner =
+  let of_cstruct ?filled inner =
+    let filled = Option.value ~default:(Cstruct.length inner) filled in
     { inner; position = 0; filled; capacity = inner.len }
 
   let as_cstruct t = t.inner
@@ -54,7 +55,7 @@ module Buffer = struct
 
   let with_capacity capacity = of_cstruct ~filled:0 (Cstruct.create capacity)
 
-  let sub t ~off ~len =
+  let sub ?(off = 0) ~len t =
     let inner = Cstruct.sub t.inner off len in
     let capacity = inner.len in
     { inner; capacity; position = 0; filled = capacity }
@@ -81,7 +82,6 @@ let rec single_write fd ~data =
 let await_readable fd fn = Runtime.syscall "custom" `r fd fn
 let await_writeable fd fn = Runtime.syscall "custom" `w fd fn
 let await fd mode fn = Runtime.syscall "custom" mode fd fn
-let copy _fd _cs = ()
 
 module type Write = sig
   type t
@@ -136,10 +136,22 @@ module Reader = struct
     | Error `Eof -> Ok 0
     | Error err -> Error err
 
+  let empty =
+    let module EmptyRead = struct
+      type t = unit
+
+      let read () ~buf:_ = Ok 0
+    end in
+    of_read_src (module EmptyRead) ()
+
   module Buffered = struct
     let default_buffer_size = 1_024 * 4
 
     type 'src t = { buf : Buffer.t; inner : 'src reader }
+
+    let to_buffer t =
+      t.buf.position <- 0;
+      t.buf
 
     let rec fill_buf t =
       Logger.trace (fun f ->
@@ -185,5 +197,45 @@ module Reader = struct
         let read = read
       end) in
       of_read_src (module BufRead) t
+
+    let of_buffer buf =
+      let t = { buf; inner = empty } in
+      let module BufRead = Make (struct
+        type nonrec t = unit t
+
+        let read = read
+      end) in
+      of_read_src (module BufRead) t
   end
+
+  let of_buffer buf = Buffered.of_buffer buf
 end
+
+let write_all dst ~data =
+  let rec write_all data n =
+    Logger.trace (fun f ->
+        f "io.write_all: written=%d buf_size=%d" n (Buffer.length data));
+    if not (Buffer.is_full data) then (
+      let* written = Writer.write dst ~data in
+      Buffer.consume data written;
+      write_all data (n + written))
+    else Ok n
+  in
+  write_all data 0
+
+let default_copy_buffer () = Buffer.with_capacity (1024 * 1024 * 4)
+
+let copy ?(buf = default_copy_buffer ()) src dst =
+  let rec read_all copied =
+    match Reader.read src ~buf with
+    | Error `Eof | Ok 0 -> Ok copied
+    | Ok len ->
+        let data = Buffer.sub ~len buf in
+        let* written = write_all dst ~data in
+        read_all (copied + len)
+    | Error err -> Error err
+  in
+  read_all 0
+
+let copy_buffered Reader.(Reader (_, src)) dst =
+  write_all dst ~data:(Reader.Buffered.to_buffer src)

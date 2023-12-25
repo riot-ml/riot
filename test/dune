@@ -1,4 +1,14 @@
 (test
+ (name io_copy_buffered_test)
+ (modules io_copy_buffered_test)
+ (libraries riot))
+
+(test
+ (name io_copy_test)
+ (modules io_copy_test)
+ (libraries riot))
+
+(test
  (name io_writer_test)
  (modules io_writer_test)
  (libraries riot))

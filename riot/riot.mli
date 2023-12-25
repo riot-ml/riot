@@ -425,11 +425,11 @@ module IO : sig
     val is_empty : t -> bool
     val is_full : t -> bool
     val length : t -> int
-    val of_cstruct : filled:int -> Cstruct.t -> t
+    val of_cstruct : ?filled:int -> Cstruct.t -> t
     val of_string : string -> t
     val position : t -> int
     val set_filled : t -> filled:int -> unit
-    val sub : t -> off:int -> len:int -> t
+    val sub : ?off:int -> len:int -> t -> t
     val to_string : t -> string
     val with_capacity : int -> t
   end
@@ -491,8 +491,25 @@ module IO : sig
       type 'src t
 
       val of_reader : ?capacity:int -> 'src reader -> 'src t reader
+      val to_buffer : 'src t -> Buffer.t
     end
+
+    val of_buffer : Buffer.t -> unit Buffered.t t
   end
+
+  val write_all :
+    'dst Writer.t -> data:Buffer.t -> (int, [> `Closed | `Eof ]) result
+
+  val copy_buffered :
+    'src Reader.Buffered.t Reader.t ->
+    'dst Writer.t ->
+    (int, [> `Closed | `Eof ]) result
+
+  val copy :
+    ?buf:Buffer.t ->
+    'src Reader.t ->
+    'dst Writer.t ->
+    (int, [> `Closed | `Eof ]) result
 end
 
 module File : sig

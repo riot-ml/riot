@@ -4,6 +4,7 @@ let test_with_buffer capacity =
   let file = File.open_read "./fixtures/io_readv.txt" in
   let reader = File.to_reader file in
   let reader = IO.Reader.Buffered.of_reader ~capacity reader in
+
   let buf = IO.Buffer.with_capacity 8 in
 
   let op1 = IO.Reader.read reader ~buf in

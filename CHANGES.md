@@ -36,6 +36,10 @@
 
 * Add several IO tests.
 
+* Fix log levels for writing to sockets
+
+* Include proper license for C Stubs copied from `lib_eio_posix` for vectorized i/o.
+
 
 ## 0.0.6
 

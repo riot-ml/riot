@@ -18,7 +18,7 @@ let main () =
   (* so we'll wait for both pids to be dead *)
   wait_pids [ pid1 ];
 
-  Logger.info (fun f -> f "spawn_and_exit: processes terminated");
+  Logger.info (fun f -> f "spawn_and_exit: OK");
   sleep 0.001;
   shutdown ()
 

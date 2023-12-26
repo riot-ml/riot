@@ -87,8 +87,10 @@ let () =
   Logger.set_log_level (Some Info);
   let port = 2112 in
   let main = self () in
-  let _server = spawn (fun () -> server port) in
-  let _client = spawn (fun () -> client port main) in
+  let server = spawn (fun () -> server port) in
+  let client = spawn (fun () -> client port main) in
+  monitor main server;
+  monitor main client;
   match receive () with
   | Received "hello world" ->
       Logger.info (fun f -> f "net_test: OK");
@@ -96,6 +98,12 @@ let () =
       shutdown ()
   | Received other ->
       Logger.error (fun f -> f "net_test: bad payload: %S" other);
+      sleep 0.001;
+      Stdlib.exit 1
+  | Process.Messages.Monitor (Process_down pid) ->
+      let who = if Pid.equal pid server then "server" else "client" in
+      Logger.error (fun f ->
+          f "net_test: %s(%a) died unexpectedly" who Pid.pp pid);
       sleep 0.001;
       Stdlib.exit 1
   | _ ->

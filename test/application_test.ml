@@ -4,9 +4,10 @@ module Test = struct
   let name = "test"
 
   let start () =
+    Logger.set_log_level (Some Debug);
     let pid =
       spawn (fun () ->
-          Logger.info (fun f -> f "app started!");
+          Logger.info (fun f -> f "application_test: OK");
           sleep 0.5;
           shutdown ())
     in

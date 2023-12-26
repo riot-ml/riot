@@ -115,7 +115,7 @@ module Socket = struct
         Ok len
 
   let rec send ~data socket =
-    Logger.trace (fun f -> f "sending: %S" (Io.Buffer.to_string data));
+    Logger.trace (fun f -> f "sending: %d bytes" (Io.Buffer.length data));
     match Low_level.writev socket [| Io.Buffer.as_cstruct data |] with
     | exception Fd.(Already_closed _) -> Error `Closed
     | `Abort reason -> Error (`Unix_error reason)
@@ -123,7 +123,7 @@ module Socket = struct
         Logger.trace (fun f -> f "retrying");
         syscall "send" `w socket @@ send ~data
     | `Wrote bytes ->
-        Logger.trace (fun f -> f "sent: %S" (Io.Buffer.to_string data));
+        Logger.trace (fun f -> f "sent: %d" (Io.Buffer.length data));
         Ok bytes
 
   let pp_err fmt = function

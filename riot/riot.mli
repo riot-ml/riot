@@ -598,6 +598,17 @@ module Net : sig
   end
 end
 
+module SSL : sig
+  type 'src t
+
+  val of_socket :
+    ?host:[ `host ] Domain_name.t ->
+    auth:Tls.Config.client ->
+    Net.Socket.stream_socket ->
+    Net.Socket.stream_socket t IO.Reader.t
+    * Net.Socket.stream_socket t IO.Writer.t
+end
+
 module Timer : sig
   type timer
 

@@ -35,18 +35,17 @@ module IO = Io
 
 let ( let* ) = Result.bind
 
+type 'src t = {
+  writer : 'src IO.Writer.t;
+  reader : 'src IO.Reader.t;
+  mutable state : [ `Active of Tls.Engine.state | `Eof | `Error of exn ];
+  mutable linger : Cstruct.t option;
+  recv_buf : Cstruct.t;
+}
+
 module Tls_unix = struct
   exception Tls_alert of Tls.Packet.alert_type
   exception Tls_failure of Tls.Engine.failure
-
-  type 'src t = {
-    writer : 'src IO.Writer.t;
-    reader : 'src IO.Reader.t;
-    mutable state : [ `Active of Tls.Engine.state | `Eof | `Error of exn ];
-    mutable linger : Cstruct.t option;
-    recv_buf : Cstruct.t;
-  }
-
   exception Read_error of [ `Closed | `Eof | `Unix_error of Unix.error ]
   exception Write_error of [ `Closed | `Eof | `Unix_error of Unix.error ]
 

@@ -40,6 +40,12 @@
 
 * Include proper license for C Stubs copied from `lib_eio_posix` for vectorized i/o.
 
+* Split test suite into io/non-io so io tests are left outside opam ci
+
+* Improved IO polling that removes heavy iterations over process/fds tables
+
+* Rewrite Dashmap internals to use a Hashtbl
+
 
 ## 0.0.6
 

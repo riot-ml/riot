@@ -30,7 +30,7 @@ type t = {
   mutable last_t : Ptime.t; [@warning "-69"]
 }
 
-let create () = { timers = Dashmap.create (); last_t = Ptime_clock.now () }
+let create () = { timers = Dashmap.create 1024; last_t = Ptime_clock.now () }
 let can_tick t = not (Dashmap.is_empty t.timers)
 
 let make_timer t time mode fn =
@@ -59,6 +59,5 @@ let run_timer t now (timer, ()) =
 
 let tick t =
   let now = Ptime_clock.now () in
-  let timers = Dashmap.entries t.timers in
-  List.iter (run_timer t now) timers;
+  Dashmap.iter t.timers (run_timer t now);
   t.last_t <- now

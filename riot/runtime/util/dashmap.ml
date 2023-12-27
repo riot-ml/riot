@@ -1,31 +1,36 @@
-type ('k, 'v) t = { tbl : ('k * 'v) list Atomic.t } [@@unboxed]
+type ('k, 'v) t = { tbl : ('k, 'v) Hashtbl.t; lock : Mutex.t }
 
-let create _size = { tbl = Atomic.make [] }
-let entries t = Atomic.get t.tbl
-let find t k = List.assoc_opt k (entries t)
-let find_by t fn = List.find_opt fn (entries t)
-let find_all_by t fn = List.find_all fn (entries t)
-let iter t fn = List.iter fn (entries t)
-let has_key t k = find t k |> Option.is_some
-let is_empty t = entries t = []
+let create size = { lock = Mutex.create (); tbl = Hashtbl.create size }
+let get t k = Mutex.protect t.lock (fun () -> Hashtbl.find_all t.tbl k)
+let remove t k = Mutex.protect t.lock (fun () -> Hashtbl.remove t.tbl k)
 
-let rec insert t k v =
-  let tbl1 = entries t in
-  let entry = (k, v) in
-  if List.mem entry tbl1 then ()
-  else
-    let tbl2 = (k, v) :: tbl1 in
-    if Atomic.compare_and_set t.tbl tbl1 tbl2 then () else insert t k v
+let remove_all t ks =
+  Mutex.protect t.lock (fun () -> List.iter (Hashtbl.remove t.tbl) ks)
 
-let rec remove_by t fn =
-  let tbl1 = entries t in
-  let tbl2 = List.filter (fun pair -> not (fn pair)) tbl1 in
-  if Atomic.compare_and_set t.tbl tbl1 tbl2 then () else remove_by t fn
+let entries t =
+  Mutex.protect t.lock (fun () -> Hashtbl.to_seq t.tbl |> List.of_seq)
 
-let rec replace t k v =
-  let tbl1 = entries t in
-  let tbl2 = (k, v) :: List.remove_assoc k tbl1 in
-  if Atomic.compare_and_set t.tbl tbl1 tbl2 then () else replace t k v
+let find_by t fn =
+  Mutex.protect t.lock (fun () -> Hashtbl.to_seq t.tbl |> Seq.find fn)
+
+let find_all_by t fn =
+  Mutex.protect t.lock (fun () ->
+      Hashtbl.to_seq t.tbl |> Seq.filter fn |> List.of_seq)
+
+let iter t fn = Hashtbl.iter (fun k v -> fn (k, v)) t.tbl
+let has_key t k = Mutex.protect t.lock (fun () -> Hashtbl.mem t.tbl k)
+let is_empty t = Mutex.protect t.lock (fun () -> Hashtbl.length t.tbl = 0)
+
+let insert t k v =
+  Mutex.protect t.lock (fun () -> Hashtbl.add t.tbl k v |> ignore)
+
+let remove_by t fn =
+  Mutex.protect t.lock (fun () ->
+      Hashtbl.to_seq t.tbl |> Seq.filter fn
+      |> Seq.map (fun (k, _v) -> k)
+      |> Seq.iter (fun k -> Hashtbl.remove t.tbl k))
+
+let replace t k v = Mutex.protect t.lock (fun () -> Hashtbl.replace t.tbl k v)
 
 let pp k_pp fmt t =
   Format.pp_print_list

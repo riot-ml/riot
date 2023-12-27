@@ -6,6 +6,7 @@ type t = {
   poll : Poll.t;
   poll_timeout : Poll.Timeout.t;
   procs : (Fd.t, Process.t * [ `r | `w | `rw ]) Dashmap.t;
+  fds : (Process.t, Fd.t) Dashmap.t;
 }
 
 (* operation types *)
@@ -21,7 +22,8 @@ let create () =
   {
     poll = Poll.create ();
     poll_timeout = Poll.Timeout.After 500L;
-    procs = Dashmap.create 1024;
+    procs = Dashmap.create (1024 * 10);
+    fds = Dashmap.create (1024 * 10);
   }
 
 (* pretty-printing *)
@@ -29,13 +31,10 @@ let create () =
 let mode_to_string mode = match mode with `r -> "r" | `rw -> "rw" | `w -> "w"
 
 let pp ppf (t : t) =
-  let entries = Dashmap.entries t.procs in
   Format.fprintf ppf "[";
-  List.iter
-    (fun (fd, (proc, mode)) ->
+  Dashmap.iter t.procs (fun (fd, (proc, mode)) ->
       Format.fprintf ppf "%a:%a:%s," Fd.pp fd Pid.pp (Process.pid proc)
-        (mode_to_string mode))
-    entries;
+        (mode_to_string mode));
   Format.fprintf ppf "]"
 
 let event_of_mode mode =
@@ -65,46 +64,43 @@ let add_fd t fd mode =
 
 let register t proc mode fd =
   add_fd t fd mode;
-  Dashmap.insert t.procs fd (proc, mode)
+  Dashmap.insert t.procs fd (proc, mode);
+  Dashmap.insert t.fds proc fd
 
 let unregister_process t proc =
   Log.debug (fun f -> f "Unregistering %a" Pid.pp (Process.pid proc));
-  let this_proc (_fd, (proc', _mode)) =
-    Pid.equal (Process.pid proc) (Process.pid proc')
-  in
-  Dashmap.remove_by t.procs this_proc
+  let fds = Dashmap.get t.fds proc in
+  fds |> Dashmap.remove_all t.procs;
+  List.iter
+    (fun fd ->
+      match Fd.get fd with
+      | Some fd -> Poll.set t.poll fd Poll.Event.none
+      | None -> ())
+    fds;
+  Dashmap.remove t.fds proc
 
 let can_poll t = not (Dashmap.is_empty t.procs)
 
 let poll t fn =
-  Poll.clear t.poll;
-  let should_wait = ref false in
-  Dashmap.iter t.procs (fun (fd, (_proc, mode)) ->
-      match Fd.get fd with
-      | None -> ()
-      | Some unix_fd ->
-          should_wait := true;
-          Poll.set t.poll unix_fd (event_of_mode mode));
-  if not !should_wait then ()
-  else
-    match Poll.wait t.poll t.poll_timeout with
-    | `Timeout -> ()
-    | `Ok ->
-        Poll.iter_ready t.poll ~f:(fun raw_fd event ->
-            match mode_of_event event with
-            | None -> ()
-            | Some mode ->
-                let mode_and_flag (fd, (proc, mode')) =
-                  Log.trace (fun f ->
-                      f "io_poll(%a=%a,%a=%a): %a" Fd.pp fd Fd.pp fd Fd.Mode.pp
-                        mode' Fd.Mode.pp mode Process.pp proc);
-                  let same_mode = Fd.Mode.equal mode' mode in
-                  match Fd.get fd with
-                  | Some fd' -> fd' = raw_fd && same_mode
-                  | _ -> false
-                in
-                Dashmap.find_all_by t.procs mode_and_flag
-                |> List.iter (fun (_fd, proc) -> fn proc))
+  match Poll.wait t.poll t.poll_timeout with
+  | `Timeout -> ()
+  | `Ok ->
+      Poll.iter_ready t.poll ~f:(fun raw_fd event ->
+          match mode_of_event event with
+          | None -> ()
+          | Some mode ->
+              let fd = Fd.make raw_fd in
+              let procs = Dashmap.get t.procs fd in
+              let mode_and_flag (proc, mode') =
+                Log.trace (fun f ->
+                    f "io_poll(%a=%a,%a=%a): %a" Fd.pp fd Fd.pp fd Fd.Mode.pp
+                      mode' Fd.Mode.pp mode Process.pp proc);
+                let same_mode = Fd.Mode.equal mode' mode in
+                match Fd.get fd with
+                | Some fd' -> fd' = raw_fd && same_mode
+                | _ -> false
+              in
+              procs |> List.filter mode_and_flag |> List.iter fn)
 
 (* sockets api *)
 let socket sock_domain sock_type =
@@ -112,8 +108,9 @@ let socket sock_domain sock_type =
   Unix.set_nonblock fd;
   Fd.make fd
 
-let close (_t : t) fd =
+let close t fd =
   Log.trace (fun f -> f "closing %a" Fd.pp fd);
+  Dashmap.remove_all t.procs [ fd ];
   Fd.close fd
 
 let getaddrinfo host service =

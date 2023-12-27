@@ -1,15 +1,17 @@
 type ('k, 'v) t
 
-val create : 'a -> ('b, 'c) t
+val create : int -> ('k, 'v) t
+val get : ('k, 'v) t -> 'k -> 'v list
 val is_empty : ('k, 'v) t -> bool
-val entries : ('a, 'b) t -> ('a * 'b) list
-val find_by : ('a, 'b) t -> ('a * 'b -> bool) -> ('a * 'b) option
-val find_all_by : ('a, 'b) t -> ('a * 'b -> bool) -> ('a * 'b) list
-val has_key : ('a, 'b) t -> 'a -> bool
-val insert : ('a, 'b) t -> 'a -> 'b -> unit
-val remove_by : ('a, 'b) t -> ('a * 'b -> bool) -> unit
-val replace : ('a, 'b) t -> 'a -> 'b -> unit
-val iter : ('a, 'b) t -> ('a * 'b -> unit) -> unit
+val find_by : ('k, 'v) t -> ('k * 'v -> bool) -> ('k * 'v) option
+val remove : ('k, 'v) t -> 'k -> unit
+val remove_all : ('k, 'v) t -> 'k list -> unit
+val find_all_by : ('k, 'v) t -> ('k * 'v -> bool) -> ('k * 'v) list
+val has_key : ('k, 'v) t -> 'k -> bool
+val insert : ('k, 'v) t -> 'k -> 'v -> unit
+val remove_by : ('k, 'v) t -> ('k * 'v -> bool) -> unit
+val replace : ('k, 'v) t -> 'k -> 'v -> unit
+val iter : ('k, 'v) t -> ('k * 'v -> unit) -> unit
 
 val pp :
   (Format.formatter -> 'k -> unit) -> Format.formatter -> ('k, 'v) t -> unit

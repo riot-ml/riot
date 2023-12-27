@@ -27,7 +27,8 @@ module Registry_test = struct
 
     (match[@warning "-8"] receive () with
     | Hello ->
-        Logger.debug (fun f -> f "process_registration_test: send_by_name works"));
+        Logger.debug (fun f ->
+            f "process_registration_test: send_by_name works"));
 
     (* try to register it again *)
     (try register pid_name pid with

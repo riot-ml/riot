@@ -11,6 +11,8 @@ homepage: "https://github.com/leostera/riot"
 bug-reports: "https://github.com/leostera/riot/issues"
 depends: [
   "cstruct" {>= "6.2.0"}
+  "x509" {with-test & >= "0.16.5"}
+  "castore" {with-test & >= "0.0.2"}
   "mdx" {with-test & >= "2.3.1"}
   "ocaml" {>= "5.1"}
   "odoc" {with-doc & >= "2.2.2"}

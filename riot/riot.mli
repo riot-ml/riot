@@ -601,9 +601,18 @@ end
 module SSL : sig
   type 'src t
 
-  val of_socket :
+  exception Tls_alert of Tls.Packet.alert_type
+  exception Tls_failure of Tls.Engine.failure
+
+  val of_server_socket :
+    ?config:Tls.Config.server ->
+    Net.Socket.stream_socket ->
+    Net.Socket.stream_socket t IO.Reader.t
+    * Net.Socket.stream_socket t IO.Writer.t
+
+  val of_client_socket :
     ?host:[ `host ] Domain_name.t ->
-    auth:Tls.Config.client ->
+    config:Tls.Config.client ->
     Net.Socket.stream_socket ->
     Net.Socket.stream_socket t IO.Reader.t
     * Net.Socket.stream_socket t IO.Writer.t

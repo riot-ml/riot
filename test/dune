@@ -1,4 +1,10 @@
 (test
+ (name ssl_test)
+ (modules ssl_test)
+ (deps fixtures/tls.crt fixtures/tls.key)
+ (libraries riot x509 mirage-crypto-rng mirage-crypto-rng.unix))
+
+(test
  (name io_copy_buffered_test)
  (enabled_if
   (= %{env:OPAM_REPO_CI=false} false))

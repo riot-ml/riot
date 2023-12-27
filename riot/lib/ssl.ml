@@ -44,9 +44,10 @@ type 'src t = {
   recv_buf : Cstruct.t;
 }
 
+exception Tls_alert of Tls.Packet.alert_type
+exception Tls_failure of Tls.Engine.failure
+
 module Tls_unix = struct
-  exception Tls_alert of Tls.Packet.alert_type
-  exception Tls_failure of Tls.Engine.failure
   exception Read_error of [ `Closed | `Eof | `Unix_error of Unix.error ]
   exception Write_error of [ `Closed | `Eof | `Unix_error of Unix.error ]
 
@@ -173,7 +174,7 @@ module Tls_unix = struct
         push_linger t cs;
         drain_handshake t
 
-  let make ?host ~reader ~writer config =
+  let make_client ?host ~reader ~writer config =
     let config' =
       match host with
       | None -> config
@@ -191,6 +192,18 @@ module Tls_unix = struct
     let tls, init = Tls.Engine.client config' in
     let t = { t with state = `Active tls } in
     write_t t init;
+    drain_handshake t
+
+  let make_server ~reader ~writer config =
+    let t =
+      {
+        state = `Active (Tls.Engine.server config);
+        writer;
+        reader;
+        linger = None;
+        recv_buf = Cstruct.create 4_096;
+      }
+    in
     drain_handshake t
 
   let to_reader : type src. src t -> src t IO.Reader.t =
@@ -219,7 +232,12 @@ module Tls_unix = struct
     IO.Writer.of_write_src (module Write) t
 end
 
-let of_socket ?host ~auth sock =
-  let reader, writer = (Net.Socket.to_reader sock, Net.Socket.to_writer sock) in
-  let tls = Tls_unix.make ?host ~reader ~writer auth in
-  (Tls_unix.to_reader tls, Tls_unix.to_writer tls)
+let of_server_socket ?(config = Tls.Config.server ()) sock =
+  let reader, writer = Net.Socket.(to_reader sock, to_writer sock) in
+  let tls = Tls_unix.make_server ~reader ~writer config in
+  Tls_unix.(to_reader tls, to_writer tls)
+
+let of_client_socket ?host ~config sock =
+  let reader, writer = Net.Socket.(to_reader sock, to_writer sock) in
+  let tls = Tls_unix.make_client ?host ~reader ~writer config in
+  Tls_unix.(to_reader tls, to_writer tls)

@@ -39,7 +39,8 @@ let server port =
     `Single (crt, pk)
   in
   let config = Tls.Config.server ~certificates () in
-  let reader, writer = SSL.of_server_socket ~config conn in
+  let ssl = SSL.of_server_socket ~config conn in
+  let reader, writer = SSL.(to_reader ssl, to_writer ssl) in
 
   let buf = IO.Buffer.with_capacity 1024 in
 
@@ -80,7 +81,8 @@ let client port main =
 
   let null ?ip:_ ~host:_ _ = Ok None in
   let config = Tls.Config.client ~authenticator:null () in
-  let reader, writer = SSL.of_client_socket ~host ~config conn in
+  let ssl = SSL.of_client_socket ~host ~config conn in
+  let reader, writer = SSL.(to_reader ssl, to_writer ssl) in
 
   let data = IO.Buffer.of_string "hello world" in
   let rec send_loop n =

@@ -174,6 +174,12 @@ module Tls_unix = struct
         push_linger t cs;
         drain_handshake t
 
+  let epoch t =
+    match t.state with
+    | `Active tls ->
+        Tls.Engine.epoch tls |> Result.map_error (fun () -> `No_session_data)
+    | _ -> Error `Inactive_tls_engine
+
   let make_client ?host ~reader ~writer config =
     let config' =
       match host with
@@ -232,12 +238,17 @@ module Tls_unix = struct
     IO.Writer.of_write_src (module Write) t
 end
 
+let negotiated_protocol t =
+  let* epoch = Tls_unix.epoch t in
+  Ok Tls.Core.(epoch.alpn_protocol)
+
+let to_reader = Tls_unix.to_reader
+let to_writer = Tls_unix.to_writer
+
 let of_server_socket ?(config = Tls.Config.server ()) sock =
   let reader, writer = Net.Socket.(to_reader sock, to_writer sock) in
-  let tls = Tls_unix.make_server ~reader ~writer config in
-  Tls_unix.(to_reader tls, to_writer tls)
+  Tls_unix.make_server ~reader ~writer config
 
 let of_client_socket ?host ~config sock =
   let reader, writer = Net.Socket.(to_reader sock, to_writer sock) in
-  let tls = Tls_unix.make_client ?host ~reader ~writer config in
-  Tls_unix.(to_reader tls, to_writer tls)
+  Tls_unix.make_client ?host ~reader ~writer config

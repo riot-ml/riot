@@ -618,15 +618,20 @@ module SSL : sig
   val of_server_socket :
     ?config:Tls.Config.server ->
     Net.Socket.stream_socket ->
-    Net.Socket.stream_socket t IO.Reader.t
-    * Net.Socket.stream_socket t IO.Writer.t
+    Net.Socket.stream_socket t
 
   val of_client_socket :
     ?host:[ `host ] Domain_name.t ->
     config:Tls.Config.client ->
     Net.Socket.stream_socket ->
-    Net.Socket.stream_socket t IO.Reader.t
-    * Net.Socket.stream_socket t IO.Writer.t
+    Net.Socket.stream_socket t
+
+  val to_reader : 'src t -> 'src t IO.Reader.t
+  val to_writer : 'dst t -> 'dst t IO.Writer.t
+
+  val negotiated_protocol :
+    'src t ->
+    (string option, [> `Inactive_tls_engine | `No_session_data ]) result
 end
 
 module Timer : sig

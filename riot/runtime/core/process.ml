@@ -1,5 +1,9 @@
 open Util
 
+module Exn = struct
+  exception Receive_timeout
+end
+
 type exit_reason =
   | Normal
   | Exit_signal
@@ -9,7 +13,7 @@ type exit_reason =
 
 module Messages = struct
   type monitor = Process_down of Pid.t
-  type Message.t += Monitor of monitor | Exit of Pid.t * exit_reason
+  type Message.t += Monitor of monitor | Exit of Pid.t * exit_reason | Timeout
 end
 
 type state =
@@ -38,6 +42,7 @@ type t = {
   links : Pid.t list Atomic.t;
   monitors : Pid.t list Atomic.t;
   ready_fds : Fd.t list Atomic.t;
+  recv_timeout : unit Ref.t option Atomic.t;
 }
 (** The process descriptor. *)
 
@@ -58,6 +63,7 @@ let make sid fn =
       read_save_queue = false;
       flags = default_flags ();
       ready_fds = Atomic.make [];
+      recv_timeout = Atomic.make None;
     }
   in
   proc
@@ -96,6 +102,7 @@ let sid { sid; _ } = sid
 let state t = Atomic.get t.state
 let monitors t = Atomic.get t.monitors
 let links t = Atomic.get t.links
+let receive_timeout t = Atomic.get t.recv_timeout
 
 let is_alive t =
   match Atomic.get t.state with
@@ -130,6 +137,16 @@ let rec set_ready_fds t fds =
 let has_messages t = not (has_empty_mailbox t)
 let message_count t = Mailbox.size t.mailbox + Mailbox.size t.save_queue
 let should_awake t = is_alive t && has_messages t
+
+let rec set_receive_timeout t timeout =
+  let last_timeout = Atomic.get t.recv_timeout in
+  if Atomic.compare_and_set t.recv_timeout last_timeout (Some timeout) then ()
+  else set_receive_timeout t timeout
+
+let rec clear_receive_timeout t =
+  let last_timeout = Atomic.get t.recv_timeout in
+  if Atomic.compare_and_set t.recv_timeout last_timeout None then ()
+  else clear_receive_timeout t
 
 exception Process_reviving_is_forbidden of t
 

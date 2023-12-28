@@ -16,7 +16,12 @@ let syscall name mode fd cb =
   Effect.perform (Proc_effect.Syscall { name; mode; fd });
   cb fd
 
-let receive ?ref () = Effect.perform (Proc_effect.Receive { ref })
+let receive ?after ?ref () =
+  let timeout =
+    match after with None -> `infinity | Some after -> `after after
+  in
+  Effect.perform (Proc_effect.Receive { ref; timeout })
+
 let yield () = Effect.perform Proc_effect.Yield
 let random () = (_get_sch ()).rnd
 
@@ -154,6 +159,7 @@ let rec wait_pids pids =
   | pid :: tail -> wait_pids (if is_process_alive pid then pids else tail)
 
 module Timer = struct
+  type timeout = Util.Timeout.t
   type timer = unit Ref.t
 
   let _set_timer pid msg time mode =

@@ -16,5 +16,6 @@ type 'a step =
 type ('a, 'b) step_callback = ('a step -> 'b t) -> 'a Effect.t -> 'b t
 type perform = { perform : 'a 'b. ('a, 'b) step_callback } [@@unboxed]
 
+val pp : Format.formatter -> 'a t -> unit
 val make : ('a -> 'b) -> 'a Effect.t -> 'b t
 val run : reductions:int -> perform:perform -> 'a t -> 'a t

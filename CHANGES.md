@@ -1,5 +1,27 @@
 # Changes
 
+## Unreleased
+
+* Introduce SSL module to turn sockets into SSL-backed Reader/Writer streams.
+  This includes making a `Net.Socket.stream_socket` into a client or a server
+  SSL-backed stream pair.
+
+* Introduce monotomic timers with nanosecond precision. Thansk to the `mtime`
+  library this was a breeze!
+
+* Introduce timeouts in `receive` – you can now call `receive ~after:10L ()`
+  and if there are messages fetched in 10 microseconds `receive` will raise a
+  `Receive_timeout` exception that you can match on.
+
+* Introduce `Task` to quickly spin up processes that we can await. This is the
+  closest we have to a future. A `Task` is typed, executes a single function, 
+  and MUST be awaited with `Task.await ?timeout task`.
+
+* Introduce specialized Dashmap's with the `Dashmap.Make` functor.
+
+* Improve `Timer_wheel` with support for clearing timers, and iterating timers
+  in the order in which they were created.
+
 ## 0.0.7
 
 * Introduce IO module with low-level IO operations such as performing direct

@@ -36,7 +36,7 @@ val set_current_process_pid : Pid.t -> unit
 val get_random_scheduler : pool -> t
 
 val set_timer :
-  t -> float -> [ `interval | `one_off ] -> (unit -> unit) -> unit Ref.t
+  t -> int64 -> [ `interval | `one_off ] -> (unit -> unit) -> unit Ref.t
 
 val add_to_run_queue : t -> Process.t -> unit
 val awake_process : pool -> Process.t -> unit

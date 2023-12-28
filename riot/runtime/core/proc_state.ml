@@ -16,6 +16,14 @@ type 'a step =
 type ('a, 'b) step_callback = ('a step -> 'b t) -> 'a Effect.t -> 'b t
 type perform = { perform : 'a 'b. ('a, 'b) step_callback } [@@unboxed]
 
+let pp fmt t =
+  match t with
+  | Finished (Ok _) -> Format.fprintf fmt "Finished(Ok _)"
+  | Finished (Error exn) ->
+      Format.fprintf fmt "Finished(Error %s)" (Printexc.to_string exn)
+  | Suspended (_, _) -> Format.fprintf fmt "Suspended"
+  | Unhandled (_, _) -> Format.fprintf fmt "Unhandled"
+
 let finished x = Finished x
 let suspended_with k e = Suspended (k, e)
 
@@ -29,16 +37,8 @@ let handler_continue =
 
 let continue_with k v = Effect.Shallow.continue_with k v handler_continue
 
-let handler_discontinue exn =
-  let retc _ = finished (Error exn) in
-  let exnc = retc in
-  let effc : type c. c Effect.t -> ((c, 'a) continuation -> 'b) option =
-   fun _ -> Some retc
-  in
-  Effect.Shallow.{ retc; exnc; effc }
-
 let discontinue_with k exn =
-  Effect.Shallow.discontinue_with k exn (handler_discontinue exn)
+  Effect.Shallow.discontinue_with k exn handler_continue
 
 let unhandled_with k v = Unhandled (k, v)
 

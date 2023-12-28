@@ -4,17 +4,18 @@ module Timer : sig
   type t
 
   val pp : Format.formatter -> t -> unit
-  val make : float -> [ `interval | `one_off ] -> (unit -> unit) -> t
+  val make : int64 -> [ `interval | `one_off ] -> (unit -> unit) -> t
   val equal : t -> t -> bool
 end
 
 type t
 
 val create : unit -> t
+val is_finished : t -> unit Ref.t -> bool
 
 val make_timer :
-  t -> float -> [ `interval | `one_off ] -> (unit -> unit) -> unit Ref.t
+  t -> int64 -> [ `interval | `one_off ] -> (unit -> unit) -> unit Ref.t
 
-val ends_at : Ptime.t -> Ptime.span -> Ptime.t
+val clear_timer : t -> unit Ref.t -> unit
 val tick : t -> unit
 val can_tick : t -> bool

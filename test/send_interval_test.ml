@@ -8,7 +8,7 @@ let main () =
   let (Ok _) = Logger.start () in
   let this = self () in
 
-  let (Ok _timer) = Timer.send_interval this A ~every:0.5 in
+  let (Ok _timer) = Timer.send_interval this A ~every:50L in
 
   let A = receive () in
   let A = receive () in

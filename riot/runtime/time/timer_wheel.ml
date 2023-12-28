@@ -5,59 +5,79 @@ module Timer = struct
   type t = {
     id : unit Ref.t;
     mode : [ `interval | `one_off ];
-    mutable started_at : Ptime.t;
-    ends_at : Ptime.Span.t;
+    mutable status : [ `pending | `finished ];
+    mutable started_at : Mtime.t;
+    ends_at : Mtime.Span.t;
     fn : unit -> unit;
   }
 
   let pp fmt t =
     let mode = if t.mode = `interval then "interval" else "one_off" in
     Format.fprintf fmt "Timer { id=%a; started_at=%a; ends_at=%a; mode=%s }"
-      Ref.pp t.id (Ptime.pp_rfc3339 ()) t.started_at Ptime.Span.pp t.ends_at
-      mode
+      Ref.pp t.id Mtime.pp t.started_at Mtime.Span.pp t.ends_at mode
 
   let make time mode fn =
     let id = Ref.make () in
-    let started_at = Ptime_clock.now () in
-    let ends_at = Ptime.Span.of_float_s time |> Option.get in
-    { id; started_at; ends_at; fn; mode }
+    let started_at = Mtime_clock.now () in
+    let ends_at = Mtime.Span.of_uint64_ns Int64.(mul 1_000L time) in
+    { id; started_at; ends_at; fn; mode; status = `pending }
 
   let equal a b = Ref.equal a.id b.id
+  let is_finished t = t.status = `finished
 end
 
 type t = {
-  timers : (Timer.t, unit) Dashmap.t;
-  mutable last_t : Ptime.t; [@warning "-69"]
+  timers : (Mtime.t, Timer.t) Dashmap.t;
+  ids : (unit Ref.t, Timer.t) Dashmap.t;
+  mutable last_t : Mtime.t; [@warning "-69"]
 }
 
-let create () = { timers = Dashmap.create 1024; last_t = Ptime_clock.now () }
+let create () =
+  {
+    timers = Dashmap.create 1024;
+    ids = Dashmap.create 1024;
+    last_t = Mtime_clock.now ();
+  }
+
 let can_tick t = not (Dashmap.is_empty t.timers)
+
+let is_finished t timer =
+  let timers = Dashmap.get t.ids timer in
+  let timer_exists = not (List.is_empty timers) in
+  let timer_is_finished = List.exists Timer.is_finished timers in
+  timer_exists && timer_is_finished
+
+let clear_timer t tid =
+  Dashmap.get t.ids tid
+  |> List.iter (fun timer ->
+         Log.trace (fun f -> f "Cleared timer %a" Timer.pp timer);
+         Dashmap.remove t.timers timer.started_at;
+         Dashmap.remove t.ids tid)
 
 let make_timer t time mode fn =
   let timer = Timer.make time mode fn in
-  Dashmap.insert t.timers timer ();
+  Dashmap.insert t.timers timer.started_at timer;
+  Dashmap.insert t.ids timer.id timer;
+  Log.trace (fun f -> f "Created timer %a" Timer.pp timer);
   timer.id
 
-let ends_at now t1 =
-  let t0 = Ptime.to_span now in
-  Ptime.Span.add t0 t1 |> Ptime.of_span |> Option.get
-
-let run_timer t now (timer, ()) =
+let run_timer t now (_, timer) =
   let open Timer in
-  let ends_at = ends_at timer.started_at timer.ends_at in
+  let ends_at = Mtime.add_span timer.started_at timer.ends_at |> Option.get in
+  let timeout = Mtime.is_earlier now ~than:ends_at in
   Log.trace (fun f ->
-      f "Running timer %a with ends_at=%a" Timer.pp timer (Ptime.pp_rfc3339 ())
-        ends_at);
-  if Ptime.is_earlier now ~than:ends_at then ()
+      f "Running timer %a with ends_at=%a -> timeout? %b" Timer.pp timer
+        Mtime.pp ends_at (not timeout));
+  if timeout || Timer.is_finished timer then ()
   else (
     (match timer.mode with
     | `one_off ->
-        Dashmap.remove_by t.timers (fun (timer', ()) ->
-            Timer.equal timer timer')
+        timer.status <- `finished;
+        Dashmap.remove t.timers timer.started_at
     | `interval -> timer.started_at <- now);
     timer.fn ())
 
 let tick t =
-  let now = Ptime_clock.now () in
+  let now = Mtime_clock.now () in
   Dashmap.iter t.timers (run_timer t now);
   t.last_t <- now

@@ -48,7 +48,6 @@ module Socket = struct
     addr : Addr.tcp_addr;
   }
 
-  type timeout = Infinity | Bounded of float
   type unix_error = [ `Unix_error of Unix.error ]
   type ('ok, 'err) result = ('ok, ([> unix_error ] as 'err)) Stdlib.result
 
@@ -92,7 +91,7 @@ module Socket = struct
     Logger.trace (fun f -> f "Connecting to %a via %a" Addr.pp addr pp fd);
     Ok fd
 
-  let rec accept ?(timeout = Infinity) (socket : listen_socket) =
+  let rec accept ?(timeout = `infinity) (socket : listen_socket) =
     let pool = Scheduler.Pool.get_pool () in
     Log.trace (fun f -> f "Socket is Accepting client at fd=%a" Fd.pp socket);
     match Low_level.accept pool.io_scheduler.io_tbl socket with
@@ -103,7 +102,7 @@ module Socket = struct
 
   let controlling_process _socket ~new_owner:_ = Ok ()
 
-  let rec receive ?(timeout = Infinity) ~buf socket =
+  let rec receive ?(timeout = `infinity) ~buf socket =
     match Low_level.readv socket [| Io.Buffer.as_cstruct buf |] with
     | exception Fd.(Already_closed _) -> Error `Closed
     | `Abort reason -> Error (`Unix_error reason)

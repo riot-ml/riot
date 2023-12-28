@@ -21,12 +21,15 @@
   "Riot is an actor-model multi-core scheduler for OCaml 5. It brings Erlang-style concurrency to the language, where lighweight process communicate via message passing")
  (depends
   (cstruct (>= "6.2.0"))
+  (x509 (and :with-test (>= "0.16.5")))
+  (castore (and :with-test (>= "0.0.2")))
   (mdx (and :with-test (>= "2.3.1")))
   (ocaml (>= "5.1"))
   (odoc (and :with-doc (>= "2.2.2")))
   (poll (>= "0.3.1"))
   (ptime (>= "1.1.0"))
   (telemetry (>= "0.0.1"))
+  (tls (>="0.17.3"))
   (uri (>= "4.4.0"))
   dune)
  (tags

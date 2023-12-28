@@ -1,4 +1,4 @@
 (library
  (package riot)
  (name time)
- (libraries core ptime ptime.clock.os))
+ (libraries core mtime mtime.clock.os))

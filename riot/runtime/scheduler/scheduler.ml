@@ -76,32 +76,81 @@ module Scheduler = struct
         if Scheduler_uid.equal sch.uid proc.sid then add_to_run_queue sch proc)
       pool.schedulers
 
-  let handle_receive k (proc : Process.t) (ref : unit Ref.t option) =
+  let handle_receive k sch (proc : Process.t) (ref : 'a Ref.t option) timeout =
     let open Proc_state in
+    (* When a timeout is specified, we want to create it in the timer
+       wheel, and save the timer reference in the process.
+
+       That way, whenever we gets re-scheduled to run this specific `Receive` effect
+       we can check on the Process to see if it has timed out.
+    *)
+    let should_timeout, _next_step =
+      match (Process.receive_timeout proc, timeout) with
+      | Some timeout, _ ->
+          let finished = Timer_wheel.is_finished sch.timers timeout in
+          if finished then Timer_wheel.clear_timer sch.timers timeout;
+          Log.trace (fun f ->
+              f "Process %a: process receive timeout? %b" Pid.pp
+                (Process.pid proc) finished);
+          (finished, `receiving)
+      | None, `infinity -> (false, `receiving)
+      | None, `after s ->
+          Log.trace (fun f ->
+              f "Process %a: creating receive timeout" Pid.pp (Process.pid proc));
+          let timeout =
+            Timer_wheel.make_timer sch.timers s `one_off (fun () -> ())
+          in
+          Process.set_receive_timeout proc timeout;
+          (false, `set_timeout)
+    in
+
     Log.trace (fun f ->
-        f "Process %a: receiving messages" Pid.pp (Process.pid proc));
-    if Process.has_empty_mailbox proc then (
+        f "Process %a: receiving messages (timeout? %b)" Pid.pp
+          (Process.pid proc) should_timeout);
+
+    if should_timeout then (
+      Log.trace (fun f -> f "Process %a: timed out" Pid.pp (Process.pid proc));
+      Process.clear_receive_timeout proc;
+      k (Discontinue Process.Exn.Receive_timeout))
+    else if Process.has_empty_mailbox proc then (
       Log.trace (fun f ->
           f "Process %a is awaiting for new messages" Pid.pp (Process.pid proc));
       Process.mark_as_awaiting_message proc;
       k Suspend)
     else
+      (* NOTE(@leostera): we will use the current message count as fuel to stop the
+         recursion. This count may increase as we are iterating, but that's okay.
+         If we consume it entirely, the receive will just be delayed until the next
+         scheduled run, and at that point we'll pick up any new messages.
+      *)
       let fuel = Process.message_count proc in
+
       Log.trace (fun f -> f "Skimming mailbox with %d messages" fuel);
       let rec go fuel =
         if fuel = 0 then k Delay
         else
           match (ref, Process.next_message proc) with
+          (* if the mailbox is empty, we will switch to reading messages from
+             the save queue, and delay execution to the next iteration *)
           | _, None ->
               Log.trace (fun f ->
                   f "Emptied the queue, will read from save queue next");
               Process.read_save_queue proc;
               k Delay
+          (* when we have an explicit ref, we will skip any message that was created
+             BEFORE this ref was created, which enables the selective receive.
+
+             Any skipped messages will go in the same order as received into
+             the save queue, which will be read after the mailbox is depleted.
+          *)
           | Some ref, Some msg when Ref.is_newer ref msg.uid ->
               Log.trace (fun f ->
                   f "Skipping msg ref=%a msg.uid=%a" Ref.pp ref Ref.pp msg.uid);
               Process.add_to_save_queue proc msg;
               go (fuel - 1)
+          (* lastly, if we have a ref and the mesasge is newer than the ref, and
+             when we don't have a ref, we just pop the message and continue with it
+          *)
           | _, Some Message.{ msg; _ } -> k (Continue msg)
       in
       go fuel
@@ -126,7 +175,7 @@ module Scheduler = struct
       match eff with
       | Syscall { name; mode; fd } ->
           handle_syscall k pool sch proc name mode fd
-      | Receive { ref } -> handle_receive k proc ref
+      | Receive { ref; timeout } -> handle_receive k sch proc ref timeout
       | Yield ->
           Log.trace (fun f ->
               f "Process %a: yielding" Pid.pp (Process.pid proc));
@@ -206,6 +255,8 @@ module Scheduler = struct
       Process.mark_as_running proc;
       let perform = perform pool sch proc in
       let cont = Proc_state.run ~reductions:100 ~perform (Process.cont proc) in
+      Log.trace (fun f ->
+          f "Process %a state: %a" Pid.pp proc.pid Proc_state.pp cont);
       Process.set_cont proc cont;
       match cont with
       | Proc_state.Finished reason ->
@@ -303,7 +354,7 @@ module Io_scheduler = struct
     (try
        while true do
          if pool.stop then raise_notrace Exit;
-         poll_io pool io
+         if Io.can_poll io.io_tbl then poll_io pool io else Unix.sleepf 0.0001
        done
      with Exit -> ());
     Log.trace (fun f -> f "< exit worker loop")

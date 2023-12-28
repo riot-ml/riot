@@ -16,14 +16,22 @@ let main () =
   let (Ok _) = Logger.start () in
   let this = self () in
 
-  let (Ok _timer) = Timer.send_after this A ~after:1.0 in
-  let (Ok _timer) = Timer.send_after this C ~after:2.0 in
-  let (Ok _timer) = Timer.send_after this D ~after:3.0 in
-  let (Ok _timer) = Timer.send_after this E ~after:4.0 in
+  let (Ok _timer) = Timer.send_after this A ~after:10L in
+  let (Ok _timer) = Timer.send_after this C ~after:20L in
+  let (Ok _timer) = Timer.send_after this D ~after:30L in
+  let (Ok _timer) = Timer.send_after this E ~after:40L in
   send this B;
 
+  let after = 10_000L in
   let messages =
-    [ receive (); receive (); receive (); receive (); receive () ] |> List.rev
+    [
+      receive ~after ();
+      receive ~after ();
+      receive ~after ();
+      receive ~after ();
+      receive ~after ();
+    ]
+    |> List.rev
   in
 
   let _ =

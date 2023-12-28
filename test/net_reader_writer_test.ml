@@ -98,7 +98,7 @@ let () =
   let client = spawn (fun () -> client port main) in
   monitor main server;
   monitor main client;
-  match receive () with
+  match receive ~after:500_000L () with
   | Received "hello world" ->
       Logger.info (fun f -> f "net_reader_writer_test: OK");
       sleep 0.001;

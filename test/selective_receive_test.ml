@@ -6,14 +6,17 @@ type Message.t += A | B | C | Continue
 
 let loop pid =
   send pid A;
-  receive () |> ignore;
+  receive ~after:500_000L () |> ignore;
   send pid B;
   send pid C
 
 let rec collect_messages ref count =
   if count = 0 then []
   else
-    let msg = if count = 1 then receive () else receive ~ref () in
+    let msg =
+      if count = 1 then receive ~after:500_000L ()
+      else receive ~after:500_000L ~ref ()
+    in
     Logger.debug (fun f -> f "received messgge: %s" (Marshal.to_string msg []));
     msg :: collect_messages ref (count - 1)
 

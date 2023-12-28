@@ -139,7 +139,7 @@ let () =
   in
   monitor main server;
   monitor main client;
-  match receive () with
+  match receive ~after:500_000L () with
   | Received "hello world" ->
       Logger.info (fun f -> f "ssl_test: OK");
       sleep 0.001;

@@ -91,7 +91,11 @@ let () =
   let client = spawn (fun () -> client port main) in
   monitor main server;
   monitor main client;
-  match receive () with
+  match receive ~after:100_000L () with
+  | exception Receive_timeout ->
+      Logger.error (fun f -> f "net_test: test timed out");
+      sleep 0.001;
+      Stdlib.exit 1
   | Received "hello world" ->
       Logger.info (fun f -> f "net_test: OK");
       sleep 0.001;

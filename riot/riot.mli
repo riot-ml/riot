@@ -130,6 +130,10 @@ module Application : sig
   end
 end
 
+module Timeout : sig
+  type t = [ `infinity | `after of int64 ]
+end
+
 val random : unit -> Random.State.t
 (** Returnts the current random state from a scheduler. *)
 
@@ -198,15 +202,24 @@ val is_process_alive : Pid.t -> bool
 val wait_pids : Pid.t list -> unit
 (** Await all processes in the list to termimante. *)
 
-val receive : ?ref:unit Ref.t -> unit -> Message.t
+exception Receive_timeout
+
+val receive : ?after:int64 -> ?ref:unit Ref.t -> unit -> Message.t
 (** [receive ()] will return the first message in the process mailbox.
 
     This function will suspend a process that has an empty mailbox, and the
     process will remain asleep until a message is delivered to it.
 
+    ### Timed Receive
+
+    If a `after was passed, then `[receive ~after ()]` will wait up to [after]
+    and raise an `Receive_timeout` exception that can be matched on.
+
+    This is useful to prevent deadlock of processes when receiving messages.
+
     ### Selective Receive
 
-    If a `ref` was passed, then `[receive ref ()]` will skip all messages
+    If a `ref` was passed, then `[receive ~ref ()]` will skip all messages
     created before the creation of this `Ref.t` value, and will only return
     newer messages.
 
@@ -555,8 +568,6 @@ module Net : sig
       addr : Addr.tcp_addr;
     }
 
-    type timeout = Infinity | Bounded of float
-
     val listen :
       ?opts:listen_opts ->
       port:int ->
@@ -566,7 +577,7 @@ module Net : sig
     val connect : Addr.stream_addr -> (stream_socket, [> `Closed ]) IO.result
 
     val accept :
-      ?timeout:timeout ->
+      ?timeout:Timeout.t ->
       listen_socket ->
       ( stream_socket * Addr.stream_addr,
         [> `Closed | `Timeout | `System_limit ] )
@@ -578,7 +589,7 @@ module Net : sig
       _ socket -> new_owner:Pid.t -> (unit, [> `Closed | `Not_owner ]) IO.result
 
     val receive :
-      ?timeout:timeout ->
+      ?timeout:Timeout.t ->
       buf:IO.Buffer.t ->
       stream_socket ->
       (int, [> `Closed | `Timeout ]) IO.result
@@ -622,10 +633,10 @@ module Timer : sig
   type timer
 
   val send_after :
-    Pid.t -> Message.t -> after:float -> (timer, [> `Timer_error ]) result
+    Pid.t -> Message.t -> after:int64 -> (timer, [> `Timer_error ]) result
 
   val send_interval :
-    Pid.t -> Message.t -> every:float -> (timer, [> `Timer_error ]) result
+    Pid.t -> Message.t -> every:int64 -> (timer, [> `Timer_error ]) result
 end
 
 module Queue : sig
@@ -640,4 +651,13 @@ module Queue : sig
   val pop : 'a t -> 'a option
   val is_empty : 'a t -> bool
   val create : unit -> 'a t
+end
+
+module Task : sig
+  type 'a t
+
+  val async : (unit -> 'a) -> 'a t
+
+  val await :
+    ?timeout:int64 -> 'a t -> ('a, [> `Process_down | `Timeout ]) result
 end

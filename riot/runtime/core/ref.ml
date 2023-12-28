@@ -17,3 +17,4 @@ let type_equal : type a b. a t -> b t -> (a, b) Type.eq option =
   | _ -> None
 
 let is_newer (Ref a) (Ref b) = Int64.compare a b = 1
+let hash (Ref a) = Int64.hash a

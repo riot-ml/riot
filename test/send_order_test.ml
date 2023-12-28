@@ -10,7 +10,7 @@ type Riot.Message.t +=
 type state = { messages : Riot.Message.t list; main : Pid.t }
 
 let rec loop state =
-  match receive () with
+  match receive ~after:500_000L () with
   | End -> send state.main (Collected_messages (List.rev state.messages))
   | A _ as msg -> loop { state with messages = msg :: state.messages }
   | _ -> loop state
@@ -25,7 +25,7 @@ let main () =
   send pid (A 3);
   send pid End;
 
-  match receive () with
+  match receive ~after:500_000L () with
   | Collected_messages [ A 1; A 2; A 3 ] ->
       Logger.debug (fun f -> f "send_order_test: received messages in order");
       Logger.info (fun f -> f "send_order_test: OK");

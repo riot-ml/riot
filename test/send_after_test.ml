@@ -22,8 +22,16 @@ let main () =
   let (Ok _timer) = Timer.send_after this E ~after:40L in
   send this B;
 
+  let after = 10_000L in
   let messages =
-    [ receive (); receive (); receive (); receive (); receive () ] |> List.rev
+    [
+      receive ~after ();
+      receive ~after ();
+      receive ~after ();
+      receive ~after ();
+      receive ~after ();
+    ]
+    |> List.rev
   in
 
   let _ =

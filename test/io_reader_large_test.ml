@@ -19,6 +19,7 @@ let test_with_buffer capacity =
   Logger.debug (fun f -> f "read #3: %d bytes" (Result.get_ok op3));
   let str3 = IO.Buffer.to_string buf in
 
+  File.close file;
   let final_str = str1 ^ str2 ^ str3 in
   if String.length final_str = 57946 then
     Logger.info (fun f -> f "io_reader_large_test(%d): OK" capacity)

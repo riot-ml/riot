@@ -38,6 +38,7 @@ val get_random_scheduler : pool -> t
 val set_timer :
   t -> int64 -> [ `interval | `one_off ] -> (unit -> unit) -> unit Ref.t
 
+val remove_timer : t -> unit Ref.t -> unit
 val add_to_run_queue : t -> Process.t -> unit
 val awake_process : pool -> Process.t -> unit
 val run : pool -> t -> unit -> unit

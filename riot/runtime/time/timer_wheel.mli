@@ -12,6 +12,7 @@ type t
 
 val create : unit -> t
 val is_finished : t -> unit Ref.t -> bool
+val remove_timer : t -> unit Ref.t -> unit
 
 val make_timer :
   t -> int64 -> [ `interval | `one_off ] -> (unit -> unit) -> unit Ref.t

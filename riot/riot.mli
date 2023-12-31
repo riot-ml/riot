@@ -135,7 +135,7 @@ module Timeout : sig
 end
 
 val random : unit -> Random.State.t
-(** Returnts the current random state from a scheduler. *)
+(** Returns the current random state from a scheduler. *)
 
 val yield : unit -> unit
 (** Suspends execution of the current process and returns control to the scheduler *)

@@ -12,14 +12,14 @@ Thanks for taking the time to contribute to Riot. All contributions are welcomed
 
 ### Adding tests
 
-If you want to add a test, you can do so by creating a new OCaml file in the `test` folder. The boilerplate we use for a test is:
+If you want to add a test, you can do so by creating a new OCaml file in the `test` folder and updating `test/dune` to include a stanza for your test. The boilerplate we use for a test is:
 
 ```
 [@@@warning "-8"]
 open Riot
 
 let main () =
-  let Ok () = Logger.start () in
+  let (Ok _) = Logger.start () in
 
   (* your test code *)
 
@@ -28,7 +28,7 @@ let main () =
     Logger.info (fun f -> f "print that everything went well");
     shutdown ()
   | _ ->
-    Logger.error (fun f -> f "print that something went wrong);
+    Logger.error (fun f -> f "print that something went wrong");
     Stdlib.exit 1
 
 let () = Riot.run @@ main

@@ -8,14 +8,11 @@ let main () =
   let (Ok _) = Logger.start () in
   let this = self () in
 
-  (* We cancel the second timer before it sends any messages, so the only
-     message in the inbox should be A (sent from the first timer) *)
-  let (Ok _timer) = Timer.send_after this A ~after:20L in
-  let (Ok timer) = Timer.send_interval this B ~every:50L in
-  Timer.cancel timer;
-  let message = receive ~after:10_000L () in
+  let (Ok _) = Timer.send_after this A ~after:100L in
+  let (Ok t) = Timer.send_after this B ~after:10L in
+  Timer.cancel t;
   let _ =
-    match message with
+    match receive ~after:10_000L () with
     | A ->
         Logger.debug (fun f ->
             f "cancel_timer_test: timer successfully cancelled")

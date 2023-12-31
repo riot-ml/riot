@@ -114,6 +114,11 @@
  (libraries riot))
 
 (test
+ (name cancel_timer_test)
+ (modules cancel_timer_test)
+ (libraries riot))
+
+(test
  (name send_interval_test)
  (modules send_interval_test)
  (libraries riot))

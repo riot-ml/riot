@@ -171,4 +171,8 @@ module Timer = struct
 
   let send_after pid msg ~after:time = _set_timer pid msg time `one_off
   let send_interval pid msg ~every:time = _set_timer pid msg time `interval
+
+  let cancel timer =
+    let sch = _get_sch () in
+    Scheduler.remove_timer sch timer
 end

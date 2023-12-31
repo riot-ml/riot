@@ -47,6 +47,12 @@ let is_finished t timer =
   let timer_is_finished = List.exists Timer.is_finished timers in
   timer_exists && timer_is_finished
 
+let remove_timer t timer =
+  let timers = Dashmap.get t.ids timer in
+  let times = List.map (fun (timer : Timer.t) -> timer.started_at) timers in
+  Dashmap.remove_by t.ids (fun (k, _) -> Ref.equal k timer);
+  Dashmap.remove_all t.timers times
+
 let clear_timer t tid =
   Dashmap.get t.ids tid
   |> List.iter (fun timer ->

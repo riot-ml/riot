@@ -60,6 +60,8 @@ module Scheduler = struct
   let set_timer sch time mode fn =
     Timer_wheel.make_timer sch.timers time mode fn
 
+  let remove_timer sch timer = Timer_wheel.remove_timer sch.timers timer
+
   let add_to_run_queue (sch : t) (proc : Process.t) =
     Mutex.protect sch.idle_mutex @@ fun () ->
     Proc_set.remove sch.sleep_set proc;

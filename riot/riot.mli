@@ -642,6 +642,8 @@ module Timer : sig
 
   val send_interval :
     Pid.t -> Message.t -> every:int64 -> (timer, [> `Timer_error ]) result
+
+  val cancel : timer -> unit
 end
 
 module Queue : sig

@@ -141,6 +141,10 @@ let unregister name =
   let pool = _get_pool () in
   Proc_registry.unregister pool.registry name
 
+let where_is name =
+  let pool = _get_pool () in
+  Proc_registry.find_pid pool.registry name
+
 let processes () =
   yield ();
   let pool = _get_pool () in

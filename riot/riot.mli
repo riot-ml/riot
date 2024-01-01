@@ -2,6 +2,10 @@
 
 *)
 
+module Timeout : sig
+  type t = [ `infinity | `after of int64 ]
+end
+
 module Ref : sig
   type 'a t
   (** A unique reference.
@@ -110,6 +114,17 @@ module Process : sig
             (** Exit signal. If you want this message make sure to set the
                 [Trap_exit] flag to true with the `process_flag` function. *)
   end
+
+  val where_is : string -> Pid.t option
+  (** [where_is name] returns the {Pid.t} that is registered to [name] or
+      [None] if no process was registered for that name.
+  *)
+
+  val await_name : string -> Pid.t
+  (** [await_name name] waits until [name] is registered to a pid.
+
+      NOTE: this function will block the process indefinitely.
+  *)
 end
 
 (** A Riot `Application` can be used to encapsulate functionality that must
@@ -128,10 +143,6 @@ module Application : sig
         ([> `Application_error of string | `Supervisor_error ] as 'err) )
       result
   end
-end
-
-module Timeout : sig
-  type t = [ `infinity | `after of int64 ]
 end
 
 val random : unit -> Random.State.t

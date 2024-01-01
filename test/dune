@@ -99,6 +99,11 @@
  (libraries riot))
 
 (test
+ (name process_priority_test)
+ (modules process_priority_test)
+ (libraries riot))
+
+(test
  (name readme_example)
  (modules readme_example)
  (libraries riot))

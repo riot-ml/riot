@@ -22,6 +22,7 @@ let rec collect_messages ref count =
 
 let main () =
   let (Ok _) = Logger.start () in
+  Logger.set_log_level (Some Info);
   let this = self () in
   let pid1 = spawn (fun () -> loop this) in
 
@@ -29,16 +30,15 @@ let main () =
   let ref = Ref.make () in
   send pid1 Continue;
 
-  let () =
-    match collect_messages ref 3 with
-    | [ B; C; A ] -> Logger.info (fun f -> f "selective_receive: OK")
-    | _msgs ->
-        Logger.error (fun f ->
-            f "selective_receive: messages arrived out of order?")
-  in
-  sleep 0.01;
-  shutdown ()
+  match collect_messages ref 3 with
+  | [ B; C; A ] ->
+      Logger.info (fun f -> f "selective_receive: OK");
+      sleep 0.01;
+      shutdown ()
+  | _msgs ->
+      Logger.error (fun f ->
+          f "selective_receive: messages arrived out of order?");
+      sleep 0.1;
+      Stdlib.exit 1
 
-let () =
-  Logger.set_log_level (Some Info);
-  Riot.run ~workers:0 @@ main
+let () = Riot.run ~workers:0 @@ main

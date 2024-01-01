@@ -2,11 +2,16 @@ open Binstring
 
 let () =
   (* Basic ASCII *)
-  assert (to_string (of_string "Hello World") = "Hello World");
+  let hello_world =
+    of_string "Hello" ^ (of_string " " ^ of_string "W") ^ of_string "orld"
+  in
+  assert (to_string hello_world = "Hello World");
 
   (* UTF-8 Multibyte Characters *)
-  assert (to_string (of_string "こんにちは世界") = "こんにちは世界");
-  assert (to_string (of_string "🌍🌎🌏") = "🌍🌎🌏");
+  let str = of_string "こんに" ^ (of_string "ちは" ^ empty) ^ of_string "世界" in
+  assert (to_string str = "こんにちは世界");
+  let str = of_string "🌍" ^ (of_string "" ^ empty ^ of_string "🌎") ^ of_string "🌏" in
+  assert (to_string str = "🌍🌎🌏");
 
   (* Empty String *)
   assert (to_string (of_string "") = "");

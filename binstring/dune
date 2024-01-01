@@ -4,6 +4,11 @@
  (libraries cstruct uutf))
 
 (test
+ (name get_byte_test)
+ (modules get_byte_test)
+ (libraries binstring))
+
+(test
  (name sub_test)
  (modules sub_test)
  (libraries binstring))

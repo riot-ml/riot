@@ -34,7 +34,11 @@ module Formatter = struct
     | _ -> formatter_loop config
 
   let start_link config =
-    let pid = spawn_link (fun () -> formatter_loop config) in
+    let pid =
+      spawn_link (fun () ->
+          process_flag (Priority High);
+          formatter_loop config)
+    in
     set_on_log (fun log -> send pid (Log log));
     Ok pid
 

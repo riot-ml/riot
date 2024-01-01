@@ -1,7 +1,11 @@
 open Runtime
 
 type t = Runtime.Process.t
-type process_flag = Runtime.Process.process_flag = Trap_exit of bool
+type priority = Runtime.Process.priority = High | Normal | Low
+
+type process_flag = Runtime.Process.process_flag =
+  | Trap_exit of bool
+  | Priority of priority
 
 type exit_reason = Runtime.Process.exit_reason =
   | Normal

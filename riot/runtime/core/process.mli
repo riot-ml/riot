@@ -24,8 +24,14 @@ type state =
   | Exited of exit_reason
   | Finalized
 
-type process_flags = { trap_exits : bool Atomic.t }
-type process_flag = Trap_exit of bool
+type priority = High | Normal | Low
+
+type process_flags = {
+  trap_exits : bool Atomic.t;
+  priority : priority Atomic.t;
+}
+
+type process_flag = Trap_exit of bool | Priority of priority
 
 val default_flags : unit -> process_flags
 

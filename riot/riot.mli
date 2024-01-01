@@ -86,12 +86,35 @@ module Process : sig
 
   val pp : Format.formatter -> t -> unit
 
+  (** The priority for a process.
+
+      A processes' priority can be adjusted to guarantee it always runs before
+      other processes, or to indicate that it is less important that a process
+      executes timely as long as it executes at some point in the future.
+
+      * High priority processes are scheduled and executed before everything
+        else. Use this with care or your other priorities may have to wait a
+        long time before they run.
+
+      * Normal priority processes are executed when there are no priority
+        processes ready to be executed.
+
+      * Low priority processes are only executed when there are no High and no
+        Normal priority processes left.
+
+   *)
+  type priority = High | Normal | Low
+
   (** A process flag is a configuration for the behavior of a process. *)
   type process_flag =
     | Trap_exit of bool
         (** [Trap_exit true] makes sure this process does not exit when it
             receives an Exit message (see {!module:Process.Messages}) from a
             linked process that has died. *)
+    | Priority of priority
+        (** Processes with a [High] priority will be scheduled before processes
+           with a [Normal] priority which will be scheduled before processes
+           with a [Low] priority. *)
 
   (* An [exit_reason] describes why a process finished. *)
   type exit_reason =

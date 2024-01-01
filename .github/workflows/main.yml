@@ -24,14 +24,14 @@ jobs:
         opam-repositories:
           - |-
             default: https://github.com/ocaml/opam-repository.git
-        include:
-          - os: windows-latest
-            ocaml-compiler: ocaml-variants.5.1.0+options,ocaml-option-mingw
-            allow-prerelease-opam: false
-            opam-repositories: |-
-              windows-5.0: https://github.com/dra27/opam-repository.git#windows-5.0
-              sunset: https://github.com/ocaml-opam/opam-repository-mingw.git#sunset
-              default: https://github.com/ocaml/opam-repository.git
+      # include:
+      #   - os: windows-latest
+      #     ocaml-compiler: ocaml-variants.5.1.0+options,ocaml-option-mingw
+      #     allow-prerelease-opam: false
+      #     opam-repositories: |-
+      #       windows-5.0: https://github.com/dra27/opam-repository.git#windows-5.0
+      #       sunset: https://github.com/ocaml-opam/opam-repository-mingw.git#sunset
+      #       default: https://github.com/ocaml/opam-repository.git
 
     runs-on: ${{ matrix.os }}
 

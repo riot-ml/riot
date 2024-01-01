@@ -49,5 +49,6 @@ let default_opts =
 let start () =
   let child_specs = [ Formatter.child_spec default_opts ] in
   let (Ok pid) = Supervisor.start_link ~child_specs () in
+  process_flag (Priority High);
   Ok pid
 [@@warning "-8"]

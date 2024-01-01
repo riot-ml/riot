@@ -92,6 +92,10 @@ module Process : sig
         (** [Trap_exit true] makes sure this process does not exit when it
             receives an Exit message (see {!module:Process.Messages}) from a
             linked process that has died. *)
+    | Priority of Runtime.Process.priority
+        (** Processes with a [High] priority will be scheduled before processes
+           with a [Normal] priority which will be scheduled before processes
+           with a [Low] priority. *)
 
   (* An [exit_reason] describes why a process finished. *)
   type exit_reason =

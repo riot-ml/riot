@@ -24,10 +24,22 @@ type state =
   | Exited of exit_reason
   | Finalized
 
-type process_flags = { trap_exits : bool Atomic.t }
-type process_flag = Trap_exit of bool
+type priority = High | Normal | Low
 
-let default_flags () = { trap_exits = Atomic.make false }
+let priority_to_string = function
+  | High -> "High"
+  | Normal -> "Normal"
+  | Low -> "Low"
+
+type process_flags = {
+  trap_exits : bool Atomic.t;
+  priority : priority Atomic.t;
+}
+
+type process_flag = Trap_exit of bool | Priority of priority
+
+let default_flags () =
+  { trap_exits = Atomic.make false; priority = Atomic.make Normal }
 
 type t = {
   pid : Pid.t;
@@ -94,7 +106,8 @@ and pp_reason ppf (t : exit_reason) =
   | Exception exn -> Format.fprintf ppf "Exception: %s" (Printexc.to_string exn)
 
 and pp_flags ppf (t : process_flags) =
-  Format.fprintf ppf "{ trap_exits=%b }" (Atomic.get t.trap_exits)
+  Format.fprintf ppf "{ trap_exits=%b; priority=%s }" (Atomic.get t.trap_exits)
+    (priority_to_string @@ Atomic.get t.priority)
 
 let cont t = t.cont
 let pid { pid; _ } = pid
@@ -204,6 +217,10 @@ let rec set_flag t flag =
   | Trap_exit v ->
       let old_flag = Atomic.get t.flags.trap_exits in
       if Atomic.compare_and_set t.flags.trap_exits old_flag v then ()
+      else set_flag t flag
+  | Priority p ->
+      let old_flag = Atomic.get t.flags.priority in
+      if Atomic.compare_and_set t.flags.priority old_flag p then ()
       else set_flag t flag
 
 let set_cont t c = t.cont <- c

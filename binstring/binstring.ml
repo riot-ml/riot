@@ -79,3 +79,25 @@ let rec concat sep ls acc =
   | h :: t -> concat sep t ((h ^ sep) ^ acc)
 
 let concat sep ls = concat sep ls empty
+
+module Extract = struct
+  exception Invalid_position
+  exception Byte_not_found
+
+  let get_byte t pos =
+    let counter = ref pos in
+    let exception Done of char in
+    try
+      for i = 0 to List.length t.inner - 1 do
+        let part = List.nth t.inner i in
+        let len = Str.length part in
+        for j = 0 to len - 1 do
+          if !counter = 0 then
+            let byte = String.get part j in
+            raise_notrace (Done byte)
+          else counter := !counter - 1
+        done
+      done;
+      raise_notrace Byte_not_found
+    with Done byte -> byte
+end

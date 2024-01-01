@@ -1,0 +1,24 @@
+(library
+ (name binstring)
+ (modules binstring)
+ (libraries cstruct uutf))
+
+(test
+ (name sub_test)
+ (modules sub_test)
+ (libraries binstring))
+
+(test
+ (name of_string_test)
+ (modules of_string_test)
+ (libraries binstring))
+
+(executable
+ (name sub_bench)
+ (modules sub_bench)
+ (libraries binstring criterion))
+
+(executable
+ (name concat_bench)
+ (modules concat_bench)
+ (libraries binstring criterion))

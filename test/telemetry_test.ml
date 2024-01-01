@@ -10,7 +10,7 @@ module Test = struct
         match ev with
         | Boot ->
             Logger.info (fun f -> f "telemetry_test: telemetry received");
-            sleep 0.2;
+
             shutdown ()
         | _ -> ());
 

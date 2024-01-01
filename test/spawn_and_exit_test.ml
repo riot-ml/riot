@@ -19,7 +19,7 @@ let main () =
   wait_pids [ pid1 ];
 
   Logger.info (fun f -> f "spawn_and_exit: OK");
-  sleep 0.001;
+
   shutdown ()
 
 let () =

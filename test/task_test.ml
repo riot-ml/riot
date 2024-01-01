@@ -17,13 +17,13 @@ let () =
   | Ok n ->
       Logger.debug (fun f -> f "task_test: finished with %d" n);
       Logger.info (fun f -> f "task_test: OK");
-      sleep 0.001;
+
       shutdown ()
   | Error `Timeout ->
       Logger.error (fun f -> f "task_test: timeout");
-      sleep 0.001;
+
       Stdlib.exit 1
   | _ ->
       Logger.error (fun f -> f "net_test: unexpected message");
-      sleep 0.001;
+
       Stdlib.exit 1

@@ -26,7 +26,7 @@ let test_with_buffer capacity =
     Logger.error (fun f ->
         f "io_readv_test(%d): unexpected input  %S %S %S" capacity str1 str2
           str3);
-    sleep 0.1;
+
     let exception Fail in
     raise Fail)
 
@@ -42,5 +42,5 @@ let () =
   test_with_buffer 10;
   (* larger than the target and the source *)
   test_with_buffer 100;
-  sleep 0.1;
+
   shutdown ()

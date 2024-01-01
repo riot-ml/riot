@@ -8,7 +8,7 @@ module Test = struct
     let pid =
       spawn (fun () ->
           Logger.info (fun f -> f "application_test: OK");
-          sleep 0.5;
+
           shutdown ())
     in
     Ok pid

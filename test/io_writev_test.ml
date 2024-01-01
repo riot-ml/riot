@@ -21,9 +21,9 @@ let () =
   | {| this is some data |} ->
       File.remove file;
       Logger.info (fun f -> f "io_readv_test: OK");
-      sleep 0.1;
+
       shutdown ()
   | str ->
       Logger.error (fun f -> f "io_readv_test: unexpected input %S" str);
-      sleep 0.1;
+
       Stdlib.exit 1

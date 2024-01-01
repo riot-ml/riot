@@ -50,8 +50,10 @@ module Registry_test = struct
     let pid2 = spawn (fun () -> sleep 0.1) in
     let pid2_name = "another-name" in
     register pid2_name pid2;
+
     (* wait at least the same amount as it will be alive *)
-    sleep 0.5;
+    sleep 0.2;
+
     (* send to unregistered process raises *)
     (match send_by_name ~name:pid2_name Hello with
     | exception Invalid_destination "another-name" ->
@@ -65,7 +67,7 @@ module Registry_test = struct
         Stdlib.exit 1);
 
     Logger.info (fun f -> f "process_registration_test: OK");
-    sleep 0.5;
+
     shutdown ()
 
   let start () =

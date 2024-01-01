@@ -48,7 +48,6 @@ let client port main =
   Logger.debug (fun f -> f "Connected to server on %d" port);
   let data = IO.Buffer.of_string "hello world" in
   let rec send_loop n =
-    sleep 0.001;
     if n = 0 then Logger.error (fun f -> f "client retried too many times")
     else
       match Net.Socket.send ~data conn with
@@ -94,23 +93,23 @@ let () =
   match receive ~after:100_000L () with
   | exception Receive_timeout ->
       Logger.error (fun f -> f "net_test: test timed out");
-      sleep 0.001;
+
       Stdlib.exit 1
   | Received "hello world" ->
       Logger.info (fun f -> f "net_test: OK");
-      sleep 0.001;
+
       shutdown ()
   | Received other ->
       Logger.error (fun f -> f "net_test: bad payload: %S" other);
-      sleep 0.001;
+
       Stdlib.exit 1
   | Process.Messages.Monitor (Process_down pid) ->
       let who = if Pid.equal pid server then "server" else "client" in
       Logger.error (fun f ->
           f "net_test: %s(%a) died unexpectedly" who Pid.pp pid);
-      sleep 0.001;
+
       Stdlib.exit 1
   | _ ->
       Logger.error (fun f -> f "net_test: unexpected message");
-      sleep 0.001;
+
       Stdlib.exit 1

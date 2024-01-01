@@ -15,7 +15,7 @@ let test_copy () =
   if n = size then Logger.info (fun f -> f "io_reader_test: OK")
   else (
     Logger.error (fun f -> f "io_readv_test: copied %d != %d" n size);
-    sleep 0.1;
+
     let exception Fail in
     raise Fail)
 
@@ -23,7 +23,7 @@ let () =
   Riot.run @@ fun () ->
   let _ = Logger.start () |> Result.get_ok in
   Logger.set_log_level (Some Info);
-  sleep 0.1;
+
   test_copy ();
-  sleep 0.1;
+
   shutdown ()

@@ -13,7 +13,7 @@ let main () =
   | Process.Messages.Monitor (Process_down pid2) when Pid.equal pid pid2 ->
       Logger.debug (fun f -> f "add_monitor: was notified of process death");
       Logger.info (fun f -> f "add_monitor: OK");
-      sleep 0.1;
+
       shutdown ()
   | _ ->
       Logger.error (fun f -> f "add_monitor: was NOT notified of process death");

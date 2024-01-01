@@ -3,7 +3,7 @@ open Riot
 let fail f =
   let exception Fail in
   Logger.error f;
-  sleep 0.1;
+
   raise Fail
 
 let size = 1024 * 1024 * 1024 * 1
@@ -34,7 +34,7 @@ let () =
   Riot.run @@ fun () ->
   let _ = Logger.start () |> Result.get_ok in
   Logger.set_log_level (Some Info);
-  sleep 0.1;
+
   test_copy ();
-  sleep 0.1;
+
   shutdown ()

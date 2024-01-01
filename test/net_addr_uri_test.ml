@@ -8,12 +8,12 @@ let main () =
   match Net.Socket.connect addr with
   | Ok _ | Error `Closed ->
       Logger.info (fun f -> f "net_addr_uri_test: OK");
-      sleep 0.1;
+
       shutdown ()
   | Error (`Unix_error err) ->
       Logger.error (fun f ->
           f "net_addr_uri_test: failed with: %s" (Unix.error_message err));
-      sleep 0.1;
+
       Stdlib.exit 1
 
 let () = Riot.run @@ main

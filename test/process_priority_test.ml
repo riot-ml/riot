@@ -36,14 +36,14 @@ let main () =
   match (m1, m2, m3) with
   | C, B, A ->
       Logger.info (fun f -> f "process_priority_test: OK");
-      sleep 0.01;
+
       shutdown ()
   | m1, m2, m3 ->
       Logger.error (fun f ->
           f "process_priority_test: messages arrived out of order?\n%S\n%S\n%S"
             (Marshal.to_string m1 []) (Marshal.to_string m2 [])
             (Marshal.to_string m3 []));
-      sleep 0.1;
+
       Stdlib.exit 1
 
 (* NOTE(@leostera): this test NEEDS to run on just one scheduler, so we spin up

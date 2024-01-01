@@ -25,7 +25,7 @@ let main () =
   in
 
   Logger.info (fun f -> f "cancel_timer_test: OK");
-  sleep 0.01;
+
   shutdown ()
 
 let () = Riot.run @@ main

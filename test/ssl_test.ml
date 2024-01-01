@@ -86,7 +86,6 @@ let client port main =
 
   let data = IO.Buffer.of_string "hello world" in
   let rec send_loop n =
-    sleep 0.001;
     if n = 0 then Logger.error (fun f -> f "client retried too many times")
     else
       match IO.write_all ~data writer with
@@ -144,19 +143,19 @@ let () =
   match receive ~after:500_000L () with
   | Received "hello world" ->
       Logger.info (fun f -> f "ssl_test: OK");
-      sleep 0.001;
+
       shutdown ()
   | Received other ->
       Logger.error (fun f -> f "ssl_test: bad payload: %S" other);
-      sleep 0.001;
+
       Stdlib.exit 1
   | Process.Messages.Monitor (Process_down pid) ->
       let who = if Pid.equal pid server then "server" else "client" in
       Logger.error (fun f ->
           f "ssl_test: %s(%a) died unexpectedly" who Pid.pp pid);
-      sleep 0.001;
+
       Stdlib.exit 1
   | _ ->
       Logger.error (fun f -> f "ssl_test: unexpected message");
-      sleep 0.001;
+
       Stdlib.exit 1

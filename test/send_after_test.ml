@@ -46,7 +46,7 @@ let main () =
   in
 
   Logger.info (fun f -> f "send_after_test: OK");
-  sleep 0.01;
+
   shutdown ()
 
 let () =

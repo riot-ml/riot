@@ -19,7 +19,6 @@ let main () =
         loop ())
   in
 
-  sleep 0.01;
   (* once we send this exit signal to pid1, and it dies, it should take pid2 down with it *)
   exit pid1 Normal;
 
@@ -27,7 +26,7 @@ let main () =
   wait_pids [ pid1; pid2 ];
 
   Logger.info (fun f -> f "link_procesess_test: OK");
-  sleep 0.001;
+
   shutdown ()
 
 let () =

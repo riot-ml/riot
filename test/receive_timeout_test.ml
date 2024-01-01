@@ -11,9 +11,9 @@ let () =
   match receive ~after:1L () with
   | exception Receive_timeout ->
       Logger.info (fun f -> f "receive_timeout_test: OK");
-      sleep 0.001;
+
       shutdown ()
   | _ ->
       Logger.error (fun f -> f "receive_timeout_test: unexpected message");
-      sleep 0.001;
+
       Stdlib.exit 1

@@ -1,6 +1,7 @@
 # Contributing to Riot
 
-Thanks for taking the time to contribute to Riot. All contributions are welcomed! This includes:
+Thanks for taking the time to contribute to Riot ✨ All contributions are
+welcomed! This includes:
 
 * PRs with bug fixes or features
 * Examples
@@ -12,7 +13,9 @@ Thanks for taking the time to contribute to Riot. All contributions are welcomed
 
 ### Adding tests
 
-If you want to add a test, you can do so by creating a new OCaml file in the `test` folder and updating `test/dune` to include a stanza for your test. The boilerplate we use for a test is:
+If you want to add a test, you can do so by creating a new OCaml file in the
+`test` folder and updating `test/dune` to include a stanza for your test. The
+boilerplate we use for a test is:
 
 ```
 [@@@warning "-8"]
@@ -20,6 +23,9 @@ open Riot
 
 let main () =
   let (Ok _) = Logger.start () in
+
+  (* you can change this log level to Debug while you debug your tests *)
+  Logger.set_log_level (Some Info);
 
   (* your test code *)
 
@@ -29,6 +35,7 @@ let main () =
     shutdown ()
   | _ ->
     Logger.error (fun f -> f "print that something went wrong");
+    sleep 0.1;
     Stdlib.exit 1
 
 let () = Riot.run @@ main
@@ -53,13 +60,17 @@ determining if we have bugs in a moderate number of processes (eg. 1M of them).
 ### Debugging Concurrency/Parallel Bugs
 
 If you find or introduce a bug into Riot, a quick way to debug what is
-happening is to enable TRACE logging in `lib/logs.ml`. Right now this is done
+happening is to enable TRACE logging in the runtime. Right now this is done
 by manually setting the default log level to `(Some Trace)`.
 
+```ocaml
+Riot.Runtime.Log.set_log_level (Some Trace);
+```
+
 Once you do this, running your Riot program will emit _a lot of logs_. And it
-will also run a hell of a lot slower. Trace logs (and any low-level logs) are
-implemented using a lock over a stdout formatter, to ensure the outputs are
-consistent and isn't being overwritten by other threads.
+will also run a lot slower. Trace logs (and any low-level logs) are implemented
+using a lock over a stdout formatter, to ensure the outputs are consistent and
+isn't being overwritten by other threads.
 
 To make sense of these logs I recommend to:
 
@@ -72,10 +83,10 @@ This usually helps me find the sequence of actions for a Pid that tell me how
 it got into its state.
 
 You may find you need more information than is available. Feel free to add more
-`Logs.trace` calls all over Riot wherever you see fit, and submit them in a PR
+`Log.trace` calls all over Riot wherever you see fit, and submit them in a PR
 if you think they'll help other people find bugs too.
 
-`Logs.*` functions are cheap if the logs are disabled, since the function you
+`Log.*` functions are cheap if the logs are disabled, since the function you
 pass to them only is evaluated when that log level is enabled.
 
 ## Performance
@@ -88,10 +99,13 @@ For doing performance work, it helps to use the `olly` tracer from the
 ; olly trace riot.trace _build/default/examples/http_server/main.exe
 ```
 
-`olly` will crate a trace file called `riot.trace` and you can open this file in 2 steps:
+`olly` will crate a trace file called `riot.trace` and you can open this file
+in 2 steps:
 
-1. run `./tools/trace_processor --httpd ./riot.trace` to preprocess the file (takes a bit)
-2. go to `https://ui.perfetto.dev/` and click YES on the "Trace Processor Native Acceleration" dialogue
+1. run `./tools/trace_processor --httpd ./riot.trace` to preprocess the file
+   (takes a bit)
+2. go to `https://ui.perfetto.dev/` and click YES on the "Trace Processor
+   Native Acceleration" dialogue
 
 #### Basic Usage
 

@@ -17,7 +17,7 @@ If you want to add a test, you can do so by creating a new OCaml file in the
 `test` folder and updating `test/dune` to include a stanza for your test. The
 boilerplate we use for a test is:
 
-```
+```ocaml
 [@@@warning "-8"]
 open Riot
 
@@ -28,6 +28,7 @@ let main () =
   Logger.set_log_level (Some Info);
 
   (* your test code *)
+  let passed = true in
 
   match passed with
   | true ->
@@ -47,7 +48,7 @@ test to begin with, or if you're testing behavior of a single scheduler. To do
 that you can set the `~workers` argument to `0`, so that no new schedulers are
 created and you run only the main thread.
 
-```
+```ocaml
 let () = Riot.run ~workers:0 @@ main
 ```
 
@@ -63,7 +64,7 @@ If you find or introduce a bug into Riot, a quick way to debug what is
 happening is to enable TRACE logging in the runtime. Right now this is done
 by manually setting the default log level to `(Some Trace)`.
 
-```ocaml
+```
 Riot.Runtime.Log.set_log_level (Some Trace);
 ```
 

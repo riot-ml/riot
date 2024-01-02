@@ -42,7 +42,9 @@ module Buffer = struct
     let filled = Option.value ~default:(Cstruct.length inner) filled in
     { inner; position = 0; filled; capacity = inner.len }
 
-  let as_cstruct t = t.inner
+  let as_cstruct t =
+    Cstruct.of_bigarray ~off:t.position ~len:(t.capacity - t.position)
+      t.inner.buffer
 
   let of_string str =
     let len = String.length str in

@@ -15,6 +15,8 @@ let open_write path = do_open path Unix.[ O_WRONLY; O_CREAT ]
 let close t = Fd.close t
 let remove path = Unix.unlink path
 
+let stat path = Unix.stat path
+
 module Read = Io.Reader.Make (struct
   type t = read_file
 

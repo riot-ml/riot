@@ -563,19 +563,6 @@ module IO : sig
     (int, [> `Closed | `Eof ]) result
 end
 
-module File : sig
-  type 'kind file
-
-  val fd : _ file -> Fd.t
-  val open_read : string -> [ `r ] file
-  val open_write : string -> [ `w ] file
-  val close : _ file -> unit
-  val remove : string -> unit
-  val to_reader : [ `r ] file -> [ `r ] file IO.Reader.t
-  val to_writer : [ `w ] file -> [ `w ] file IO.Writer.t
-  val stat : string -> Unix.stats
-end
-
 module Net : sig
   module Addr : sig
     type tcp_addr
@@ -642,6 +629,26 @@ module Net : sig
     val to_reader : stream_socket -> stream_socket IO.Reader.t
     val to_writer : stream_socket -> stream_socket IO.Writer.t
   end
+end
+
+module File : sig
+  type 'kind file
+
+  val fd : _ file -> Fd.t
+  val open_read : string -> [ `r ] file
+  val open_write : string -> [ `w ] file
+  val close : _ file -> unit
+  val remove : string -> unit
+  val to_reader : [ `r ] file -> [ `r ] file IO.Reader.t
+  val to_writer : [ `w ] file -> [ `w ] file IO.Writer.t
+  val stat : string -> Unix.stats
+
+  val send :
+    ?off:int ->
+    len:int ->
+    [ `r ] file ->
+    Net.Socket.stream_socket ->
+    (int, [> `Closed ]) IO.result
 end
 
 module SSL : sig

@@ -1,3 +1,6 @@
+open Runtime
+module Low_level = Runtime.Net.Io
+
 type 'kind file = Fd.t
 type read_file = [ `r ] file
 type write_file = [ `w ] file
@@ -14,8 +17,15 @@ let open_read path = do_open path Unix.[ O_RDONLY ]
 let open_write path = do_open path Unix.[ O_WRONLY; O_CREAT ]
 let close t = Fd.close t
 let remove path = Unix.unlink path
-
 let stat path = Unix.stat path
+
+let rec send ?(off = 0) ~len file socket =
+  match Low_level.sendfile file socket ~off ~len with
+  | `Abort reason -> Error (`Unix_error reason)
+  | `Retry ->
+      syscall "receive" `r socket @@ fun socket -> send ~off ~len file socket
+  | `Sent 0 -> Error `Closed
+  | `Sent len -> Ok len
 
 module Read = Io.Reader.Make (struct
   type t = read_file

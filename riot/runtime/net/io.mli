@@ -2,14 +2,11 @@ open Core
 open Util
 
 type t
-
-type accept =
-  [ `Abort of Unix.error
-  | `Connected of Socket.stream_socket * Addr.stream_addr
-  | `Retry ]
-
-type read = [ `Abort of Unix.error | `Read of int | `Retry ]
-type write = [ `Abort of Unix.error | `Retry | `Wrote of int ]
+type op = [ `Abort of Unix.error | `Retry ]
+type accept = [ `Connected of Socket.stream_socket * Addr.stream_addr | op ]
+type read = [ `Read of int | op ]
+type write = [ `Wrote of int | op ]
+type sendfile = [ `Sent of int | op ]
 
 val create : unit -> t
 val pp : Format.formatter -> t -> unit
@@ -42,3 +39,4 @@ val read : Fd.t -> bytes -> int -> int -> read
 val write : Fd.t -> bytes -> int -> int -> write
 val readv : Fd.t -> Cstruct.t array -> read
 val writev : Fd.t -> Cstruct.t array -> write
+val sendfile : Fd.t -> Fd.t -> off:int -> len:int -> sendfile

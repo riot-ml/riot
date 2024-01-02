@@ -15,6 +15,7 @@ type op = [ `Abort of Unix.error | `Retry ]
 type accept = [ `Connected of Socket.stream_socket * Addr.stream_addr | op ]
 type read = [ `Read of int | op ]
 type write = [ `Wrote of int | op ]
+type sendfile = [ `Sent of int | op ]
 
 (* basic api over t *)
 
@@ -202,5 +203,16 @@ let writev (fd : Fd.t) (cs : Cstruct.t array) : write =
   | len ->
       Log.debug (fun f -> f "read %d bytes from fd=%a" len Fd.pp fd);
       `Wrote len
+  | exception Unix.(Unix_error ((EINTR | EAGAIN | EWOULDBLOCK), _, _)) -> `Retry
+  | exception Unix.(Unix_error (reason, _, _)) -> `Abort reason
+
+external riot_sendfile : Unix.file_descr -> Unix.file_descr -> int -> int -> int
+  = "caml_riot_posix_sendfile"
+
+let sendfile (file : Fd.t) (socket : Fd.t) ~off ~len : sendfile =
+  Fd.use ~op_name:"senfile" file @@ fun file_fd ->
+  Fd.use ~op_name:"senfile" socket @@ fun socket_fd ->
+  match riot_sendfile file_fd socket_fd off len with
+  | len -> `Sent len
   | exception Unix.(Unix_error ((EINTR | EAGAIN | EWOULDBLOCK), _, _)) -> `Retry
   | exception Unix.(Unix_error (reason, _, _)) -> `Abort reason

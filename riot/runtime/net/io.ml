@@ -126,12 +126,17 @@ let listen (_t : t) ~reuse_addr ~reuse_port ~backlog addr =
   let sock_type, sock_addr = Addr.to_unix addr in
   let fd = socket sock_domain sock_type in
   Fd.use ~op_name:"listen" fd @@ fun sock ->
-  Unix.setsockopt sock Unix.SO_REUSEADDR reuse_addr;
-  Unix.setsockopt sock Unix.SO_REUSEPORT reuse_port;
-  Unix.bind sock sock_addr;
-  Unix.listen sock backlog;
-  Log.debug (fun f -> f "listening to socket %a on %a" Fd.pp fd Addr.pp addr);
-  Ok fd
+  match
+    Unix.setsockopt sock Unix.SO_REUSEADDR reuse_addr;
+    Unix.setsockopt sock Unix.SO_REUSEPORT reuse_port;
+    Unix.bind sock sock_addr;
+    Unix.listen sock backlog
+  with
+  | exception Unix.(Unix_error (reason, _, _)) -> Error (`Unix_error reason)
+  | () ->
+      Log.debug (fun f ->
+          f "listening to socket %a on %a" Fd.pp fd Addr.pp addr);
+      Ok fd
 
 let connect (_t : t) (addr : Addr.stream_addr) =
   Log.debug (fun f -> f "Connecting to: %a" Addr.pp addr);

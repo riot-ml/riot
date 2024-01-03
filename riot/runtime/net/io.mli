@@ -27,7 +27,7 @@ val listen :
   reuse_port:bool ->
   backlog:int ->
   Addr.stream_addr ->
-  (Fd.t, 'a) result
+  (Fd.t, [> `Unix_error of Unix.error ]) result
 
 val connect :
   t ->

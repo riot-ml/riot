@@ -3,8 +3,7 @@ open Riot
 type Message.t += Received of string
 
 (* rudimentary tcp echo server *)
-let server port =
-  let socket = Net.Socket.listen ~port () |> Result.get_ok in
+let server port socket =
   Logger.debug (fun f -> f "Started server on %d" port);
   process_flag (Trap_exit true);
   let conn, addr = Net.Socket.accept socket |> Result.get_ok in
@@ -29,12 +28,12 @@ let server port =
         | Ok bytes ->
             Logger.debug (fun f -> f "Server sent %d bytes" bytes);
             echo ()
-        | Error `Closed -> close ()
+        | Error (`Closed | `Process_down | `Timeout) -> close ()
         | Error (`Unix_error unix_err) ->
             Logger.error (fun f ->
                 f "send unix error %s" (Unix.error_message unix_err));
             close ())
-    | Error (`Closed | `Timeout) -> close ()
+    | Error (`Closed | `Timeout | `Process_down) -> close ()
     | Error (`Unix_error unix_err) ->
         Logger.error (fun f ->
             f "recv unix error %s" (Unix.error_message unix_err));
@@ -53,6 +52,7 @@ let client port main =
       match Net.Socket.send ~data conn with
       | Ok bytes -> Logger.debug (fun f -> f "Client sent %d bytes" bytes)
       | Error `Closed -> Logger.debug (fun f -> f "connection closed")
+      | Error (`Process_down | `Timeout) -> Logger.debug (fun f -> f "timeout")
       | Error (`Unix_error (ENOTCONN | EPIPE)) -> send_loop n
       | Error (`Unix_error unix_err) ->
           Logger.error (fun f ->
@@ -67,7 +67,7 @@ let client port main =
     | Ok bytes ->
         Logger.debug (fun f -> f "Client received %d bytes" bytes);
         bytes
-    | Error (`Closed | `Timeout) ->
+    | Error (`Closed | `Timeout | `Process_down) ->
         Logger.error (fun f -> f "Server closed the connection");
         0
     | Error (`Unix_error unix_err) ->
@@ -84,9 +84,9 @@ let () =
   Riot.run @@ fun () ->
   let _ = Logger.start () |> Result.get_ok in
   Logger.set_log_level (Some Info);
-  let port = 2112 in
+  let socket, port = Port_finder.next_open_port () in
   let main = self () in
-  let server = spawn (fun () -> server port) in
+  let server = spawn (fun () -> server port socket) in
   let client = spawn (fun () -> client port main) in
   monitor main server;
   monitor main client;

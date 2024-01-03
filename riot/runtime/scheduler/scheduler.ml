@@ -78,7 +78,8 @@ module Scheduler = struct
         if Scheduler_uid.equal sch.uid proc.sid then add_to_run_queue sch proc)
       pool.schedulers
 
-  let handle_receive k sch (proc : Process.t) (ref : 'a Ref.t option) timeout =
+  let handle_receive k pool sch (proc : Process.t) (ref : 'a Ref.t option)
+      timeout =
     let open Proc_state in
     (* When a timeout is specified, we want to create it in the timer
        wheel, and save the timer reference in the process.
@@ -100,7 +101,13 @@ module Scheduler = struct
           Log.trace (fun f ->
               f "Process %a: creating receive timeout" Pid.pp (Process.pid proc));
           let timeout =
-            Timer_wheel.make_timer sch.timers s `one_off (fun () -> ())
+            Timer_wheel.make_timer sch.timers s `one_off (fun () ->
+                Log.trace (fun f ->
+                    f "Process %a: TIMEOUT" Pid.pp (Process.pid proc));
+                if Process.is_exited proc then ()
+                else (
+                  Process.mark_as_runnable proc;
+                  awake_process pool proc))
           in
           Process.set_receive_timeout proc timeout;
           (false, `set_timeout)
@@ -177,7 +184,7 @@ module Scheduler = struct
       match eff with
       | Syscall { name; mode; fd } ->
           handle_syscall k pool sch proc name mode fd
-      | Receive { ref; timeout } -> handle_receive k sch proc ref timeout
+      | Receive { ref; timeout } -> handle_receive k pool sch proc ref timeout
       | Yield ->
           Log.trace (fun f ->
               f "Process %a: yielding" Pid.pp (Process.pid proc));

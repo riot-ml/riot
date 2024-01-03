@@ -5,8 +5,7 @@ let () = Mirage_crypto_rng_unix.initialize (module Mirage_crypto_rng.Fortuna)
 type Message.t += Received of string
 
 (* rudimentary tcp echo server *)
-let server port =
-  let socket = Net.Socket.listen ~port () |> Result.get_ok in
+let server port socket =
   Logger.debug (fun f -> f "Started server on %d" port);
   process_flag (Trap_exit true);
   let conn, addr = Net.Socket.accept socket |> Result.get_ok in
@@ -56,12 +55,12 @@ let server port =
         | Ok bytes ->
             Logger.debug (fun f -> f "Server sent %d bytes" bytes);
             echo ()
-        | Error (`Eof | `Closed) -> close ()
+        | Error (`Eof | `Closed | `Timeout | `Process_down) -> close ()
         | Error (`Unix_error unix_err) ->
             Logger.error (fun f ->
                 f "send unix error %s" (Unix.error_message unix_err));
             close ())
-    | Error (`Eof | `Closed | `Timeout) -> close ()
+    | Error (`Eof | `Closed | `Timeout | `Process_down) -> close ()
     | Error (`Unix_error unix_err) ->
         Logger.error (fun f ->
             f "recv unix error %s" (Unix.error_message unix_err));
@@ -90,7 +89,8 @@ let client port main =
     else
       match IO.write_all ~data writer with
       | Ok bytes -> Logger.debug (fun f -> f "Client sent %d bytes" bytes)
-      | Error (`Closed | `Eof) -> Logger.debug (fun f -> f "connection closed")
+      | Error (`Timeout | `Process_down | `Closed | `Eof) ->
+          Logger.debug (fun f -> f "connection closed")
       | Error (`Unix_error (ENOTCONN | EPIPE)) -> send_loop n
       | Error (`Unix_error unix_err) ->
           Logger.error (fun f ->
@@ -105,7 +105,7 @@ let client port main =
     | Ok bytes ->
         Logger.debug (fun f -> f "Client received %d bytes" bytes);
         bytes
-    | Error (`Closed | `Timeout | `Eof) ->
+    | Error (`Closed | `Timeout | `Process_down | `Eof) ->
         Logger.error (fun f -> f "Server closed the connection");
         0
     | Error (`Unix_error unix_err) ->
@@ -122,11 +122,11 @@ let () =
   Riot.run @@ fun () ->
   let _ = Logger.start () |> Result.get_ok in
   Logger.set_log_level (Some Info);
-  let port = 2113 in
+  let socket, port = Port_finder.next_open_port () in
   let main = self () in
   let server =
     spawn (fun () ->
-        try server port
+        try server port socket
         with SSL.Tls_failure failure ->
           Logger.error (fun f ->
               f "server error: %a" Tls.Engine.pp_failure failure))

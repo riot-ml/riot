@@ -462,8 +462,13 @@ module Fd : sig
 end
 
 module IO : sig
-  type unix_error = [ `Unix_error of Unix.error ]
+  type unix_error = [ `Timeout | `Process_down | `Unix_error of Unix.error ]
   type ('ok, 'err) result = ('ok, ([> unix_error ] as 'err)) Stdlib.result
+
+  val pp_err :
+    Format.formatter ->
+    [ unix_error | `Closed | `Timeout | `Process_down | `System_limit | `Eof ] ->
+    unit
 
   module Buffer : sig
     type t
@@ -611,23 +616,26 @@ module Net : sig
       _ socket -> new_owner:Pid.t -> (unit, [> `Closed | `Not_owner ]) IO.result
 
     val receive :
-      ?timeout:Timeout.t ->
+      ?timeout:int64 ->
       buf:IO.Buffer.t ->
       stream_socket ->
       (int, [> `Closed | `Timeout ]) IO.result
 
     val send :
-      data:IO.Buffer.t -> stream_socket -> (int, [> `Closed ]) IO.result
+      ?timeout:int64 ->
+      data:IO.Buffer.t ->
+      stream_socket ->
+      (int, [> `Closed ]) IO.result
 
     val pp : Format.formatter -> _ socket -> unit
 
     val pp_err :
       Format.formatter ->
-      [ IO.unix_error | `Closed | `Timeout | `System_limit ] ->
+      [ IO.unix_error | `Closed | `Timeout | `Process_down | `System_limit ] ->
       unit
 
-    val to_reader : stream_socket -> stream_socket IO.Reader.t
-    val to_writer : stream_socket -> stream_socket IO.Writer.t
+    val to_reader : ?timeout:int64 -> stream_socket -> stream_socket IO.Reader.t
+    val to_writer : ?timeout:int64 -> stream_socket -> stream_socket IO.Writer.t
   end
 end
 
@@ -658,11 +666,15 @@ module SSL : sig
   exception Tls_failure of Tls.Engine.failure
 
   val of_server_socket :
+    ?read_timeout:int64 ->
+    ?send_timeout:int64 ->
     ?config:Tls.Config.server ->
     Net.Socket.stream_socket ->
     Net.Socket.stream_socket t
 
   val of_client_socket :
+    ?read_timeout:int64 ->
+    ?send_timeout:int64 ->
     ?host:[ `host ] Domain_name.t ->
     config:Tls.Config.client ->
     Net.Socket.stream_socket ->

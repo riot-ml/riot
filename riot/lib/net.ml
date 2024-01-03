@@ -1,6 +1,8 @@
 open Runtime
 module Low_level = Runtime.Net.Io
 
+let ( let* ) = Result.bind
+
 module Addr = struct
   include Runtime.Net.Addr
 
@@ -102,50 +104,67 @@ module Socket = struct
 
   let controlling_process _socket ~new_owner:_ = Ok ()
 
-  let rec receive ?(timeout = `infinity) ~buf socket =
-    match Low_level.readv socket [| Io.Buffer.as_cstruct buf |] with
-    | exception Fd.(Already_closed _) -> Error `Closed
-    | `Abort reason -> Error (`Unix_error reason)
-    | `Retry -> syscall "receive" `r socket @@ receive ~timeout ~buf
-    | `Read 0 -> Error `Closed
-    | `Read len ->
-        Io.Buffer.set_filled buf ~filled:len;
-        Logger.trace (fun f -> f "received: %S" (Io.Buffer.to_string buf));
-        Ok len
+  let receive ?timeout ~buf socket =
+    let rec receive_loop ~buf socket =
+      match Low_level.readv socket [| Io.Buffer.as_cstruct buf |] with
+      | exception Fd.(Already_closed _) -> Error `Closed
+      | `Abort reason -> Error (`Unix_error reason)
+      | `Retry -> syscall "receive" `r socket @@ receive_loop ~buf
+      | `Read 0 -> Error `Closed
+      | `Read len ->
+          Io.Buffer.set_filled buf ~filled:len;
+          Logger.trace (fun f -> f "received: %S" (Io.Buffer.to_string buf));
+          Ok len
+    in
+    match timeout with
+    | None -> receive_loop ~buf socket
+    | Some timeout ->
+        let task = Task.async (fun () -> receive_loop ~buf socket) in
+        let* result = Task.await ~timeout task in
+        result
 
-  let rec send ~data socket =
-    Logger.trace (fun f -> f "sending: %d bytes" (Io.Buffer.length data));
-    match Low_level.writev socket [| Io.Buffer.as_cstruct data |] with
-    | exception Fd.(Already_closed _) -> Error `Closed
-    | `Abort reason -> Error (`Unix_error reason)
-    | `Retry ->
-        Logger.trace (fun f -> f "retrying");
-        syscall "send" `w socket @@ send ~data
-    | `Wrote bytes ->
-        Logger.trace (fun f -> f "sent: %d" (Io.Buffer.length data));
-        Ok bytes
+  let send ?timeout ~data socket =
+    let rec send_loop ~data socket =
+      Logger.trace (fun f -> f "sending: %d bytes" (Io.Buffer.length data));
+      match Low_level.writev socket [| Io.Buffer.as_cstruct data |] with
+      | exception Fd.(Already_closed _) -> Error `Closed
+      | `Abort reason -> Error (`Unix_error reason)
+      | `Retry ->
+          Logger.trace (fun f -> f "retrying");
+          syscall "send" `w socket @@ send_loop ~data
+      | `Wrote bytes ->
+          Logger.trace (fun f -> f "sent: %d" (Io.Buffer.length data));
+          Ok bytes
+    in
+    match timeout with
+    | None -> send_loop ~data socket
+    | Some timeout ->
+        let task = Task.async (fun () -> send_loop ~data socket) in
+        let* result = Task.await ~timeout task in
+        result
 
   let pp_err fmt = function
     | `Timeout -> Format.fprintf fmt "Timeout"
+    | `Process_down -> Format.fprintf fmt "Process_down"
     | `System_limit -> Format.fprintf fmt "System_limit"
     | `Closed -> Format.fprintf fmt "Closed"
     | `Unix_error err ->
         Format.fprintf fmt "Unix_error(%s)" (Unix.error_message err)
 
-  module Read = Io.Reader.Make (struct
-    type t = stream_socket
+  let to_reader ?timeout t =
+    let module Read = Io.Reader.Make (struct
+      type t = stream_socket
 
-    let read t ~buf = receive ~buf t
-  end)
+      let read t ~buf = receive ?timeout ~buf t
+    end) in
+    Io.Reader.of_read_src (module Read) t
 
-  let to_reader t = Io.Reader.of_read_src (module Read) t
+  let to_writer ?timeout t =
+    let module Write = Io.Writer.Make (struct
+      type t = stream_socket
 
-  module Write = Io.Writer.Make (struct
-    type t = stream_socket
-
-    let write t ~data = send ~data t
-    let flush _t = Ok ()
-  end)
-
-  let to_writer t = Io.Writer.of_write_src (module Write) t
+      let write t ~data = send ?timeout ~data t
+      let flush _t = Ok ()
+    end) in
+    Io.Writer.of_write_src (module Write) t
 end

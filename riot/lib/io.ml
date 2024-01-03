@@ -1,5 +1,14 @@
-type unix_error = [ `Unix_error of Unix.error ]
+type unix_error = [ `Process_down | `Timeout | `Unix_error of Unix.error ]
 type ('ok, 'err) result = ('ok, ([> unix_error ] as 'err)) Stdlib.result
+
+let pp_err fmt = function
+  | `Timeout -> Format.fprintf fmt "Timeout"
+  | `Process_down -> Format.fprintf fmt "Process_down"
+  | `System_limit -> Format.fprintf fmt "System_limit"
+  | `Closed -> Format.fprintf fmt "Closed"
+  | `Eof -> Format.fprintf fmt "End_of_file"
+  | `Unix_error err ->
+      Format.fprintf fmt "Unix_error(%s)" (Unix.error_message err)
 
 let ( let* ) = Result.bind
 

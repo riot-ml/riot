@@ -3,8 +3,7 @@ open Riot
 type Message.t += Received of string
 
 (* rudimentary tcp echo server *)
-let server port =
-  let socket = Net.Socket.listen ~port () |> Result.get_ok in
+let server port socket =
   Logger.debug (fun f -> f "Started server on %d" port);
   process_flag (Trap_exit true);
   let conn, addr = Net.Socket.accept socket |> Result.get_ok in
@@ -32,12 +31,12 @@ let server port =
         | Ok bytes ->
             Logger.debug (fun f -> f "Server sent %d bytes" bytes);
             echo ()
-        | Error `Closed -> close ()
+        | Error (`Eof | `Closed | `Timeout | `Process_down) -> close ()
         | Error (`Unix_error unix_err) ->
             Logger.error (fun f ->
                 f "send unix error %s" (Unix.error_message unix_err));
             close ())
-    | Error (`Eof | `Closed | `Timeout) -> close ()
+    | Error (`Eof | `Closed | `Timeout | `Process_down) -> close ()
     | Error (`Unix_error unix_err) ->
         Logger.error (fun f ->
             f "recv unix error %s" (Unix.error_message unix_err));
@@ -58,7 +57,8 @@ let client port main =
     else
       match IO.Writer.write ~data writer with
       | Ok bytes -> Logger.debug (fun f -> f "Client sent %d bytes" bytes)
-      | Error `Closed -> Logger.debug (fun f -> f "connection closed")
+      | Error (`Eof | `Closed | `Timeout | `Process_down) ->
+          Logger.debug (fun f -> f "connection closed")
       | Error (`Unix_error (ENOTCONN | EPIPE)) -> send_loop n data
       | Error (`Unix_error unix_err) ->
           Logger.error (fun f ->
@@ -70,35 +70,36 @@ let client port main =
   let data = IO.Buffer.of_string "world\r\n" in
   send_loop 10_000 data;
 
-  let buf = IO.Buffer.with_capacity 1024 in
-  let rec recv_loop () =
+  let rec recv_loop data =
+    let buf = IO.Buffer.with_capacity 1024 in
     match IO.Reader.read ~buf reader with
     | Ok bytes ->
         IO.Buffer.set_filled buf ~filled:bytes;
         Logger.debug (fun f -> f "Client received %d bytes" bytes);
-        let data = IO.Buffer.to_string buf in
-        if String.ends_with ~suffix:"\r\n" data then IO.Buffer.length buf
-        else recv_loop ()
-    | Error (`Eof | `Closed | `Timeout) ->
+        let next = IO.Buffer.sub ~len:bytes buf in
+        let data = IO.Buffer.to_string data ^ IO.Buffer.to_string next in
+        if String.ends_with ~suffix:"\r\n" data then IO.Buffer.of_string data
+        else recv_loop (IO.Buffer.of_string data)
+    | Error (`Eof | `Closed | `Timeout | `Process_down) ->
         Logger.error (fun f -> f "Server closed the connection");
-        0
+        data
     | Error (`Unix_error unix_err) ->
         Logger.error (fun f ->
             f "client unix error %s" (Unix.error_message unix_err));
-        0
+        data
   in
-  let len = recv_loop () in
+  let data = recv_loop (IO.Buffer.with_capacity 13) in
 
-  if len = 0 then send main (Received "empty paylaod")
-  else send main (Received (IO.Buffer.to_string buf))
+  if IO.Buffer.filled data = 0 then send main (Received "empty paylaod")
+  else send main (Received (IO.Buffer.to_string data))
 
 let () =
   Riot.run @@ fun () ->
   let _ = Logger.start () |> Result.get_ok in
   Logger.set_log_level (Some Info);
-  let port = 2112 in
+  let socket, port = Port_finder.next_open_port () in
   let main = self () in
-  let server = spawn (fun () -> server port) in
+  let server = spawn (fun () -> server port socket) in
   let client = spawn (fun () -> client port main) in
   monitor main server;
   monitor main client;

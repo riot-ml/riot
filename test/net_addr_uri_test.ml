@@ -10,6 +10,9 @@ let main () =
       Logger.info (fun f -> f "net_addr_uri_test: OK");
 
       shutdown ()
+  | Error (`Timeout | `Process_down) ->
+      Logger.error (fun f -> f "net_addr_uri_test: timeout");
+      Stdlib.exit 1
   | Error (`Unix_error err) ->
       Logger.error (fun f ->
           f "net_addr_uri_test: failed with: %s" (Unix.error_message err));

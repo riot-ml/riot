@@ -1,8 +1,13 @@
+(library
+ (name port_finder)
+ (modules port_finder)
+ (libraries riot))
+
 (test
  (name ssl_test)
  (modules ssl_test)
  (deps fixtures/tls.crt fixtures/tls.key)
- (libraries riot x509 mirage-crypto-rng mirage-crypto-rng.unix))
+ (libraries riot port_finder x509 mirage-crypto-rng mirage-crypto-rng.unix))
 
 (test
  (name io_copy_buffered_test)
@@ -58,25 +63,39 @@
  (libraries riot))
 
 (test
+ (name net_timeout_test)
+ (enabled_if
+  (= %{env:OPAM_REPO_CI=false} false))
+ (modules net_timeout_test)
+ (libraries riot port_finder))
+
+(test
  (name net_addr_uri_test)
  (enabled_if
   (= %{env:OPAM_REPO_CI=false} false))
  (modules net_addr_uri_test)
- (libraries riot))
+ (libraries riot port_finder))
 
 (test
  (name net_reader_writer_test)
  (enabled_if
   (= %{env:OPAM_REPO_CI=false} false))
  (modules net_reader_writer_test)
- (libraries riot))
+ (libraries riot port_finder))
+
+(test
+ (name net_reader_writer_timeout_test)
+ (enabled_if
+  (= %{env:OPAM_REPO_CI=false} false))
+ (modules net_reader_writer_timeout_test)
+ (libraries riot port_finder))
 
 (test
  (name net_test)
  (enabled_if
   (= %{env:OPAM_REPO_CI=false} false))
  (modules net_test)
- (libraries riot))
+ (libraries riot port_finder))
 
 (test
  (name add_monitor_test)

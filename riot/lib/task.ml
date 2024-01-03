@@ -1,6 +1,6 @@
 open Runtime
 
-type 'a t = { pid : Pid.t; ref : 'a Ref.t; value : 'a option }
+type 'a t = { pid : Pid.t; ref : 'a Ref.t }
 type Message.t += Reply : 'a Ref.t * 'a -> Message.t
 
 let async fn =
@@ -8,11 +8,14 @@ let async fn =
   let this = self () in
   let pid =
     spawn (fun () ->
-        Log.trace (fun f -> f "spawned task %a" Pid.pp (self ()));
-        send this (Reply (ref, fn ())))
+        Logger.trace (fun f -> f "spawned task %a" Pid.pp (self ()));
+        let value = fn () in
+        let reply = Reply (ref, value) in
+        Logger.trace (fun f -> f "sending message back: %a" Pid.pp (self ()));
+        send this reply)
   in
   monitor this pid;
-  { pid; ref; value = None }
+  { pid; ref }
 
 let await :
     type res.

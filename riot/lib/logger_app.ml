@@ -23,7 +23,7 @@ module Formatter = struct
             Format.asprintf "%a" pp_now ts |> String.split_on_char ' '
           in
           let time = List.nth parts 1 in
-          Format.fprintf stdout "%s" time;
+          Format.fprintf stdout "%s " time;
           if config.print_source then
             Format.fprintf stdout "[thread=%a,pid=%a] " Scheduler_uid.pp sch
               Pid.pp pid;

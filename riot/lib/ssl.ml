@@ -32,6 +32,10 @@
 
   *******************************************************************************************)
 
+module Logger = Logger.Make (struct
+  let namespace = [ "riot"; "net"; "ssl" ]
+end)
+
 module IO = Io
 
 let ( let* ) = Result.bind

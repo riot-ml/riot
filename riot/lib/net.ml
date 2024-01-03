@@ -1,6 +1,10 @@
 open Runtime
 module Low_level = Runtime.Net.Io
 
+module Logger = Logger.Make (struct
+  let namespace = [ "riot"; "net" ]
+end)
+
 let ( let* ) = Result.bind
 
 module Addr = struct

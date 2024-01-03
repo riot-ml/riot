@@ -1,5 +1,9 @@
 open Runtime
 
+module Logger = Logger.Make (struct
+  let namespace = [ "riot"; "task" ]
+end)
+
 type 'a t = { pid : Pid.t; ref : 'a Ref.t }
 type Message.t += Reply : 'a Ref.t * 'a -> Message.t
 

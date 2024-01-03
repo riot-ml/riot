@@ -1,3 +1,7 @@
+module Logger = Logger.Make (struct
+  let namespace = [ "riot"; "io" ]
+end)
+
 type unix_error = [ `Process_down | `Timeout | `Unix_error of Unix.error ]
 type ('ok, 'err) result = ('ok, ([> unix_error ] as 'err)) Stdlib.result
 

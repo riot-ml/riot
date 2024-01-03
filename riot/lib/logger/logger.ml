@@ -81,8 +81,9 @@ module type Namespace = sig
   val namespace : namespace
 end
 
+let log_level = ref None
+
 module Make (B : Namespace) : Intf = struct
-  let log_level = ref None
   let set_log_level x = log_level := x
 
   let debug msgf =

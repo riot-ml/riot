@@ -6,6 +6,8 @@ type ('a, 'b) logger_format =
 type namespace = string list
 type level = Debug | Error | Info | Trace | Warn
 
+val set_log_level : level option -> unit
+
 module Level : sig
   val to_int : level -> int
   val should_log : level option -> level -> bool
@@ -38,7 +40,6 @@ end
 
 module Make : functor (_ : Namespace) -> Intf
 
-val set_log_level : level option -> unit
 val debug : ('a, unit) logger_format -> unit
 val error : ('a, unit) logger_format -> unit
 val info : ('a, unit) logger_format -> unit

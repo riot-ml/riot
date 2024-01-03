@@ -23,10 +23,8 @@ let await :
  fun ?timeout:after t ->
   match receive ?after ~ref:t.ref () with
   | exception Receive_timeout -> Error `Timeout
-  | Process.Messages.Monitor (Process_down pid) when pid = t.pid ->
-      Error `Process_down
   | Reply (ref', res) -> (
       match Ref.type_equal t.ref ref' with
       | Some Type.Equal -> Ok res
       | None -> failwith "bad message")
-  | _ -> failwith "unexpected message"
+  | _ -> Error `Process_down

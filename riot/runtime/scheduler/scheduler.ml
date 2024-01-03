@@ -160,7 +160,9 @@ module Scheduler = struct
           (* lastly, if we have a ref and the mesasge is newer than the ref, and
              when we don't have a ref, we just pop the message and continue with it
           *)
-          | _, Some Message.{ msg; _ } -> k (Continue msg)
+          | _, Some Message.{ msg; _ } ->
+              Process.clear_receive_timeout proc;
+              k (Continue msg)
       in
       go fuel
 

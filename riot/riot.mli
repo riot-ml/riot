@@ -467,7 +467,7 @@ module IO : sig
 
   val pp_err :
     Format.formatter ->
-    [ unix_error | `Closed | `Timeout | `Process_down | `System_limit ] ->
+    [< unix_error | `Closed | `Timeout | `Process_down | `System_limit ] ->
     unit
 
   module Buffer : sig

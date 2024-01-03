@@ -27,7 +27,7 @@ let rec await :
  fun ?timeout:after t ->
   match receive ?after ~ref:t.ref () with
   | exception Receive_timeout -> Error `Timeout
-  | Reply (ref', res) -> (
+  | Reply (ref', res) when Ref.equal t.ref ref' -> (
       match Ref.type_equal t.ref ref' with
       | Some Type.Equal -> Ok res
       | None -> failwith "bad message")

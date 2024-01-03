@@ -17,7 +17,7 @@ let async fn =
   monitor this pid;
   { pid; ref }
 
-let await :
+let rec await :
     type res.
     ?timeout:int64 -> res t -> (res, [> `Timeout | `Process_down ]) result =
  fun ?timeout:after t ->
@@ -27,4 +27,8 @@ let await :
       match Ref.type_equal t.ref ref' with
       | Some Type.Equal -> Ok res
       | None -> failwith "bad message")
-  | _ -> Error `Process_down
+  | Process.Messages.Monitor (Process_down pid) when Pid.equal pid t.pid ->
+      Error `Process_down
+  | msg ->
+      send (self ()) msg;
+      await ?timeout:after t

@@ -104,8 +104,7 @@ module Scheduler = struct
             Timer_wheel.make_timer sch.timers s `one_off (fun () ->
                 Log.trace (fun f ->
                     f "Process %a: TIMEOUT" Pid.pp (Process.pid proc));
-                if Process.is_exited proc then ()
-                else (
+                if Process.is_alive proc then (
                   Process.mark_as_runnable proc;
                   awake_process pool proc))
           in

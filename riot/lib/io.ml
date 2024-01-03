@@ -6,7 +6,6 @@ let pp_err fmt = function
   | `Process_down -> Format.fprintf fmt "Process_down"
   | `System_limit -> Format.fprintf fmt "System_limit"
   | `Closed -> Format.fprintf fmt "Closed"
-  | `Eof -> Format.fprintf fmt "End_of_file"
   | `Unix_error err ->
       Format.fprintf fmt "Unix_error(%s)" (Unix.error_message err)
 
@@ -122,7 +121,7 @@ end
 module type Read = sig
   type t
 
-  val read : t -> buf:Buffer.t -> (int, [> `Closed | `Eof ]) result
+  val read : t -> buf:Buffer.t -> (int, [> `Closed ]) result
 end
 
 module Reader = struct
@@ -142,10 +141,7 @@ module Reader = struct
   let read : type src. src t -> buf:Buffer.t -> (int, [> `Closed ]) result =
    fun (Reader ((module R), src)) ~buf ->
     Logger.trace (fun f -> f " IO.Reader.read");
-    match R.read src ~buf with
-    | Ok len -> Ok len
-    | Error `Eof -> Ok 0
-    | Error err -> Error err
+    match R.read src ~buf with Ok len -> Ok len | Error err -> Error err
 
   let empty =
     let module EmptyRead = struct
@@ -239,7 +235,7 @@ let default_copy_buffer () = Buffer.with_capacity (1024 * 1024 * 4)
 let copy ?(buf = default_copy_buffer ()) src dst =
   let rec read_all copied =
     match Reader.read src ~buf with
-    | Error `Eof | Ok 0 -> Ok copied
+    | Ok 0 -> Ok copied
     | Ok len ->
         let data = Buffer.sub ~len buf in
         let* _written = write_all dst ~data in

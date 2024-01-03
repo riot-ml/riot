@@ -25,7 +25,6 @@ let test_copy () =
       Logger.info (fun f -> f "io_copy_buffered_test: OK")
   | Ok n -> fail (fun f -> f "io_copy_buffered_test: copied %d != %d" n size)
   | Error `Closed -> fail (fun f -> f "io_copy_buffered_test: closed?")
-  | Error `Eof -> fail (fun f -> f "io_copy_buffered_test: eof")
   | Error (`Timeout | `Process_down) ->
       fail (fun f -> f "io_copy_buffered_test: timeout")
   | Error (`Unix_error err) ->

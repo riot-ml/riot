@@ -55,12 +55,12 @@ let server port socket =
         | Ok bytes ->
             Logger.debug (fun f -> f "Server sent %d bytes" bytes);
             echo ()
-        | Error (`Eof | `Closed | `Timeout | `Process_down) -> close ()
+        | Error (`Closed | `Timeout | `Process_down) -> close ()
         | Error (`Unix_error unix_err) ->
             Logger.error (fun f ->
                 f "send unix error %s" (Unix.error_message unix_err));
             close ())
-    | Error (`Eof | `Closed | `Timeout | `Process_down) -> close ()
+    | Error (`Closed | `Timeout | `Process_down) -> close ()
     | Error (`Unix_error unix_err) ->
         Logger.error (fun f ->
             f "recv unix error %s" (Unix.error_message unix_err));
@@ -89,7 +89,7 @@ let client port main =
     else
       match IO.write_all ~data writer with
       | Ok bytes -> Logger.debug (fun f -> f "Client sent %d bytes" bytes)
-      | Error (`Timeout | `Process_down | `Closed | `Eof) ->
+      | Error (`Timeout | `Process_down | `Closed) ->
           Logger.debug (fun f -> f "connection closed")
       | Error (`Unix_error (ENOTCONN | EPIPE)) -> send_loop n
       | Error (`Unix_error unix_err) ->
@@ -105,7 +105,7 @@ let client port main =
     | Ok bytes ->
         Logger.debug (fun f -> f "Client received %d bytes" bytes);
         bytes
-    | Error (`Closed | `Timeout | `Process_down | `Eof) ->
+    | Error (`Closed | `Timeout | `Process_down) ->
         Logger.error (fun f -> f "Server closed the connection");
         0
     | Error (`Unix_error unix_err) ->

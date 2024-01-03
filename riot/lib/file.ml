@@ -35,7 +35,7 @@ module Read = Io.Reader.Make (struct
     | exception Fd.(Already_closed _) -> Error `Closed
     | `Abort reason -> Error (`Unix_error reason)
     | `Retry -> Runtime.syscall "File.read" `r t @@ read ~buf
-    | `Read 0 -> Error `Eof
+    | `Read 0 -> Ok 0
     | `Read len ->
         Io.Buffer.set_filled buf ~filled:len;
         Ok len

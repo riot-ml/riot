@@ -31,12 +31,12 @@ let server port socket =
         | Ok bytes ->
             Logger.debug (fun f -> f "Server sent %d bytes" bytes);
             echo ()
-        | Error (`Eof | `Closed | `Timeout | `Process_down) -> close ()
+        | Error (`Closed | `Timeout | `Process_down) -> close ()
         | Error (`Unix_error unix_err) ->
             Logger.error (fun f ->
                 f "send unix error %s" (Unix.error_message unix_err));
             close ())
-    | Error (`Eof | `Closed | `Timeout | `Process_down) -> close ()
+    | Error (`Closed | `Timeout | `Process_down) -> close ()
     | Error (`Unix_error unix_err) ->
         Logger.error (fun f ->
             f "recv unix error %s" (Unix.error_message unix_err));
@@ -57,7 +57,7 @@ let client port main =
     else
       match IO.Writer.write ~data writer with
       | Ok bytes -> Logger.debug (fun f -> f "Client sent %d bytes" bytes)
-      | Error (`Eof | `Closed | `Timeout | `Process_down) ->
+      | Error (`Closed | `Timeout | `Process_down) ->
           Logger.debug (fun f -> f "connection closed")
       | Error (`Unix_error (ENOTCONN | EPIPE)) -> send_loop n data
       | Error (`Unix_error unix_err) ->
@@ -80,7 +80,7 @@ let client port main =
         let data = IO.Buffer.to_string data ^ IO.Buffer.to_string next in
         if String.ends_with ~suffix:"\r\n" data then IO.Buffer.of_string data
         else recv_loop (IO.Buffer.of_string data)
-    | Error (`Eof | `Closed | `Timeout | `Process_down) ->
+    | Error (`Closed | `Timeout | `Process_down) ->
         Logger.error (fun f -> f "Server closed the connection");
         data
     | Error (`Unix_error unix_err) ->

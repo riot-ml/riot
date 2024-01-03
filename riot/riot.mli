@@ -467,7 +467,7 @@ module IO : sig
 
   val pp_err :
     Format.formatter ->
-    [ unix_error | `Closed | `Timeout | `Process_down | `System_limit | `Eof ] ->
+    [ unix_error | `Closed | `Timeout | `Process_down | `System_limit ] ->
     unit
 
   module Buffer : sig
@@ -526,7 +526,7 @@ module IO : sig
   module type Read = sig
     type t
 
-    val read : t -> buf:Buffer.t -> (int, [> `Closed | `Eof ]) result
+    val read : t -> buf:Buffer.t -> (int, [> `Closed ]) result
   end
 
   module Reader : sig
@@ -535,12 +535,12 @@ module IO : sig
     type 'src read = (module Read with type t = 'src)
 
     val of_read_src : 'src. 'src read -> 'src -> 'src t
-    val read : 'src reader -> buf:Buffer.t -> (int, [> `Closed | `Eof ]) result
+    val read : 'src reader -> buf:Buffer.t -> (int, [> `Closed ]) result
 
     module Make (B : Read) : sig
       type t = B.t
 
-      val read : t -> buf:Buffer.t -> (int, [> `Closed | `Eof ]) result
+      val read : t -> buf:Buffer.t -> (int, [> `Closed ]) result
     end
 
     module Buffered : sig
@@ -553,19 +553,18 @@ module IO : sig
     val of_buffer : Buffer.t -> unit Buffered.t t
   end
 
-  val write_all :
-    'dst Writer.t -> data:Buffer.t -> (int, [> `Closed | `Eof ]) result
+  val write_all : 'dst Writer.t -> data:Buffer.t -> (int, [> `Closed ]) result
 
   val copy_buffered :
     'src Reader.Buffered.t Reader.t ->
     'dst Writer.t ->
-    (int, [> `Closed | `Eof ]) result
+    (int, [> `Closed ]) result
 
   val copy :
     ?buf:Buffer.t ->
     'src Reader.t ->
     'dst Writer.t ->
-    (int, [> `Closed | `Eof ]) result
+    (int, [> `Closed ]) result
 end
 
 module Net : sig

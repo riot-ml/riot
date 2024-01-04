@@ -45,7 +45,7 @@ type t = {
   save_queue : Mailbox.t;
   mutable read_save_queue : bool;
   links : Pid.t list Atomic.t;
-  monitors : Pid.t list Atomic.t;
+  monitors : unit Pid.Map.t;
   ready_fds : Fd.t list Atomic.t;
   recv_timeout : unit Ref.t option Atomic.t;
 }
@@ -76,7 +76,7 @@ val mark_as_finalized : t -> unit
 val mark_as_runnable : t -> unit
 val mark_as_running : t -> unit
 val message_count : t -> int
-val monitors : t -> Pid.t list
+val monitors : t -> Pid.t Seq.t
 val next_message : t -> Message.envelope option
 val pid : t -> Pid.t
 val pp : Format.formatter -> t -> unit
@@ -94,4 +94,3 @@ val set_receive_timeout : t -> unit Ref.t -> unit
 val should_awake : t -> bool
 val sid : t -> Scheduler_uid.t
 val state : t -> state
-val flush_monitor_message : t -> Pid.t -> unit

@@ -138,8 +138,8 @@ let () =
           Logger.error (fun f ->
               f "client error: %a" Tls.Engine.pp_failure failure))
   in
-  monitor main server;
-  monitor main client;
+  monitor server;
+  monitor client;
   match receive ~after:500_000L () with
   | Received "hello world" ->
       Logger.info (fun f -> f "ssl_test: OK");

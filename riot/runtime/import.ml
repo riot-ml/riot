@@ -127,19 +127,16 @@ let spawn_link fn =
   let scheduler = Scheduler.get_random_scheduler pool in
   _spawn ~do_link:true pool scheduler fn
 
-let monitor pid1 pid2 =
+let monitor pid =
   let pool = _get_pool () in
-  match Proc_table.get pool.processes pid2 with
-  | Some proc -> Process.add_monitor proc pid1
+  match Proc_table.get pool.processes pid with
+  | Some proc -> Process.add_monitor proc (self ())
   | None -> ()
 
 let demonitor pid =
   let pool = _get_pool () in
-  let this = _get_proc (self ()) in
   match Proc_table.get pool.processes pid with
-  | Some proc ->
-      Process.remove_monitor proc this.pid;
-      Process.flush_monitor_message this pid
+  | Some proc -> Process.remove_monitor proc (self ())
   | None -> ()
 
 let register pid name =

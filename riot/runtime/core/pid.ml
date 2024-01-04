@@ -17,3 +17,10 @@ let hash t = Int64.hash t._id
 let reset () =
   Log.debug (fun f -> f "Resetting Process Ids");
   Atomic.set __current__ 1L
+
+module Map = Util.Dashmap.Make (struct
+  type key = t
+
+  let hash = hash
+  let equal = equal
+end)

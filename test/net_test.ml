@@ -88,8 +88,8 @@ let () =
   let main = self () in
   let server = spawn (fun () -> server port socket) in
   let client = spawn (fun () -> client port main) in
-  monitor main server;
-  monitor main client;
+  monitor server;
+  monitor client;
   match receive ~after:100_000L () with
   | exception Receive_timeout ->
       Logger.error (fun f -> f "net_test: test timed out");

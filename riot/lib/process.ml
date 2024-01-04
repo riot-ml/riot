@@ -26,4 +26,5 @@ let rec await_name name =
       yield ();
       await_name name
 
+let monitor = monitor
 let demonitor = demonitor

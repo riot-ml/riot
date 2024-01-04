@@ -45,7 +45,27 @@ module type Base = sig
   val equal : key -> key -> bool
 end
 
-module Make (B : Base) = struct
+module type Intf = sig
+  type key
+  type 'v t
+
+  val create : int -> 'v t
+  val keys : 'v t -> key Seq.t
+  val get : 'v t -> key -> 'v list
+  val is_empty : 'v t -> bool
+  val find_by : 'v t -> (key * 'v -> bool) -> (key * 'v) option
+  val remove : 'v t -> key -> unit
+  val remove_all : 'v t -> key list -> unit
+  val find_all_by : 'v t -> (key * 'v -> bool) -> (key * 'v) list
+  val has_key : 'v t -> key -> bool
+  val insert : 'v t -> key -> 'v -> unit
+  val remove_by : 'v t -> (key * 'v -> bool) -> unit
+  val replace : 'v t -> key -> 'v -> unit
+  val iter : 'v t -> (key * 'v -> unit) -> unit
+  val pp : (Format.formatter -> key -> unit) -> Format.formatter -> 'v t -> unit
+end
+
+module Make (B : Base) : Intf with type key = B.key = struct
   module Hashtbl = Hashtbl.Make (struct
     type t = B.key
 
@@ -56,6 +76,7 @@ module Make (B : Base) = struct
   type key = B.key
   type 'v t = { tbl : 'v Hashtbl.t; lock : Mutex.t }
 
+  let keys t = Hashtbl.to_seq_keys t.tbl
   let create size = { lock = Mutex.create (); tbl = Hashtbl.create size }
   let get t k = Mutex.protect t.lock (fun () -> Hashtbl.find_all t.tbl k)
   let remove t k = Mutex.protect t.lock (fun () -> Hashtbl.remove t.tbl k)

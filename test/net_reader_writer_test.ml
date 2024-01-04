@@ -101,8 +101,8 @@ let () =
   let main = self () in
   let server = spawn (fun () -> server port socket) in
   let client = spawn (fun () -> client port main) in
-  monitor main server;
-  monitor main client;
+  monitor server;
+  monitor client;
   match receive ~after:500_000L () with
   | Received "hello world\r\n" ->
       Logger.info (fun f -> f "net_reader_writer_test: OK");

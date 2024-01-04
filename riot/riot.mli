@@ -229,11 +229,11 @@ exception Link_no_process of Pid.t
 val link : Pid.t -> unit
 (** Links the current process and the process [pid] together. *)
 
-val monitor : Pid.t -> Pid.t -> unit
-(** Makes [pid1] a monitor of [pid2].
+val monitor : Pid.t -> unit
+(** [monitor pid] makes [self ()] a monitor of [pid].
 
-    When [pid2] terminates, [pid1] will receive a
-    [Processes.Messages.Monitor(Process_down(pid2))] message.
+    When [pid] terminates, [self ()] will receive a
+    [Processes.Messages.Monitor(Process_down(pid))] message.
 *)
 
 val processes : unit -> (Pid.t * Process.t) Seq.t

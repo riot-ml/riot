@@ -52,7 +52,7 @@ type t = {
   mutable read_save_queue : bool;
       (** the save queue is a temporary queue used for storing messages during a selective receive *)
   links : Pid.t list Atomic.t;
-  monitors : Pid.t list Atomic.t;
+  monitors : unit Pid.Map.t;
   ready_fds : Fd.t list Atomic.t;
   recv_timeout : unit Ref.t option Atomic.t;
 }
@@ -69,7 +69,7 @@ let make sid fn =
       cont;
       state = Atomic.make Runnable;
       links = Atomic.make [];
-      monitors = Atomic.make [];
+      monitors = Pid.Map.create 64;
       mailbox = Mailbox.create ();
       save_queue = Mailbox.create ();
       read_save_queue = false;
@@ -113,7 +113,7 @@ let cont t = t.cont
 let pid { pid; _ } = pid
 let sid { sid; _ } = sid
 let state t = Atomic.get t.state
-let monitors t = Atomic.get t.monitors
+let monitors t = Pid.Map.keys t.monitors
 let links t = Atomic.get t.links
 let receive_timeout t = Atomic.get t.recv_timeout
 
@@ -234,25 +234,15 @@ let rec add_link t link =
     ())
   else add_link t link
 
-let rec add_monitor t monitor =
-  let old_monitors = Atomic.get t.monitors in
-  let new_monitors = monitor :: old_monitors in
-  if Atomic.compare_and_set t.monitors old_monitors new_monitors then (
-    Log.trace (fun f ->
-        f "Process %a: adding monitor to %a" Pid.pp t.pid Pid.pp monitor);
-    ())
-  else add_monitor t monitor
+let add_monitor t monitor =
+  Log.trace (fun f ->
+      f "Process %a: adding monitor to %a" Pid.pp t.pid Pid.pp monitor);
+  Pid.Map.insert t.monitors monitor ()
 
-let rec remove_monitor t monitor =
-  let old_monitors = Atomic.get t.monitors in
-  let new_monitors =
-    List.filter (fun pid -> not (Pid.equal pid monitor)) old_monitors
-  in
-  if Atomic.compare_and_set t.monitors old_monitors new_monitors then (
-    Log.trace (fun f ->
-        f "Process %a: adding monitor to %a" Pid.pp t.pid Pid.pp monitor);
-    ())
-  else remove_monitor t monitor
+let remove_monitor t monitor =
+  Log.trace (fun f ->
+      f "Process %a: adding monitor to %a" Pid.pp t.pid Pid.pp monitor);
+  Pid.Map.remove t.monitors monitor
 
 let next_message t =
   if t.read_save_queue then (
@@ -280,18 +270,3 @@ let send_message t msg =
     let envelope = Message.envelope msg in
     Mailbox.queue t.mailbox envelope;
     if is_waiting t then mark_as_runnable t)
-
-let flush_monitor_message t pid =
-  let[@tail_mod_cons] rec find_flush_message () =
-    match next_message t with
-    | None ->
-        read_save_queue t;
-        find_flush_message ()
-    | Some Message.{ msg = Messages.Monitor (Process_down pid'); _ }
-      when Pid.equal pid pid' ->
-        []
-    | Some env -> env :: find_flush_message ()
-  in
-  let messages_to_requeue = find_flush_message () in
-  List.iter (Mailbox.queue_front t.mailbox) messages_to_requeue;
-  t.read_save_queue <- false

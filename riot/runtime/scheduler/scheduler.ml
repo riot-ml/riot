@@ -213,7 +213,7 @@ module Scheduler = struct
     Proc_registry.remove pool.registry (Process.pid proc);
 
     (* send monitors a process-down message *)
-    let monitoring_pids = Process.monitors proc in
+    let monitoring_pids = Process.monitors proc |> List.of_seq in
     Log.debug (fun f -> f "notifying %d monitors" (List.length monitoring_pids));
     List.iter
       (fun mon_pid ->

@@ -18,7 +18,7 @@ let async fn =
         Logger.trace (fun f -> f "sending message back: %a" Pid.pp (self ()));
         send this reply)
   in
-  monitor this pid;
+  Process.monitor pid;
   { pid; ref }
 
 let rec await :

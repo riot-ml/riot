@@ -5,9 +5,8 @@ open Riot
 let main () =
   let _ = Logger.start () |> Result.get_ok in
   Logger.set_log_level (Some Info);
-  let this = self () in
   let pid = spawn (fun () -> ()) in
-  monitor this pid;
+  monitor pid;
 
   match receive ~after:500_000L () with
   | Process.Messages.Monitor (Process_down pid2) when Pid.equal pid pid2 ->

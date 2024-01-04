@@ -155,6 +155,18 @@ module Scheduler = struct
                   f "Skipping msg ref=%a msg.uid=%a" Ref.pp ref Ref.pp msg.uid);
               Process.add_to_save_queue proc msg;
               go (fuel - 1)
+          (* we are special casing the process monitors here. if we receive a process down
+             but we already have removed the monitor, then we will simply ignore this message. *)
+          | ( _,
+              Some
+                Message.
+                  {
+                    msg = Process.Messages.Monitor (Process_down mon_pid) as msg;
+                    _;
+                  } ) ->
+              Process.clear_receive_timeout proc;
+              if Process.is_monitoring_pid proc mon_pid then k (Continue msg)
+              else go (fuel - 1)
           (* lastly, if we have a ref and the mesasge is newer than the ref, and
              when we don't have a ref, we just pop the message and continue with it
           *)
@@ -168,7 +180,7 @@ module Scheduler = struct
     let open Proc_state in
     if Process.has_ready_fds proc then k (Continue ())
     else (
-      Log.debug (fun f ->
+      Log.error (fun f ->
           let mode = match mode with `r -> "r" | `w -> "w" | `rw -> "rw" in
           f "Registering %a for Syscall(%s,%s,%a)" Pid.pp proc.pid syscall mode
             Fd.pp fd);
@@ -349,7 +361,7 @@ module Io_scheduler = struct
     Log.debug (fun f -> f "io_tbl(%a)" Io.pp io.io_tbl);
     Io.poll io.io_tbl @@ fun (proc, mode) ->
     Io.unregister_process io.io_tbl proc;
-    Log.debug (fun f -> f "io_poll(%a): %a" Fd.Mode.pp mode Process.pp proc);
+    Log.error (fun f -> f "io_poll(%a): %a" Fd.Mode.pp mode Process.pp proc);
     match Process.state proc with
     | Waiting_io { fd; _ } ->
         Process.set_ready_fds proc [ fd ];

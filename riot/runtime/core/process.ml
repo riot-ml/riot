@@ -244,6 +244,8 @@ let remove_monitor t monitor =
       f "Process %a: adding monitor to %a" Pid.pp t.pid Pid.pp monitor);
   Pid.Map.remove t.monitors monitor
 
+let is_monitoring_pid t pid = Pid.Map.has_key t.monitors pid
+
 let next_message t =
   if t.read_save_queue then (
     match Mailbox.next t.save_queue with

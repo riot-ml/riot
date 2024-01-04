@@ -81,7 +81,8 @@ let unregister_process t proc =
     fds;
   Dashmap.remove t.fds proc
 
-let can_poll t = not (Dashmap.is_empty t.procs)
+let can_poll t =
+  (not (Dashmap.is_empty t.procs)) && not (Dashmap.is_empty t.fds)
 
 let poll t fn =
   match Poll.wait t.poll t.poll_timeout with

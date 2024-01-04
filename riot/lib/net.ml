@@ -110,6 +110,8 @@ module Socket = struct
 
   let receive ?timeout ~buf socket =
     let rec receive_loop ~buf socket =
+      Logger.trace (fun f ->
+          f "receiving up to %d octets" (Io.Buffer.length buf));
       match Low_level.readv socket [| Io.Buffer.as_cstruct buf |] with
       | exception Fd.(Already_closed _) -> Error `Closed
       | `Abort reason -> Error (`Unix_error reason)
@@ -117,19 +119,20 @@ module Socket = struct
       | `Read 0 -> Error `Closed
       | `Read len ->
           Io.Buffer.set_filled buf ~filled:len;
-          Logger.trace (fun f -> f "received: %S" (Io.Buffer.to_string buf));
+          Logger.trace (fun f -> f "received: %d octets" (Io.Buffer.length buf));
           Ok len
     in
     match timeout with
     | None -> receive_loop ~buf socket
     | Some timeout ->
+        Logger.trace (fun f -> f "receive with timeout %Ld" timeout);
         let task = Task.async (fun () -> receive_loop ~buf socket) in
         let* result = Task.await ~timeout task in
         result
 
   let send ?timeout ~data socket =
     let rec send_loop ~data socket =
-      Logger.trace (fun f -> f "sending: %d bytes" (Io.Buffer.length data));
+      Logger.trace (fun f -> f "sending: %d octets" (Io.Buffer.length data));
       match Low_level.writev socket [| Io.Buffer.as_cstruct data |] with
       | exception Fd.(Already_closed _) -> Error `Closed
       | `Abort reason -> Error (`Unix_error reason)
@@ -143,6 +146,7 @@ module Socket = struct
     match timeout with
     | None -> send_loop ~data socket
     | Some timeout ->
+        Logger.trace (fun f -> f "send with timeout %Ld" timeout);
         let task = Task.async (fun () -> send_loop ~data socket) in
         let* result = Task.await ~timeout task in
         result

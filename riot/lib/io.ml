@@ -71,7 +71,7 @@ module Buffer = struct
 
   let to_string t =
     Logger.trace (fun f -> f "to_string pos=%d fill=%d" t.position t.filled);
-    Cstruct.to_string ~off:0 ~len:t.filled t.inner
+    Cstruct.to_string t.inner
 
   let with_capacity capacity = of_cstruct ~filled:0 (Cstruct.create capacity)
 

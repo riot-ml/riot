@@ -245,7 +245,9 @@ let rec add_monitor t monitor =
 
 let rec remove_monitor t monitor =
   let old_monitors = Atomic.get t.monitors in
-  let new_monitors = List.filter (fun pid -> pid != monitor) old_monitors in
+  let new_monitors =
+    List.filter (fun pid -> not (Pid.equal pid monitor)) old_monitors
+  in
   if Atomic.compare_and_set t.monitors old_monitors new_monitors then (
     Log.trace (fun f ->
         f "Process %a: adding monitor to %a" Pid.pp t.pid Pid.pp monitor);

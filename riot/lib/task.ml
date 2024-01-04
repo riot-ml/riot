@@ -21,15 +21,18 @@ let async fn =
   monitor this pid;
   { pid; ref }
 
-let await :
+let rec await :
     type res.
     ?timeout:int64 -> res t -> (res, [> `Timeout | `Process_down ]) result =
  fun ?timeout:after t ->
+  let started_at =
+    Int64.add (Mtime_clock.now_ns ()) (Option.value ~default:0L after)
+  in
   Logger.trace (fun f ->
       f "Process %a is awaing for task %a with timeout %Ld" Pid.pp (self ())
         Pid.pp t.pid
         (Option.value ~default:(-1L) after));
-  match[@warning "-8"] receive ?after () with
+  match receive ?after () with
   | exception Receive_timeout -> Error `Timeout
   | Reply (ref', res) when Ref.equal t.ref ref' -> (
       Process.demonitor t.pid;
@@ -38,3 +41,16 @@ let await :
       | None -> failwith "bad message")
   | Process.Messages.Monitor (Process_down pid) when Pid.equal pid t.pid ->
       Error `Process_down
+  | Process.Messages.Monitor (Process_down pid) ->
+      Logger.error (fun f ->
+          f
+            "received wrong monitor process down for %a (we are %a, our task \
+             is %a)"
+            Pid.pp pid Pid.pp (self ()) Pid.pp t.pid);
+      Error `Process_down
+  | msg ->
+      Logger.trace (fun f ->
+          f "requeuing message %S" (Marshal.to_string msg []));
+      send (self ()) msg;
+      let timeout = Int64.sub started_at (Mtime_clock.now_ns ()) in
+      await ~timeout t

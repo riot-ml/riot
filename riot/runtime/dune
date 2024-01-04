@@ -1,4 +1,4 @@
 (library
  (package riot)
  (name runtime)
- (libraries core log net scheduler time util))
+ (libraries core log net scheduler time util io))

@@ -1,4 +1,5 @@
 module Log = Log
+module Io = Io
 module Net = Net
 module Core = Core
 module Import = Import

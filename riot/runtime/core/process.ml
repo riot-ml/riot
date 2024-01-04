@@ -284,11 +284,14 @@ let send_message t msg =
 let flush_monitor_message t pid =
   let[@tail_mod_cons] rec find_flush_message () =
     match next_message t with
-    | None -> []
+    | None ->
+        read_save_queue t;
+        find_flush_message ()
     | Some Message.{ msg = Messages.Monitor (Process_down pid'); _ }
       when Pid.equal pid pid' ->
         []
     | Some env -> env :: find_flush_message ()
   in
   let messages_to_requeue = find_flush_message () in
-  List.iter (Mailbox.queue_front t.mailbox) messages_to_requeue
+  List.iter (Mailbox.queue_front t.mailbox) messages_to_requeue;
+  t.read_save_queue <- false

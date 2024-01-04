@@ -1,4 +1,5 @@
-open Runtime.Import
+module Low_level = Runtime.Io
+open Global
 
 module Logger = Logger.Make (struct
   let namespace = [ "riot"; "io" ]
@@ -16,8 +17,6 @@ let pp_err fmt = function
       Format.fprintf fmt "Unix_error(%s)" (Unix.error_message err)
 
 let ( let* ) = Result.bind
-
-module Low_level = Runtime.Net.Io
 
 module Buffer = struct
   type buffer =

@@ -1,7 +1,6 @@
 open Core
 open Util
 open Time
-open Net
 module Tracer = Tracer
 module Uid = Scheduler_uid
 

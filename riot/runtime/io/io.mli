@@ -1,4 +1,5 @@
 open Core
+open Net
 open Util
 
 type t

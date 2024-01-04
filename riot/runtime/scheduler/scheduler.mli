@@ -15,7 +15,7 @@ type t = {
 type io = {
   uid : Uid.t; [@warning "-69"]
   rnd : Random.State.t;
-  io_tbl : Net.Io.t;
+  io_tbl : Io.t;
   idle_mutex : Mutex.t;
   idle_condition : Condition.t;
 }

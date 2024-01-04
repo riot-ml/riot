@@ -1,4 +1,4 @@
-module Low_level = Runtime.Net.Io
+module Low_level = Runtime.Io
 open Global
 
 type 'kind file = Fd.t

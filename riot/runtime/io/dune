@@ -1,0 +1,9 @@
+(library
+ (package riot)
+ (name io)
+ (foreign_stubs
+  (language c)
+  (names io_posix_stubs)
+  (flags
+   (:standard -O2)))
+ (libraries net core util log poll uri unix telemetry bigstringaf cstruct))

@@ -1,4 +1,5 @@
-module Low_level = Runtime.Net
+module Net = Runtime.Net
+module Low_level = Runtime.Io
 open Global
 
 module Logger = Logger.Make (struct
@@ -8,7 +9,7 @@ end)
 let ( let* ) = Result.bind
 
 module Addr = struct
-  include Low_level.Addr
+  include Net.Addr
 
   let of_addr_info
       Unix.{ ai_family; ai_addr; ai_socktype; ai_protocol; ai_canonname } =
@@ -24,7 +25,7 @@ module Addr = struct
     | _ -> None
 
   let rec get_info host service =
-    match Low_level.Io.getaddrinfo host service with
+    match Low_level.getaddrinfo host service with
     | `Ok info -> List.filter_map of_addr_info info
     | `Retry ->
         yield ();
@@ -45,7 +46,7 @@ module Addr = struct
 end
 
 module Socket = struct
-  include Low_level.Socket
+  include Net.Socket
 
   type listen_opts = {
     reuse_addr : bool;
@@ -70,20 +71,20 @@ module Socket = struct
     let this = self () in
     Logger.trace (fun f ->
         f "Process %a: Closing socket fd=%a" Pid.pp this Fd.pp socket);
-    Low_level.Io.close pool.io_scheduler.io_tbl socket
+    Low_level.close pool.io_scheduler.io_tbl socket
 
   let listen ?(opts = default_listen_opts) ~port () =
     let pool = Scheduler.Pool.get_pool () in
     let { reuse_addr; reuse_port; backlog; addr } = opts in
     let addr = Addr.tcp addr port in
     Logger.trace (fun f -> f "Listening on 0.0.0.0:%d" port);
-    Low_level.Io.listen pool.io_scheduler.io_tbl ~reuse_port ~reuse_addr
-      ~backlog addr
+    Low_level.listen pool.io_scheduler.io_tbl ~reuse_port ~reuse_addr ~backlog
+      addr
 
   let rec connect addr =
     let pool = Scheduler.Pool.get_pool () in
     Logger.trace (fun f -> f "Connecting to %a" Addr.pp addr);
-    match Low_level.Io.connect pool.io_scheduler.io_tbl addr with
+    match Low_level.connect pool.io_scheduler.io_tbl addr with
     | `Connected fd -> connected addr fd
     | `In_progress fd -> in_progress addr fd
     | `Abort reason -> Error (`Unix_error reason)
@@ -100,7 +101,7 @@ module Socket = struct
   let rec accept ?(timeout = `infinity) (socket : listen_socket) =
     let pool = Scheduler.Pool.get_pool () in
     Log.trace (fun f -> f "Socket is Accepting client at fd=%a" Fd.pp socket);
-    match Low_level.Io.accept pool.io_scheduler.io_tbl socket with
+    match Low_level.accept pool.io_scheduler.io_tbl socket with
     | exception Fd.(Already_closed _) -> Error `Closed
     | `Abort reason -> Error (`Unix_error reason)
     | `Retry -> syscall "accept" `r socket @@ accept ~timeout
@@ -112,10 +113,12 @@ module Socket = struct
     let rec receive_loop ~buf socket =
       Logger.trace (fun f ->
           f "receiving up to %d octets" (Io.Buffer.length buf));
-      match Low_level.Io.readv socket [| Io.Buffer.as_cstruct buf |] with
+      match Low_level.readv socket [| Io.Buffer.as_cstruct buf |] with
       | exception Fd.(Already_closed _) -> Error `Closed
       | `Abort reason -> Error (`Unix_error reason)
-      | `Retry -> syscall "receive" `r socket @@ receive_loop ~buf
+      | `Retry ->
+          Logger.trace (fun f -> f "waiting on socket to receive");
+          syscall "receive" `r socket @@ receive_loop ~buf
       | `Read 0 -> Error `Closed
       | `Read len ->
           Logger.trace (fun f -> f "received: %d octets" len);
@@ -133,7 +136,7 @@ module Socket = struct
   let send ?timeout ~data socket =
     let rec send_loop ~data socket =
       Logger.trace (fun f -> f "sending: %d octets" (Io.Buffer.length data));
-      match Low_level.Io.writev socket [| Io.Buffer.as_cstruct data |] with
+      match Low_level.writev socket [| Io.Buffer.as_cstruct data |] with
       | exception Fd.(Already_closed _) -> Error `Closed
       | `Abort reason -> Error (`Unix_error reason)
       | `Retry ->

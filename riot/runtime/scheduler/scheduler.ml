@@ -30,6 +30,17 @@ type pool = {
   registry : Proc_registry.t;
 }
 
+let shutdown pool =
+  let rec wake_up_scheduler (sch : t) =
+    if Mutex.try_lock sch.idle_mutex then (
+      Condition.signal sch.idle_condition;
+      Mutex.unlock sch.idle_mutex)
+    else wake_up_scheduler sch
+  in
+  Log.trace (fun f -> f "shutdown called");
+  pool.stop <- true;
+  List.iter wake_up_scheduler pool.schedulers
+
 module Scheduler = struct
   let make ~rnd () =
     let uid = Uid.next () in
@@ -224,6 +235,9 @@ module Scheduler = struct
 
     Proc_registry.remove pool.registry (Process.pid proc);
 
+    (* if it's main process we want to terminate the entire program *)
+    if Process.is_main proc then shutdown pool;
+
     (* send monitors a process-down message *)
     let monitoring_pids = Process.monitors proc |> List.of_seq in
     Log.debug (fun f -> f "notifying %d monitors" (List.length monitoring_pids));
@@ -383,17 +397,7 @@ end
 
 module Pool = struct
   let get_pool, set_pool = Thread_local.make ~name:"POOL"
-
-  let shutdown pool =
-    let rec wake_up_scheduler (sch : t) =
-      if Mutex.try_lock sch.idle_mutex then (
-        Condition.signal sch.idle_condition;
-        Mutex.unlock sch.idle_mutex)
-      else wake_up_scheduler sch
-    in
-    Log.trace (fun f -> f "shutdown called");
-    pool.stop <- true;
-    List.iter wake_up_scheduler pool.schedulers
+  let shutdown = shutdown
 
   let register_process pool _scheduler proc =
     Proc_table.register_process pool.processes proc

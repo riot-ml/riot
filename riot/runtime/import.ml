@@ -102,7 +102,7 @@ let _spawn ?(shutdown = false) ?(do_link = false) (pool : Scheduler.pool)
                 (self ()) (Printexc.to_string exn)
                 (Printexc.get_backtrace ()));
 
-          if shutdown then Stdlib.exit 1;
+          if shutdown then Scheduler.Pool.shutdown pool;
 
           Exception exn)
   in

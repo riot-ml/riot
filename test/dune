@@ -176,3 +176,8 @@
  (name task_test)
  (modules task_test)
  (libraries riot))
+
+(test
+ (name io_buffer_test)
+ (modules io_buffer_test)
+ (libraries riot))

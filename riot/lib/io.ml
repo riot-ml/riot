@@ -29,6 +29,12 @@ module Buffer = struct
     mutable filled : int;
   }
 
+  let empty = { inner = Cstruct.empty; position = 0; filled = 0; capacity = 0 }
+
+  let concat a b =
+    let inner = Cstruct.concat [ a.inner; b.inner ] in
+    { a with inner; capacity = a.capacity + b.capacity }
+
   let position t = t.position
   let filled t = t.filled
   let set_filled t ~filled = t.filled <- Int.min filled t.capacity
@@ -69,10 +75,45 @@ module Buffer = struct
 
   let with_capacity capacity = of_cstruct ~filled:0 (Cstruct.create capacity)
 
-  let sub ?(off = 0) ~len t =
+  let sub ?(off = 0) ?len t =
+    let len = Option.value ~default:(length t - off) len in
     let inner = Cstruct.sub t.inner off len in
     let capacity = inner.len in
     { inner; capacity; position = 0; filled = capacity }
+
+  let split ~on t =
+    let splits = ref [] in
+    let window_size = String.length on in
+    let current = ref t in
+    let exception Done in
+    try
+      let last_off = ref 0 in
+      for _ = 0 to t.filled - 1 - window_size do
+        let off = !last_off in
+        let window =
+          if off + window_size < length !current then
+            sub ~off ~len:window_size !current
+          else (
+            (* save everything up to the window *)
+            splits := !current :: !splits;
+            raise_notrace Done)
+        in
+        let win_str = to_string window in
+        let matches = String.equal win_str on in
+        (* if we find the window is exactly what we're searching for, we have a
+           split point *)
+        if matches then (
+          let split = sub ~off:0 ~len:off !current in
+          (* save everything up to the window *)
+          splits := split :: !splits;
+          (* move our current to after the window *)
+          let rest = sub ~off:(off + window_size) !current in
+          current := rest;
+          last_off := 0)
+        else last_off := off + 1
+      done;
+      !splits |> List.rev
+    with Done -> !splits |> List.rev
 end
 
 type read = Low_level.read

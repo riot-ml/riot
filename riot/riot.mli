@@ -473,6 +473,9 @@ module IO : sig
   module Buffer : sig
     type t
 
+    val empty : t
+    val concat : t -> t -> t
+    val split : on:string -> t -> t list
     val as_cstruct : t -> Cstruct.t
     val consume : t -> int -> unit
     val copy : src:t -> dst:t -> int
@@ -485,7 +488,7 @@ module IO : sig
     val of_string : string -> t
     val position : t -> int
     val set_filled : t -> filled:int -> unit
-    val sub : ?off:int -> len:int -> t -> t
+    val sub : ?off:int -> ?len:int -> t -> t
     val to_string : t -> string
     val with_capacity : int -> t
   end

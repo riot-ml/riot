@@ -181,3 +181,8 @@
  (name io_buffer_test)
  (modules io_buffer_test)
  (libraries riot))
+
+(test
+ (name terminate_when_main_terminates_test)
+ (modules terminate_when_main_terminates_test)
+ (libraries riot))

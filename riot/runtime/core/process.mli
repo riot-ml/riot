@@ -63,8 +63,8 @@ val has_ready_fds : t -> bool
 val is_alive : t -> bool
 val is_exited : t -> bool
 val is_finalized : t -> bool
-val is_monitoring_pid : t -> Pid.t -> bool
 val is_main : t -> bool
+val is_monitoring_pid : t -> Pid.t -> bool
 val is_runnable : t -> bool
 val is_running : t -> bool
 val is_waiting : t -> bool

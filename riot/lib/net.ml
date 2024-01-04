@@ -118,8 +118,8 @@ module Socket = struct
       | `Retry -> syscall "receive" `r socket @@ receive_loop ~buf
       | `Read 0 -> Error `Closed
       | `Read len ->
+          Logger.trace (fun f -> f "received: %d octets" len);
           Io.Buffer.set_filled buf ~filled:len;
-          Logger.trace (fun f -> f "received: %d octets" (Io.Buffer.length buf));
           Ok len
     in
     match timeout with

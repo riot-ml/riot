@@ -733,3 +733,7 @@ module Task : sig
   val await :
     ?timeout:int64 -> 'a t -> ('a, [> `Process_down | `Timeout ]) result
 end
+
+module Runtime : sig
+  val set_log_level : Logger.level option -> unit
+end

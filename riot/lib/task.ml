@@ -33,7 +33,9 @@ let rec await :
         Pid.pp t.pid
         (Option.value ~default:(-1L) after));
   match receive ?after () with
-  | exception Receive_timeout -> Error `Timeout
+  | exception Receive_timeout ->
+      Logger.trace (fun f -> f "task %a timeout" Pid.pp t.pid);
+      Error `Timeout
   | Reply (ref', res) when Ref.equal t.ref ref' -> (
       Process.demonitor t.pid;
       match Ref.type_equal t.ref ref' with

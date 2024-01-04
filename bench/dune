@@ -1,0 +1,4 @@
+(executable
+ (name spawn_many)
+ (modules spawn_many)
+ (libraries riot))

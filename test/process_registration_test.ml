@@ -16,7 +16,7 @@ module Registry_test = struct
         Logger.debug (fun f ->
             f "process_registration_test: unregistered send raises correctly")
     | Invalid_destination name2 ->
-        Runtime.Log.error (fun f ->
+        Logger.error (fun f ->
             f "process_registration_test: invalid destination! %s" name2);
         Stdlib.exit 1);
 
@@ -36,7 +36,7 @@ module Registry_test = struct
         Logger.debug (fun f ->
             f "process_registration_test: double register disallowed")
     | Name_already_registered (name, pid2) ->
-        Runtime.Log.error (fun f ->
+        Logger.error (fun f ->
             f "process_registration_test: double registered! %s <-> %a" name
               Pid.pp pid2);
         Stdlib.exit 1);
@@ -60,7 +60,7 @@ module Registry_test = struct
         Logger.debug (fun f ->
             f "process_registration_test: dead send by name raises correctly")
     | _ ->
-        Runtime.Log.error (fun f ->
+        Logger.error (fun f ->
             f
               "process_registration_test: send to dead process by name \
                should've raised!");

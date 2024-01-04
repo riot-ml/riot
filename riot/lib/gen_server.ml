@@ -1,4 +1,4 @@
-open Runtime
+open Global
 
 type 'res req = ..
 

@@ -1,6 +1,4 @@
-module Runtime = Runtime
 include Lib
-include Runtime.Import
 
 let shutdown () =
   Logger.debug (fun f -> f "RIOT IS SHUTTING DOWN!");

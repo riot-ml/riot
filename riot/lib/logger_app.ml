@@ -1,5 +1,4 @@
-open Runtime
-module Scheduler_uid = Core.Scheduler_uid
+open Global
 include Logger
 
 module Formatter = struct

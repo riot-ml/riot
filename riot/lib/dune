@@ -1,4 +1,4 @@
 (library
  (package riot)
  (name lib)
- (libraries logger runtime tls))
+ (libraries global logger runtime tls))

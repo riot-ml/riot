@@ -1,4 +1,4 @@
-open Runtime
+open Global
 
 module Logger = Logger.Make (struct
   let namespace = [ "riot"; "task" ]

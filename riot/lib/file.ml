@@ -1,5 +1,5 @@
-open Runtime
 module Low_level = Runtime.Net.Io
+open Global
 
 type 'kind file = Fd.t
 type read_file = [ `r ] file
@@ -31,10 +31,10 @@ module Read = Io.Reader.Make (struct
   type t = read_file
 
   let rec read t ~buf =
-    match Runtime.Net.Io.readv t [| Io.Buffer.as_cstruct buf |] with
+    match Low_level.readv t [| Io.Buffer.as_cstruct buf |] with
     | exception Fd.(Already_closed _) -> Error `Closed
     | `Abort reason -> Error (`Unix_error reason)
-    | `Retry -> Runtime.syscall "File.read" `r t @@ read ~buf
+    | `Retry -> syscall "File.read" `r t @@ read ~buf
     | `Read 0 -> Ok 0
     | `Read len ->
         Io.Buffer.set_filled buf ~filled:len;
@@ -47,10 +47,10 @@ module Write = Io.Writer.Make (struct
   type t = write_file
 
   let rec write t ~data =
-    match Runtime.Net.Io.writev t [| Io.Buffer.as_cstruct data |] with
+    match Low_level.writev t [| Io.Buffer.as_cstruct data |] with
     | exception Fd.(Already_closed _) -> Error `Closed
     | `Abort reason -> Error (`Unix_error reason)
-    | `Retry -> Runtime.syscall "File.write" `r t @@ write ~data
+    | `Retry -> syscall "File.write" `r t @@ write ~data
     | `Wrote len -> Ok len
 
   let flush _t = Ok ()

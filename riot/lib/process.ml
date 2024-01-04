@@ -1,4 +1,4 @@
-open Runtime
+open Runtime.Import
 module P = Runtime.Core.Process
 
 type t = P.t
@@ -17,7 +17,7 @@ let pp_reason = P.pp_reason
 module Messages = P.Messages
 
 let pp = P.pp
-let where_is = Import.where_is
+let where_is = where_is
 
 let rec await_name name =
   match where_is name with
@@ -26,4 +26,4 @@ let rec await_name name =
       yield ();
       await_name name
 
-let demonitor = Import.demonitor
+let demonitor = demonitor

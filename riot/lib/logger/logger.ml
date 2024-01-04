@@ -1,5 +1,6 @@
-open Runtime
-module Scheduler_uid = Core.Scheduler_uid
+module Scheduler_uid = Runtime.Core.Scheduler_uid
+module Log = Runtime.Log
+open Global
 
 type opts = { print_source : bool; print_time : bool; color_output : bool }
 
@@ -7,7 +8,7 @@ type ('a, 'b) logger_format =
   (('a, Format.formatter, unit, 'b) format4 -> 'a) -> 'b
 
 type namespace = string list
-type level = Debug | Error | Info | Trace | Warn
+type level = Log.level = Debug | Error | Info | Trace | Warn
 
 module Level = struct
   let to_int = function

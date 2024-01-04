@@ -7,10 +7,12 @@ module Message = Message
 module Net = Net
 module Pid = Pid
 module Process = Process
-module Queue = Runtime.Lf_queue
+module Queue = Queue
 module Ref = Ref
 module SSL = Ssl
 module Supervisor = Supervisor
 module Task = Task
 module Telemetry = Telemetry_app
 module Timeout = Timeout
+module Fd = Fd
+include Global

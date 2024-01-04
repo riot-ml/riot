@@ -1,3 +1,5 @@
+open Runtime.Import
+
 module Logger = Logger.Make (struct
   let namespace = [ "riot"; "io" ]
 end)
@@ -126,17 +128,17 @@ let rec single_read fd ~buf =
   match Low_level.readv fd [| Buffer.as_cstruct buf |] with
   | `Abort err -> Error (`Unix_error err)
   | `Read read -> Ok read
-  | `Retry -> Runtime.syscall "single_read" `r fd @@ single_read ~buf
+  | `Retry -> syscall "single_read" `r fd @@ single_read ~buf
 
 let rec single_write fd ~data =
   match Low_level.writev fd [| Buffer.as_cstruct data |] with
   | `Abort err -> Error (`Unix_error err)
   | `Wrote bytes -> Ok bytes
-  | `Retry -> Runtime.syscall "single_write" `w fd @@ single_write ~data
+  | `Retry -> syscall "single_write" `w fd @@ single_write ~data
 
-let await_readable fd fn = Runtime.syscall "custom" `r fd fn
-let await_writeable fd fn = Runtime.syscall "custom" `w fd fn
-let await fd mode fn = Runtime.syscall "custom" mode fd fn
+let await_readable fd fn = syscall "custom" `r fd fn
+let await_writeable fd fn = syscall "custom" `w fd fn
+let await fd mode fn = syscall "custom" mode fd fn
 
 module type Write = sig
   type t

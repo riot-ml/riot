@@ -69,10 +69,7 @@ module Buffer = struct
     let inner = Cstruct.of_string ~off:0 ~len str in
     of_cstruct ~filled:len inner
 
-  let to_string t =
-    Logger.trace (fun f -> f "to_string pos=%d fill=%d" t.position t.filled);
-    Cstruct.to_string t.inner
-
+  let to_string t = Cstruct.to_string t.inner
   let with_capacity capacity = of_cstruct ~filled:0 (Cstruct.create capacity)
 
   let sub ?(off = 0) ?len t =
@@ -81,7 +78,7 @@ module Buffer = struct
     let capacity = inner.len in
     { inner; capacity; position = 0; filled = capacity }
 
-  let split ~on t =
+  let split ?(max = 1) ~on t =
     let splits = ref [] in
     let window_size = String.length on in
     let current = ref t in
@@ -108,6 +105,9 @@ module Buffer = struct
           splits := split :: !splits;
           (* move our current to after the window *)
           let rest = sub ~off:(off + window_size) !current in
+          if List.length !splits = max then (
+            splits := rest :: !splits;
+            raise_notrace Done);
           current := rest;
           last_off := 0)
         else last_off := off + 1

@@ -484,7 +484,7 @@ module IO : sig
 
     val empty : t
     val concat : t -> t -> t
-    val split : on:string -> t -> t list
+    val split : ?max:int -> on:string -> t -> t list
     val as_cstruct : t -> Cstruct.t
     val consume : t -> int -> unit
     val copy : src:t -> dst:t -> int

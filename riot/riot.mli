@@ -148,6 +148,15 @@ module Process : sig
 
       NOTE: this function will block the process indefinitely.
   *)
+
+  val demonitor : Pid.t -> unit
+  (* [demonitor pid] removes the monitor from ourselves to [pid].
+
+     This means that when [pid] dies, we will not receive a message.
+
+     If we call [demonitor pid] {i after} [pid] died and the message was queued,
+     we will receive the monitoring message.
+  *)
 end
 
 (** A Riot `Application` can be used to encapsulate functionality that must

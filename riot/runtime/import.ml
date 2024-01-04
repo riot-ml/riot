@@ -133,6 +133,12 @@ let monitor pid1 pid2 =
   | Some proc -> Process.add_monitor proc pid1
   | None -> ()
 
+let demonitor pid1 pid2 =
+  let pool = _get_pool () in
+  match Proc_table.get pool.processes pid2 with
+  | Some proc -> Process.remove_monitor proc pid1
+  | None -> ()
+
 let register pid name =
   let pool = _get_pool () in
   Proc_registry.register pool.registry pid name

@@ -1,5 +1,3 @@
-open Runtime
-
 type 'res req = ..
 type 'state init_result = Ok of 'state | Error | Ignore
 

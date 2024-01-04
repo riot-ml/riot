@@ -1,4 +1,5 @@
 open Runtime
+module Scheduler_uid = Core.Scheduler_uid
 
 type opts = { print_source : bool; print_time : bool; color_output : bool }
 
@@ -41,7 +42,7 @@ end
 type log = {
   level : level;
   ts : Ptime.t;
-  src : Scheduler_uid.t * Pid.t;
+  src : Scheduler_uid.t * Core.Pid.t;
   ns : namespace;
   message : string;
 }

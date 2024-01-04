@@ -1,5 +1,3 @@
-open Runtime
-
 module type Intf = sig
   val name : string
 

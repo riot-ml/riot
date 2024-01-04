@@ -1,5 +1,3 @@
-open Runtime
-
 val name : string
 val start : unit -> (Pid.t, 'a) result
 

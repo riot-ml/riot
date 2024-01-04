@@ -1,6 +1,6 @@
 module Log = Log
 module Net = Net
-include Core
+module Core = Core
 include Import
 include Util
 include Core.Proc_registry.Exn

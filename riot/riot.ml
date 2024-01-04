@@ -14,7 +14,7 @@ let run ?(rnd = Random.State.make_self_init ()) ?workers main =
 
   Log.debug (fun f -> f "Initializing Riot runtime...");
   Printexc.record_backtrace true;
-  Pid.reset ();
+  Core.Pid.reset ();
   Scheduler.Uid.reset ();
 
   let sch0 = Scheduler.make ~rnd () in

@@ -85,6 +85,7 @@ val pp_reason : Format.formatter -> exit_reason -> unit
 val pp_state : Format.formatter -> state -> unit
 val read_save_queue : t -> unit
 val receive_timeout : t -> unit Ref.t option
+val remove_monitor : t -> Pid.t -> unit
 val send_message : t -> Message.t -> unit
 val set_cont : t -> exit_reason Proc_state.t -> unit
 val set_flag : t -> process_flag -> unit

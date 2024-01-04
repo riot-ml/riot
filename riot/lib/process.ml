@@ -1,22 +1,22 @@
 open Runtime
+module P = Runtime.Core.Process
 
-type t = Runtime.Process.t
-type priority = Runtime.Process.priority = High | Normal | Low
+type t = P.t
+type priority = P.priority = High | Normal | Low
+type process_flag = P.process_flag = Trap_exit of bool | Priority of priority
 
-type process_flag = Runtime.Process.process_flag =
-  | Trap_exit of bool
-  | Priority of priority
-
-type exit_reason = Runtime.Process.exit_reason =
+type exit_reason = P.exit_reason =
   | Normal
   | Exit_signal
   | Bad_link
   | Link_down of Pid.t
   | Exception of exn
 
-module Messages = Runtime.Process.Messages
+let pp_reason = P.pp_reason
 
-let pp = Runtime.Process.pp
+module Messages = P.Messages
+
+let pp = P.pp
 let where_is = Runtime.where_is
 
 let rec await_name name =
@@ -25,3 +25,5 @@ let rec await_name name =
   | None ->
       yield ();
       await_name name
+
+let demonitor pid = demonitor (self ()) pid

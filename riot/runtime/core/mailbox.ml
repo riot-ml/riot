@@ -8,6 +8,10 @@ let queue t msg =
   Atomic.incr t.size;
   Lf_queue.push t.queue msg
 
+let queue_front t msg =
+  Atomic.incr t.size;
+  Lf_queue.push_head t.queue msg
+
 let next (t : t) =
   match Lf_queue.pop t.queue with
   | Some msg ->

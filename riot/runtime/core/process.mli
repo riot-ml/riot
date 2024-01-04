@@ -94,3 +94,4 @@ val set_receive_timeout : t -> unit Ref.t -> unit
 val should_awake : t -> bool
 val sid : t -> Scheduler_uid.t
 val state : t -> state
+val flush_monitor_message : t -> Pid.t -> unit

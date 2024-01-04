@@ -280,3 +280,15 @@ let send_message t msg =
     let envelope = Message.envelope msg in
     Mailbox.queue t.mailbox envelope;
     if is_waiting t then mark_as_runnable t)
+
+let flush_monitor_message t pid =
+  let[@tail_mod_cons] rec find_flush_message () =
+    match next_message t with
+    | None -> []
+    | Some Message.{ msg = Messages.Monitor (Process_down pid'); _ }
+      when Pid.equal pid pid' ->
+        []
+    | Some env -> env :: find_flush_message ()
+  in
+  let messages_to_requeue = find_flush_message () in
+  List.iter (Mailbox.queue_front t.mailbox) messages_to_requeue

@@ -26,4 +26,4 @@ let rec await_name name =
       yield ();
       await_name name
 
-let demonitor pid = demonitor (self ()) pid
+let demonitor = demonitor

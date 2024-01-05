@@ -10,22 +10,7 @@ exception Malformed of string
 
 let of_string str =
   let length = Str.length str in
-  let buf = Bytes.create length in
-  let decoder = Uutf.decoder ~encoding:`UTF_8 (`String str) in
-  let pos = ref 0 in
-  let add char =
-    let n = Bytes.set_utf_8_uchar buf !pos char in
-    pos := !pos + n
-  in
-  for _i = 0 to length - 1 do
-    match Uutf.decode decoder with
-    | `Uchar char -> add char
-    | `Malformed reason ->
-        raise_notrace (Malformed (Printf.sprintf "%S" reason))
-    | `Await -> ()
-    | `End -> ()
-  done;
-  let inner = [ Bytes.unsafe_to_string buf ] in
+  let inner = [ str ] in
   { inner; length; offset = 0 }
 
 let to_string t =

@@ -78,7 +78,7 @@ module Iter = struct
   exception Byte_not_found
 
   let next_bit _t = 0
-  let next_bits ~size:_ _t = 0L
+  let next_bits ~size:_ _t = 0
   let next_byte _t = empty
   let next_bytes ~size:_ _t = empty
   let next_utf8 _t = empty
@@ -94,7 +94,12 @@ module Transient = struct
   type string = t
   type t = T
 
-  let add_string _str t = t
+  let create () = T
+  let add_string _t ?size:_ _str = ()
+  let add_bits _t ?size:_ _str = ()
+  let add_utf8 _t ?size:_ _utf8 = ()
+  let add_literal_string _t ?size:_ _str = ()
+  let add_literal_int _t ?size:_ _str = ()
   let commit _t = empty
 end
 

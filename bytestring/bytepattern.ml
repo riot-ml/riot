@@ -211,45 +211,64 @@ module Lower = struct
   type t =
     | Empty
     | Bypass of string
-    | Create_iter of string
     | Create_transient of string
     | Commit_transient of string
-    | Add_rest of { iter : string }
-    | Add_next_utf8 of { iter : string }
-    | Add_next_fixed_bits of { iter : string; size : int }
-    | Add_next_dynamic_bits of { iter : string; expr : Parsetree.expression }
-    | Add_next_dynamic_bytes of { iter : string; expr : Parsetree.expression }
-    | Add_next_dynamic_utf8 of { iter : string; expr : Parsetree.expression }
-    | Add_literal_int of { value : int }
-    | Add_literal_string of { value : string }
+    | Add_rest of { src : string }
+    | Add_next_utf8 of { src : string }
+    | Add_next_fixed_bits of { src : string; size : int }
+    | Add_next_dynamic_bits of { src : string; expr : Parsetree.expression }
+    | Add_next_dynamic_bytes of { src : string; expr : Parsetree.expression }
+    | Add_next_dynamic_utf8 of { src : string; expr : Parsetree.expression }
+    | Add_int_fixed_bits of { value : int; size : int }
+    | Add_int_dynamic_bits of { value : int; expr : Parsetree.expression }
+    | Add_int_dynamic_bytes of { value : int; expr : Parsetree.expression }
+    | Add_string_utf8 of { value : string }
+    | Add_string_bytes of { value : string }
+    | Add_string_dynamic_bytes of {
+        value : string;
+        expr : Parsetree.expression;
+      }
+    | Add_string_dynamic_utf8 of { value : string; expr : Parsetree.expression }
 
   let pp_one fmt t =
     match t with
     | Empty -> Format.fprintf fmt "Empty"
     | Bypass string -> Format.fprintf fmt "Bypass(%S)" string
-    | Create_iter string -> Format.fprintf fmt "Create_iter(%S)" string
     | Create_transient string ->
         Format.fprintf fmt "Create_transient(%S)" string
     | Commit_transient string ->
         Format.fprintf fmt "Commit_transient(%S)" string
-    | Add_rest { iter } -> Format.fprintf fmt "Add_rest {iter=%S}" iter
-    | Add_next_utf8 { iter } ->
-        Format.fprintf fmt "Add_next_utf8 {iter=%S)" iter
-    | Add_next_fixed_bits { iter; size } ->
-        Format.fprintf fmt "Add_next_fixed_bits {iter=%S; size=%d}" iter size
-    | Add_next_dynamic_bits { iter; expr } ->
-        Format.fprintf fmt "Add_next_dynamic_bits {iter=%s; expr=%S}" iter
+    | Add_rest { src } -> Format.fprintf fmt "Add_rest {src=%S}" src
+    | Add_next_utf8 { src } -> Format.fprintf fmt "Add_next_utf8 {src=%S)" src
+    | Add_next_fixed_bits { src; size } ->
+        Format.fprintf fmt "Add_next_fixed_bits {src=%S; size=%d}" src size
+    | Add_next_dynamic_bits { src; expr } ->
+        Format.fprintf fmt "Add_next_dynamic_bits {src=%s; expr=%S}" src
           (Pprintast.string_of_expression expr)
-    | Add_next_dynamic_bytes { iter; expr } ->
-        Format.fprintf fmt "Add_next_dynamic_bytes {iter=%s; expr=%S}" iter
+    | Add_next_dynamic_bytes { src; expr } ->
+        Format.fprintf fmt "Add_next_dynamic_bytes {src=%s; expr=%S}" src
           (Pprintast.string_of_expression expr)
-    | Add_next_dynamic_utf8 { iter; expr } ->
-        Format.fprintf fmt "Add_next_dynamic_utf8 {iter=%s; expr=%S}" iter
+    | Add_next_dynamic_utf8 { src; expr } ->
+        Format.fprintf fmt "Add_next_dynamic_utf8 {src=%s; expr=%S}" src
           (Pprintast.string_of_expression expr)
-    | Add_literal_int { value } ->
-        Format.fprintf fmt "Add_literal_int {value=%d}" value
-    | Add_literal_string { value } ->
-        Format.fprintf fmt "Add_literal_string {value=%S}" value
+    | Add_int_fixed_bits { value; size } ->
+        Format.fprintf fmt "Add_int_fixed_bits {value=%d; size=%d}" value size
+    | Add_int_dynamic_bits { value; expr } ->
+        Format.fprintf fmt "Add_int_dynamic_bits {value=%d; size=%S}" value
+          (Pprintast.string_of_expression expr)
+    | Add_int_dynamic_bytes { value; expr } ->
+        Format.fprintf fmt "Add_int_dynamic_bytes {value=%d; size=%S}" value
+          (Pprintast.string_of_expression expr)
+    | Add_string_utf8 { value } ->
+        Format.fprintf fmt "Add_string_utf8 {value=%S}" value
+    | Add_string_bytes { value } ->
+        Format.fprintf fmt "Add_string_bytes {value=%S}" value
+    | Add_string_dynamic_bytes { value; expr } ->
+        Format.fprintf fmt "Add_string_dynamic_bytes {value=%S; expr=%S}" value
+          (Pprintast.string_of_expression expr)
+    | Add_string_dynamic_utf8 { value; expr } ->
+        Format.fprintf fmt "Add_string_dynamic_utf8 {value=%S; expr=%S}" value
+          (Pprintast.string_of_expression expr)
 
   let pp fmt t =
     Format.fprintf fmt "[\r\n  ";
@@ -270,50 +289,69 @@ module Lower = struct
     | [ Bind { name; size = Rest } ] -> [ Bypass name ]
     | pats ->
         let trns = "_trns" in
-        let iterators = create_iterators pats [] in
-        let create_transient, commit_transient =
-          if List.length iterators > 0 then
-            ([ Create_transient trns ], [ Commit_transient trns ])
-          else ([], [])
-        in
-        create_transient @ iterators @ create_ops pats [] @ commit_transient
-
-  and create_iterators pats acc =
-    match pats with
-    | [] -> Set.(of_list acc |> to_list)
-    | Bind { name; _ } :: rest ->
-        (* log "create_iter %s\n" name; *)
-        let acc = Create_iter name :: acc in
-        create_iterators rest acc
-    | _ :: rest -> create_iterators rest acc
+        [ Create_transient trns ] @ create_ops pats []
+        @ [ Commit_transient trns ]
 
   and create_ops pats acc =
     match pats with
     | [] -> List.rev acc
-    | Bind { name = iter; size = Rest } :: rest ->
-        (* log "add_rest %s\n" iter; *)
-        create_ops rest (Add_rest { iter } :: acc)
-    | Bind { name = iter; size = Utf8 } :: rest ->
-        (* log "add_next_utf8 %s\n" iter; *)
-        create_ops rest (Add_next_utf8 { iter } :: acc)
-    | Bind { name = iter; size = Fixed_bits size } :: rest ->
-        (* log "add_next_fixe_bits %s %d\n" iter size; *)
-        create_ops rest (Add_next_fixed_bits { iter; size } :: acc)
-    | Bind { name = iter; size = Dynamic_bits expr } :: rest ->
-        (* log "add_dynamic_bits %s %s\n" iter expr; *)
-        create_ops rest (Add_next_dynamic_bits { iter; expr } :: acc)
-    | Bind { name = iter; size = Dynamic_utf8 expr } :: rest ->
-        (* log "add_dynamic_utf8 %s %s\n" iter expr; *)
-        create_ops rest (Add_next_dynamic_utf8 { iter; expr } :: acc)
-    | Bind { name = iter; size = Dynamic_bytes expr } :: rest ->
-        (* log "add_dynamic_bytes %s %s\n" iter expr; *)
-        create_ops rest (Add_next_dynamic_bytes { iter; expr } :: acc)
-    | Expect { value = Number value; size } :: rest ->
-        (* log "add_literal_int  %d\n" value; *)
-        create_ops rest (Add_literal_int { value } :: acc)
-    | Expect { value = String value; size } :: rest ->
-        (* log "add_literal_string %s\n" value; *)
-        create_ops rest (Add_literal_string { value } :: acc)
+    | Bind { name = src; size = Rest } :: rest ->
+        (* log "add_rest %s\n" src; *)
+        create_ops rest (Add_rest { src } :: acc)
+    | Bind { name = src; size = Utf8 } :: rest ->
+        (* log "add_next_utf8 %s\n" src; *)
+        create_ops rest (Add_next_utf8 { src } :: acc)
+    | Bind { name = src; size = Fixed_bits size } :: rest ->
+        (* log "add_next_fixe_bits %s %d\n" src size; *)
+        create_ops rest (Add_next_fixed_bits { src; size } :: acc)
+    | Bind { name = src; size = Dynamic_bits expr } :: rest ->
+        (* log "add_dynamic_bits %s %s\n" src expr; *)
+        create_ops rest (Add_next_dynamic_bits { src; expr } :: acc)
+    | Bind { name = src; size = Dynamic_utf8 expr } :: rest ->
+        (* log "add_dynamic_utf8 %s %s\n" src expr; *)
+        create_ops rest (Add_next_dynamic_utf8 { src; expr } :: acc)
+    | Bind { name = src; size = Dynamic_bytes expr } :: rest ->
+        (* log "add_dynamic_bytes %s %s\n" src expr; *)
+        create_ops rest (Add_next_dynamic_bytes { src; expr } :: acc)
+    (*
+      handle number literals
+    *)
+    | Expect { value = Number value; size = Utf8 | Dynamic_utf8 _ } :: _rest ->
+        failwith
+          (Format.sprintf
+             "Invalid size `utf8` for number %d. UTF-8 sizes expect the value \
+              to be a string literal."
+             value)
+    | Expect { value = Number value; size = Rest } :: _rest ->
+        failwith
+          (Format.sprintf
+             "Invalid size `bytes` for number %d. The size `bytes` expects the \
+              value to be a string literal."
+             value)
+    | Expect { value = Number value; size = Dynamic_bits expr } :: rest ->
+        create_ops rest (Add_int_dynamic_bits { value; expr } :: acc)
+    | Expect { value = Number value; size = Dynamic_bytes expr } :: rest ->
+        create_ops rest (Add_int_dynamic_bytes { value; expr } :: acc)
+    | Expect { value = Number value; size = Fixed_bits size } :: rest ->
+        create_ops rest (Add_int_fixed_bits { value; size } :: acc)
+    (*
+      handle string literals
+    *)
+    | Expect { value = String value; size = Fixed_bits _ | Dynamic_bits _ }
+      :: _rest ->
+        failwith
+          (Format.sprintf
+             "Invalid string %S with size specified in bits. Bits sizes \
+              expected the value to be an int."
+             value)
+    | Expect { value = String value; size = Utf8 } :: rest ->
+        create_ops rest (Add_string_utf8 { value } :: acc)
+    | Expect { value = String value; size = Rest } :: rest ->
+        create_ops rest (Add_string_bytes { value } :: acc)
+    | Expect { value = String value; size = Dynamic_bytes expr } :: rest ->
+        create_ops rest (Add_string_dynamic_bytes { value; expr } :: acc)
+    | Expect { value = String value; size = Dynamic_utf8 expr } :: rest ->
+        create_ops rest (Add_string_dynamic_utf8 { value; expr } :: acc)
 end
 
 let lower = Lower.lower
@@ -332,11 +370,6 @@ module Translator = struct
     match lower with
     | [ Empty ] -> [%expr Bytestring.empty]
     | [ Lower.Bypass name ] -> [%expr [%e id ~loc name]]
-    | Lower.Create_iter name :: rest ->
-        let iter_name = var ~loc ("_iter_" ^ name) in
-        [%expr
-          let [%p iter_name] = Bytestring.to_iter [%e id ~loc name] in
-          [%e to_expr ~loc rest]]
     | Lower.Create_transient name :: rest ->
         let trns_name = var ~loc name in
         [%expr
@@ -344,61 +377,74 @@ module Translator = struct
           [%e to_expr ~loc rest]]
     | Lower.Commit_transient name :: [] ->
         [%expr Bytestring.Transient.commit [%e id ~loc name]]
-    | Lower.Commit_transient name :: _rest ->
+    | Lower.Commit_transient _name :: _rest ->
         failwith "commit transient must be the last action we translate"
-    | Lower.Add_rest { iter } :: rest ->
-        let iter = id ~loc ("_iter_" ^ iter) in
+    | Lower.Add_rest { src } :: rest ->
         [%expr
-          Bytestring.Transient.add_string _trns (Bytestring.Iter.rest [%e iter]);
+          Bytestring.Transient.add_string _trns [%e id ~loc src];
           [%e to_expr ~loc rest]]
-    | Lower.Add_next_utf8 { iter } :: rest ->
-        let iter = id ~loc ("_iter_" ^ iter) in
+    | Lower.Add_next_utf8 { src } :: rest ->
         [%expr
-          Bytestring.Transient.add_string _trns
-            (Bytestring.Iter.next_utf8 [%e iter]);
+          Bytestring.Transient.add_utf8 _trns [%e id ~loc src];
           [%e to_expr ~loc rest]]
-    | Lower.Add_next_fixed_bits { iter; size } :: rest ->
-        let iter = id ~loc ("_iter_" ^ iter) in
+    | Lower.Add_next_fixed_bits { src; size } :: rest ->
         [%expr
-          Bytestring.Transient.add_string _trns
-            (Bytestring.Iter.next_bits
-               ~size:[%e Exp.constant (Const.int size)]
-               [%e iter]);
+          Bytestring.Transient.add_bits _trns
+            ~size:[%e Exp.constant (Const.int size)]
+            [%e id ~loc src];
           [%e to_expr ~loc rest]]
-    | Lower.Add_next_dynamic_bits { iter; expr } :: rest ->
-        let iter = id ~loc ("_iter_" ^ iter) in
-        let expr = ([%expr expr] [@subst let expr : string = expr]) in
+    | Lower.Add_next_dynamic_bits { src; expr } :: rest ->
         [%expr
-          Bytestring.Transient.add_string _trns
-            (Bytestring.Iter.next_bits ~size:[%e expr] [%e iter]);
+          Bytestring.Transient.add_bits _trns ~size:[%e expr] [%e id ~loc src];
           [%e to_expr ~loc rest]]
-    | Lower.Add_next_dynamic_bytes { iter; expr } :: rest ->
-        let iter = id ~loc ("_iter_" ^ iter) in
+    | Lower.Add_next_dynamic_bytes { src; expr } :: rest ->
         [%expr
-          Bytestring.Transient.add_string _trns
-            (Bytestring.Iter.next_bytes ~size:[%e expr] [%e iter]);
+          Bytestring.Transient.add_string _trns ~size:[%e expr] [%e id ~loc src];
           [%e to_expr ~loc rest]]
-    | Lower.Add_next_dynamic_utf8 { iter; expr } :: rest ->
-        let iter = id ~loc ("_iter_" ^ iter) in
-        let expr = ([%expr e] [@subst let e : string = expr]) in
+    | Lower.Add_next_dynamic_utf8 { src; expr } :: rest ->
         [%expr
-          Bytestring.Transient.add_string _trns
-            (Bytestring.Iter.next_utf8_seq ~size:[%e expr] [%e iter]);
+          Bytestring.Transient.add_string _trns ~size:[%e expr] [%e id ~loc src];
           [%e to_expr ~loc rest]]
-    | Lower.Add_literal_int { value } :: rest ->
+    | Lower.Add_int_dynamic_bytes { value; expr } :: rest ->
+        let value = Exp.constant (Const.int value) in
         [%expr
-          Bytestring.Transient.add_literal_int _trns int;
+          Bytestring.Transient.add_literal_int _trns ~size:([%e expr] * 8) [%e value];
           [%e to_expr ~loc rest]]
-        [@subst let int : int = value]
-    | Lower.Add_literal_string { value } :: rest ->
-        let str = [%expr Exp.constant (Const.string value)] in
+    | Lower.Add_int_dynamic_bits { value; expr } :: rest ->
+        let value = Exp.constant (Const.int value) in
         [%expr
-          Bytestring.Transient.add_literal_string _trns [%e str];
+          Bytestring.Transient.add_literal_int _trns ~size:[%e expr] [%e value ];
+          [%e to_expr ~loc rest]]
+    | Lower.Add_int_fixed_bits { value; size } :: rest ->
+        let size = Exp.constant (Const.int size) in
+        let value = Exp.constant (Const.int value) in
+        [%expr
+          Bytestring.Transient.add_literal_int _trns ~size:[%e size] [%e value];
+          [%e to_expr ~loc rest]]
+    | Lower.Add_string_dynamic_utf8 { value; expr } :: rest ->
+        let value = Exp.constant (Const.string value) in
+        [%expr
+          Bytestring.Transient.add_literal_utf8 _trns ~size:[%e expr] [%e value];
+          [%e to_expr ~loc rest]]
+    | Lower.Add_string_dynamic_bytes { value; expr } :: rest ->
+        let value = Exp.constant (Const.string value) in
+        [%expr
+          Bytestring.Transient.add_literal_utf8 _trns ~size:[%e expr] [%e value];
+          [%e to_expr ~loc rest]]
+    | Lower.Add_string_utf8 { value } :: rest ->
+        let value = Exp.constant (Const.string value) in
+        [%expr
+          Bytestring.Transient.add_literal_utf8 _trns [%e value];
+          [%e to_expr ~loc rest]]
+    | Lower.Add_string_bytes { value } :: rest ->
+        let value = Exp.constant (Const.string value) in
+        [%expr
+          Bytestring.Transient.add_literal_string _trns [%e value];
           [%e to_expr ~loc rest]]
     | _ -> failwith "invalid lower reprt"
 
-  let to_transient_builder ~loc (lower : Lower.t list) = 
-    [%expr begin [%e to_expr ~loc lower ] end ]
+  let to_transient_builder ~loc (lower : Lower.t list) =
+    [%expr [%e to_expr ~loc lower]]
 end
 
 let to_transient_builder = Translator.to_transient_builder

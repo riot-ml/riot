@@ -30,6 +30,9 @@ let () =
   test "all::1024" [ IDENT "all"; COLON_COLON; NUMBER 1024 ];
   test "all::utf8" [ IDENT "all"; COLON_COLON; IDENT "utf8" ];
 
+  test "2112::utf8" [ NUMBER 2112; COLON_COLON; IDENT "utf8" ];
+  test {|"rush"::utf8|} [ STRING "rush"; COLON_COLON; IDENT "utf8" ];
+
   test "all::byte(10)"
     [ IDENT "all"; COLON_COLON; IDENT "byte"; EXPRESSION (int 10) ];
 
@@ -127,6 +130,8 @@ let () =
   test "all::utf8" [ Bind { name = "all"; size = Utf8 } ];
   test "all::bytes" [ Bind { name = "all"; size = Rest } ];
   test "all::bytes(10)" [ Bind { name = "all"; size = Dynamic_bytes (int 10) } ];
+  test "2112::utf8" [ Expect { value = Number 2112; size = Utf8 } ];
+  test {|"rush"::utf8|} [ Expect { value = String "rush"; size = Utf8 } ];
   test "len::8, body::bytes(len)"
     [
       Bind { name = "len"; size = Fixed_bits 8 };
@@ -200,6 +205,42 @@ let () =
     [
       Create_transient "_trns";
       Add_next_dynamic_bytes { src = "all"; expr = int 10 };
+      Commit_transient "_trns";
+    ];
+  test "2112::1"
+    [
+      Create_transient "_trns";
+      Add_int_fixed_bits { value = 2112; size = 1 };
+      Commit_transient "_trns";
+    ];
+  test "2112::bits(1234)"
+    [
+      Create_transient "_trns";
+      Add_int_dynamic_bits { value = 2112; expr = int 1234 };
+      Commit_transient "_trns";
+    ];
+  test "2112::bytes(1234)"
+    [
+      Create_transient "_trns";
+      Add_int_dynamic_bytes { value = 2112; expr = int 1234 };
+      Commit_transient "_trns";
+    ];
+  test {|"rush"::utf8|}
+    [
+      Create_transient "_trns";
+      Add_string_utf8 { value = "rush" };
+      Commit_transient "_trns";
+    ];
+  test {|"rush"::bytes|}
+    [
+      Create_transient "_trns";
+      Add_string_bytes { value = "rush" };
+      Commit_transient "_trns";
+    ];
+  test {|"rush"::bytes(3)|}
+    [
+      Create_transient "_trns";
+      Add_string_dynamic_bytes { value = "rush"; expr = int 3 };
       Commit_transient "_trns";
     ];
   test "len::8, body::bytes(len)"
@@ -292,10 +333,42 @@ let () =
       Bytestring.Transient.add_bits _trns ~size:8 one;
       Bytestring.Transient.add_string _trns all;
       Bytestring.Transient.commit _trns];
+  test "2112::1"
+    [%expr
+      let _trns = Bytestring.Transient.create () in
+      Bytestring.Transient.add_literal_int _trns ~size:1 2112;
+      Bytestring.Transient.commit _trns];
+  test "2112::bits(1234)"
+    [%expr
+      let _trns = Bytestring.Transient.create () in
+      Bytestring.Transient.add_literal_int _trns ~size:1234 2112;
+      Bytestring.Transient.commit _trns];
+  test "2112::bytes(1234)"
+    [%expr
+      let _trns = Bytestring.Transient.create () in
+      Bytestring.Transient.add_literal_int _trns ~size:(1234 * 8) 2112;
+      Bytestring.Transient.commit _trns];
+
+  test {|"rush"::utf8|}
+    [%expr
+      let _trns = Bytestring.Transient.create () in
+      Bytestring.Transient.add_literal_utf8 _trns "rush";
+      Bytestring.Transient.commit _trns];
+  test {|"rush"::bytes|}
+    [%expr
+      let _trns = Bytestring.Transient.create () in
+      Bytestring.Transient.add_literal_string _trns "rush";
+      Bytestring.Transient.commit _trns];
+  test {|"rush"::bytes(3)|}
+    [%expr
+      let _trns = Bytestring.Transient.create () in
+      Bytestring.Transient.add_literal_string _trns ~size:3 "rush";
+      Bytestring.Transient.commit _trns];
+
   test
     {| fin::1, comp::1, _rsv::2,
         1::4, 0::1, 127::7,
-        len::bytes(8), mask::32,
+        len::bits(8*8), mask::32,
         payload::bytes(len), rest |}
     [%expr
       let _trns = Bytestring.Transient.create () in
@@ -305,7 +378,7 @@ let () =
       Bytestring.Transient.add_literal_int _trns ~size:4 1;
       Bytestring.Transient.add_literal_int _trns ~size:1 0;
       Bytestring.Transient.add_literal_int _trns ~size:7 127;
-      Bytestring.Transient.add_string _trns ~size:8 len;
+      Bytestring.Transient.add_bits _trns ~size:(8 * 8) len;
       Bytestring.Transient.add_bits _trns ~size:32 mask;
       Bytestring.Transient.add_string _trns ~size:len payload;
       Bytestring.Transient.add_string _trns rest;

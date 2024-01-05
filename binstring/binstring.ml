@@ -70,7 +70,7 @@ let rec concat sep ls acc =
 
 let concat sep ls = concat sep ls empty
 
-module Extract = struct
+module Iter = struct
   exception Invalid_position
   exception Byte_not_found
 

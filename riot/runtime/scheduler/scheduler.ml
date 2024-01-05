@@ -180,7 +180,7 @@ module Scheduler = struct
     let open Proc_state in
     if Process.has_ready_fds proc then k (Continue ())
     else (
-      Log.error (fun f ->
+      Log.trace (fun f ->
           let mode = match mode with `r -> "r" | `w -> "w" | `rw -> "rw" in
           f "Registering %a for Syscall(%s,%s,%a)" Pid.pp proc.pid syscall mode
             Fd.pp fd);
@@ -361,7 +361,7 @@ module Io_scheduler = struct
     Log.debug (fun f -> f "io_tbl(%a)" Io.pp io.io_tbl);
     Io.poll io.io_tbl @@ fun (proc, mode) ->
     Io.unregister_process io.io_tbl proc;
-    Log.error (fun f -> f "io_poll(%a): %a" Fd.Mode.pp mode Process.pp proc);
+    Log.trace (fun f -> f "io_poll(%a): %a" Fd.Mode.pp mode Process.pp proc);
     match Process.state proc with
     | Waiting_io { fd; _ } ->
         Process.set_ready_fds proc [ fd ];

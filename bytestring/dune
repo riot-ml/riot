@@ -8,8 +8,8 @@
  (name bytepattern)
  (modules bytepattern)
  (preprocess
-  (pps sedlex.ppx))
- (libraries sedlex bytestring))
+  (pps sedlex.ppx ppxlib.metaquot))
+ (libraries compiler-libs ppxlib sedlex bytestring))
 
 (library
  (package bytestring)
@@ -24,7 +24,17 @@
  (package bytestring)
  (name bytepattern_test)
  (modules bytepattern_test)
+ (preprocess
+  (pps ppxlib.metaquot))
  (libraries bytepattern))
+
+(test
+ (package bytestring)
+ (name bytepattern_ppx_test)
+ (modules bytepattern_ppx_test)
+ (preprocess
+  (pps ppx_bytestring))
+ (libraries bytestring))
 
 (executable
  (name sub_bench)

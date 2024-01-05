@@ -10,7 +10,9 @@ let () =
   (* UTF-8 Multibyte Characters *)
   let str = of_string "こんに" ^ (of_string "ちは" ^ empty) ^ of_string "世界" in
   assert (to_string str = "こんにちは世界");
-  let str = of_string "🌍" ^ (of_string "" ^ empty ^ of_string "🌎") ^ of_string "🌏" in
+  let str =
+    of_string "🌍" ^ (of_string "" ^ empty ^ of_string "🌎") ^ of_string "🌏"
+  in
   assert (to_string str = "🌍🌎🌏");
 
   (* Empty String *)

@@ -1,34 +1,34 @@
 (library
- (name binstring)
- (modules binstring)
+ (name bytestring)
+ (modules bytestring)
  (libraries cstruct uutf))
 
 (test
  (name get_bits_test)
  (modules get_bits_test)
- (libraries binstring))
+ (libraries bytestring))
 
 (test
  (name get_byte_test)
  (modules get_byte_test)
- (libraries binstring))
+ (libraries bytestring))
 
 (test
  (name sub_test)
  (modules sub_test)
- (libraries binstring))
+ (libraries bytestring))
 
 (test
  (name of_string_test)
  (modules of_string_test)
- (libraries binstring))
+ (libraries bytestring))
 
 (executable
  (name sub_bench)
  (modules sub_bench)
- (libraries binstring scarab))
+ (libraries bytestring scarab))
 
 (executable
  (name concat_bench)
  (modules concat_bench)
- (libraries binstring scarab))
+ (libraries bytestring scarab))

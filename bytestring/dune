@@ -4,32 +4,27 @@
  (libraries cstruct uutf))
 
 (library
-  (package bytestring)
-  (name ppx_bytestring)
-  (modules ppx_bytestring)
-  (kind ppx_rewriter)
-  (libraries compiler-libs ppxlib bytestring)
-  (preprocess (pps ppxlib.metaquot)))
+ (package bytestring)
+ (name bytepattern)
+ (modules bytepattern)
+ (preprocess
+  (pps sedlex.ppx))
+ (libraries sedlex bytestring))
+
+(library
+ (package bytestring)
+ (name ppx_bytestring)
+ (modules ppx_bytestring)
+ (kind ppx_rewriter)
+ (libraries compiler-libs ppxlib bytepattern bytestring)
+ (preprocess
+  (pps ppxlib.metaquot)))
 
 (test
- (name get_bits_test)
- (modules get_bits_test)
- (libraries bytestring))
-
-(test
- (name get_byte_test)
- (modules get_byte_test)
- (libraries bytestring))
-
-(test
- (name sub_test)
- (modules sub_test)
- (libraries bytestring))
-
-(test
- (name of_string_test)
- (modules of_string_test)
- (libraries bytestring))
+ (package bytestring)
+ (name bytepattern_test)
+ (modules bytepattern_test)
+ (libraries bytepattern))
 
 (executable
  (name sub_bench)

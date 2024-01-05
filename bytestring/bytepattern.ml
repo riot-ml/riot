@@ -7,6 +7,7 @@ type token =
   | COLON_COLON
   | EOF
   | NUMBER of int
+  | STRING of string
   | EXPRESSION of Parsetree.expression
 
 type value = String of string | Number of int
@@ -33,6 +34,7 @@ module Lexer = struct
     | COLON_COLON -> Format.fprintf fmt "COLON_COLON"
     | EOF -> Format.fprintf fmt "EOF"
     | NUMBER n -> Format.fprintf fmt "NUMBER(%d)" n
+    | STRING s -> Format.fprintf fmt "STRING(%S)" s
     | EXPRESSION e ->
         Format.fprintf fmt "EXPRESSION(%S)" (Pprintast.string_of_expression e)
 
@@ -59,6 +61,9 @@ module Lexer = struct
     | "(", Star white_space ->
         (* log "(%!"; *)
         expr buf acc
+    | "\"" ->
+        (* log "\"%!"; *)
+        string buf acc
     | ident ->
         let ident = Sedlexing.Utf8.lexeme buf in
         (* log "%s%!" ident; *)
@@ -70,6 +75,17 @@ module Lexer = struct
     | eof ->
         (* log "\n%!"; *)
         acc
+    | _ -> failwith "Unexpected character"
+
+  and string buf ?(str = []) acc =
+    match%sedlex buf with
+    | "\"" ->
+        let str = List.rev str |> String.concat "" in
+        (* log "%s\"%!" str; *)
+        token buf (STRING str :: acc)
+    | any ->
+        let ident = Sedlexing.Utf8.lexeme buf in
+        string buf ~str:(ident :: str) acc
     | _ -> failwith "Unexpected character"
 
   and expr buf ?(exp = []) acc =
@@ -167,6 +183,16 @@ module Parser = struct
     | IDENT name :: rest ->
         (* log "bind %s with implied rest" name; *)
         (bind name Rest, rest)
+    | STRING s :: COLON_COLON :: rest -> (
+        (* log "expect %n:: " n; *)
+        let value = String s in
+        let size, rest = parse_size rest in
+        match expect_comma rest with
+        | `cont rest -> (expect value size, rest)
+        | `halt -> (expect value size, []))
+    | STRING s :: rest ->
+        (* log "expect %d with implied size of 1 byte" n; *)
+        (expect (String s) (Fixed_bits 8), rest)
     | NUMBER n :: COLON_COLON :: rest -> (
         (* log "expect %n:: " n; *)
         let value = Number n in
@@ -176,18 +202,15 @@ module Parser = struct
         | `halt -> (expect value size, []))
     | NUMBER n :: rest ->
         (* log "expect %d with implied size of 1 byte" n; *)
-        (expect (Number n) (Fixed_bits 8), rest)
+        (expect (Number n) (Fixed_bits 1), rest)
     | _ -> failwith "patterns must begin with identifiers or constants"
 
   and parse_size (tokens : token list) =
     match tokens with
-    | NUMBER n :: rest ->
-        (* log "size is fixed bits %d" n; *)
-        (Fixed_bits n, rest)
     | IDENT "bytes" :: EXPRESSION expr :: rest ->
         (* log "dynamic bytes(%s)" expr; *)
         (Dynamic_bytes expr, rest)
-    | IDENT "size" :: EXPRESSION expr :: rest ->
+    | IDENT "bits" :: EXPRESSION expr :: rest ->
         (* log "dynamic bit size(%s)" expr; *)
         (Dynamic_bits expr, rest)
     | IDENT "utf8" :: EXPRESSION expr :: rest ->
@@ -199,6 +222,9 @@ module Parser = struct
     | IDENT "bytes" :: rest ->
         (* log "explicit rest"; *)
         (Rest, rest)
+    | NUMBER n :: rest ->
+        (* log "size is fixed bits %d" n; *)
+        (Fixed_bits n, rest)
     | _ -> failwith "invalid size"
 
   and expect_comma rest =
@@ -403,17 +429,19 @@ module Translator = struct
           [%e to_expr ~loc rest]]
     | Lower.Add_next_dynamic_utf8 { src; expr } :: rest ->
         [%expr
-          Bytestring.Transient.add_string _trns ~size:[%e expr] [%e id ~loc src];
+          Bytestring.Transient.add_utf8 _trns ~size:[%e expr] [%e id ~loc src];
           [%e to_expr ~loc rest]]
     | Lower.Add_int_dynamic_bytes { value; expr } :: rest ->
         let value = Exp.constant (Const.int value) in
         [%expr
-          Bytestring.Transient.add_literal_int _trns ~size:([%e expr] * 8) [%e value];
+          Bytestring.Transient.add_literal_int _trns
+            ~size:([%e expr] * 8)
+            [%e value];
           [%e to_expr ~loc rest]]
     | Lower.Add_int_dynamic_bits { value; expr } :: rest ->
         let value = Exp.constant (Const.int value) in
         [%expr
-          Bytestring.Transient.add_literal_int _trns ~size:[%e expr] [%e value ];
+          Bytestring.Transient.add_literal_int _trns ~size:[%e expr] [%e value];
           [%e to_expr ~loc rest]]
     | Lower.Add_int_fixed_bits { value; size } :: rest ->
         let size = Exp.constant (Const.int size) in
@@ -429,7 +457,8 @@ module Translator = struct
     | Lower.Add_string_dynamic_bytes { value; expr } :: rest ->
         let value = Exp.constant (Const.string value) in
         [%expr
-          Bytestring.Transient.add_literal_utf8 _trns ~size:[%e expr] [%e value];
+          Bytestring.Transient.add_literal_string _trns ~size:[%e expr]
+            [%e value];
           [%e to_expr ~loc rest]]
     | Lower.Add_string_utf8 { value } :: rest ->
         let value = Exp.constant (Const.string value) in

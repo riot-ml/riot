@@ -45,7 +45,8 @@ module Transient : sig
   val add_bits : t -> ?size:int -> int -> unit
   val add_utf8 : t -> ?size:int -> string -> unit
   val add_literal_int : t -> ?size:int -> int -> unit
-  val add_literal_string : t -> ?size:int -> int -> unit
+  val add_literal_utf8 : t -> ?size:int -> Stdlib.String.t -> unit
+  val add_literal_string : t -> ?size:int -> Stdlib.String.t -> unit
   val commit : t -> string
 end
 

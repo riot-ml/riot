@@ -94,13 +94,14 @@ module Transient = struct
   type string = t
   type t = T
 
-  let create () = T
-  let add_string _t ?size:_ _str = ()
   let add_bits _t ?size:_ _str = ()
-  let add_utf8 _t ?size:_ _utf8 = ()
-  let add_literal_string _t ?size:_ _str = ()
   let add_literal_int _t ?size:_ _str = ()
+  let add_literal_string _t ?size:_ _str = ()
+  let add_literal_utf8 _t ?size:_ _str = ()
+  let add_string _t ?size:_ _str = ()
+  let add_utf8 _t ?size:_ _utf8 = ()
   let commit _t = empty
+  let create () = T
 end
 
 let to_transient _t = Transient.T

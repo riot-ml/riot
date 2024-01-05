@@ -11,6 +11,8 @@ let ( let* ) = Result.bind
 module Addr = struct
   include Net.Addr
 
+  let to_string t = t
+
   let of_addr_info
       Unix.{ ai_family; ai_addr; ai_socktype; ai_protocol; ai_canonname } =
     match (ai_family, ai_socktype, ai_addr) with
@@ -43,6 +45,8 @@ module Addr = struct
     match get_info host port with ip :: _ -> Some ip | [] -> None
 
   let get_info (`Tcp (host, port)) = get_info host (Int.to_string port)
+  let ip (`Tcp (ip, _)) = ip
+  let port (`Tcp (_, port)) = port
 end
 
 module Socket = struct

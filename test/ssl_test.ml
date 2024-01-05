@@ -68,10 +68,10 @@ let server port socket =
   in
   echo ()
 
-let client port main =
-  let addr = Net.Addr.(tcp loopback port) in
+let client server_port main =
+  let addr = Net.Addr.(tcp loopback server_port) in
   let conn = Net.Socket.connect addr |> Result.get_ok in
-  Logger.debug (fun f -> f "Connected to server on %d" port);
+  Logger.debug (fun f -> f "Connected to server on %d" server_port);
 
   let host =
     let domain_name = Domain_name.of_string_exn "localhost" in

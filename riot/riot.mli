@@ -584,6 +584,9 @@ module Net : sig
     type tcp_addr
     type stream_addr
 
+    val to_string : tcp_addr -> string
+    val ip : stream_addr -> tcp_addr
+    val port : stream_addr -> int
     val get_info : stream_addr -> stream_addr list
     val loopback : tcp_addr
     val of_unix : Unix.sockaddr -> stream_addr

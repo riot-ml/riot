@@ -11,10 +11,10 @@ let () =
   Riot.run @@ fun () ->
   let _ = Logger.start () |> Result.get_ok in
   Logger.set_log_level (Some Info);
-  let socket, port = Port_finder.next_open_port () in
-  let _server = spawn (fun () -> server port socket) in
+  let socket, server_port = Port_finder.next_open_port () in
+  let _server = spawn (fun () -> server server_port socket) in
 
-  let addr = Net.Addr.(tcp loopback port) in
+  let addr = Net.Addr.(tcp loopback server_port) in
   let socket = Net.Socket.connect addr |> Result.get_ok in
 
   let buf = IO.Buffer.with_capacity 10 in

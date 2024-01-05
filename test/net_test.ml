@@ -41,10 +41,10 @@ let server port socket =
   in
   echo ()
 
-let client port main =
-  let addr = Net.Addr.(tcp loopback port) in
+let client server_port main =
+  let addr = Net.Addr.(tcp loopback server_port) in
   let conn = Net.Socket.connect addr |> Result.get_ok in
-  Logger.debug (fun f -> f "Connected to server on %d" port);
+  Logger.debug (fun f -> f "Connected to server on %d" server_port);
   let data = IO.Buffer.of_string "hello world" in
   let rec send_loop n =
     if n = 0 then Logger.error (fun f -> f "client retried too many times")

@@ -8,6 +8,7 @@ module Net = Net
 module Pid = Pid
 module Process = Process
 module Queue = Queue
+module Hashmap = Hashmap
 module Ref = Ref
 module SSL = Ssl
 module Supervisor = Supervisor

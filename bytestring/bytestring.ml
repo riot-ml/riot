@@ -6,6 +6,7 @@ type t = { inner : string list; offset : int; length : int }
 let empty = { inner = []; length = 0; offset = 0 }
 let length t = t.length
 
+exception No_match
 exception Malformed of string
 
 let of_string str =
@@ -86,6 +87,8 @@ module Iter = struct
   let rest _t = empty
   let expect_bits _bit _t = ()
   let expect_bytes _bytes _t = ()
+  let expect_literal_int _t _bit = ()
+  let expect_literal_string _t _str = ()
 end
 
 let to_iter _t = Iter.I

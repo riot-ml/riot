@@ -4,6 +4,7 @@ type t
 val empty : t
 val length : t -> int
 
+exception No_match
 exception Malformed of string
 
 val of_string : string -> t
@@ -30,8 +31,10 @@ module Iter : sig
   val next_utf8 : t -> string
   val next_utf8_seq : len:int -> t -> string
   val rest : t -> string
-  val expect_bits : int -> t -> unit
-  val expect_bytes : string -> t -> unit
+  val expect_bits : t -> int -> unit
+  val expect_bytes : t -> string -> unit
+  val expect_literal_int : t -> int -> unit
+  val expect_literal_string : t -> int -> unit
 end
 
 val to_iter : t -> Iter.t

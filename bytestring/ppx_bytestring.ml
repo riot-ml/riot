@@ -6,9 +6,44 @@ let mk_expression ~ctxt:_ expr =
   let loc = expr.pexp_loc in
   match expr.pexp_desc with
   | Pexp_constant (Pconst_string (value, _, _)) ->
-      let bytepattern = Bytepattern.(parse value |> lower) in
+      let bytepattern = Bytepattern.parse value in
       Bytepattern.to_transient_builder ~loc bytepattern
-  | _ -> expr
+  | Pexp_match (data, cases) ->
+      let cases =
+        List.map
+          (fun (case : case) ->
+            match case.pc_lhs with
+            | { ppat_desc = Ppat_constant (Pconst_string (value, _, _)); _ } ->
+                let bytepattern = Bytepattern.parse value in
+                let body = case.pc_rhs in
+                [%expr
+                  fun _data_src ->
+                    [%e Bytepattern.to_pattern_match ~loc ~body bytepattern]]
+            | _ ->
+                Location.raise_errorf ~loc "%s"
+                  {| Bytestrings in match expressions are only valie when the patterns are constant strings, like:
+
+  match%bytestring data with
+  | \{| ... |\} -> ...
+
+|})
+          cases
+      in
+
+      List.fold_left
+        (fun acc case ->
+          [%expr
+            try
+              let matcher = [%e case] in
+              matcher [%e data]
+            with Bytestring.No_match -> [%e acc]])
+        [%expr raise Bytestring.No_match] (List.rev cases)
+  | _ ->
+      Location.raise_errorf ~loc "%s"
+        {|Bytestrings are only supported when constructing new values with
+tagged with `%bytestring` and when pattern matching against values in
+`match` expressions.
+|}
 
 let expression_rule =
   Extension.V3.declare tag Extension.Context.expression

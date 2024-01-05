@@ -7,8 +7,8 @@ tags: ["multicore" "io" "streams" "read" "write"]
 homepage: "https://github.com/leostera/riot"
 bug-reports: "https://github.com/leostera/riot/issues"
 depends: [
-  "ocaml" {>= "5.1"}
   "cstruct" {>= "6.2.0"}
+  "ocaml" {>= "5.1"}
   "dune" {>= "3.11"}
   "odoc" {with-doc}
 ]

@@ -180,48 +180,40 @@ let () =
   test "all::8"
     [
       Create_transient "_trns";
-      Create_iter "all";
-      Add_next_fixed_bits { iter = "all"; size = 8 };
+      Add_next_fixed_bits { src = "all"; size = 8 };
       Commit_transient "_trns";
     ];
   test "all::1024"
     [
       Create_transient "_trns";
-      Create_iter "all";
-      Add_next_fixed_bits { iter = "all"; size = 1024 };
+      Add_next_fixed_bits { src = "all"; size = 1024 };
       Commit_transient "_trns";
     ];
   test "all::utf8"
     [
       Create_transient "_trns";
-      Create_iter "all";
-      Add_next_utf8 { iter = "all" };
+      Add_next_utf8 { src = "all" };
       Commit_transient "_trns";
     ];
   test "all::bytes" [ Bypass "all" ];
   test "all::bytes(10)"
     [
       Create_transient "_trns";
-      Create_iter "all";
-      Add_next_dynamic_bytes { iter = "all"; expr = int 10 };
+      Add_next_dynamic_bytes { src = "all"; expr = int 10 };
       Commit_transient "_trns";
     ];
   test "len::8, body::bytes(len)"
     [
       Create_transient "_trns";
-      Create_iter "body";
-      Create_iter "len";
-      Add_next_fixed_bits { iter = "len"; size = 8 };
-      Add_next_dynamic_bytes { iter = "body"; expr = id "len" };
+      Add_next_fixed_bits { src = "len"; size = 8 };
+      Add_next_dynamic_bytes { src = "body"; expr = id "len" };
       Commit_transient "_trns";
     ];
   test "one::8, all::bytes"
     [
       Create_transient "_trns";
-      Create_iter "all";
-      Create_iter "one";
-      Add_next_fixed_bits { iter = "one"; size = 8 };
-      Add_rest { iter = "all" };
+      Add_next_fixed_bits { src = "one"; size = 8 };
+      Add_rest { src = "all" };
       Commit_transient "_trns";
     ];
 
@@ -232,23 +224,16 @@ let () =
        payload::bytes(len), rest |}
     [
       Create_transient "_trns";
-      Create_iter "_rsv";
-      Create_iter "comp";
-      Create_iter "fin";
-      Create_iter "len";
-      Create_iter "mask";
-      Create_iter "payload";
-      Create_iter "rest";
-      Add_next_fixed_bits { iter = "fin"; size = 1 };
-      Add_next_fixed_bits { iter = "comp"; size = 1 };
-      Add_next_fixed_bits { iter = "_rsv"; size = 2 };
-      Add_literal_int { value = 1 };
-      Add_literal_int { value = 0 };
-      Add_literal_int { value = 127 };
-      Add_next_dynamic_bytes { iter = "len"; expr = int 8 };
-      Add_next_fixed_bits { iter = "mask"; size = 32 };
-      Add_next_dynamic_bytes { iter = "payload"; expr = id "len" };
-      Add_rest { iter = "rest" };
+      Add_next_fixed_bits { src = "fin"; size = 1 };
+      Add_next_fixed_bits { src = "comp"; size = 1 };
+      Add_next_fixed_bits { src = "_rsv"; size = 2 };
+      Add_int_fixed_bits { value = 1; size = 4 };
+      Add_int_fixed_bits { value = 0; size = 1 };
+      Add_int_fixed_bits { value = 127; size = 7 };
+      Add_next_dynamic_bytes { src = "len"; expr = int 8 };
+      Add_next_fixed_bits { src = "mask"; size = 32 };
+      Add_next_dynamic_bytes { src = "payload"; expr = id "len" };
+      Add_rest { src = "rest" };
       Commit_transient "_trns";
     ];
   ()
@@ -278,49 +263,34 @@ let () =
   test {| all::8 |}
     [%expr
       let _trns = Bytestring.Transient.create () in
-      let _iter_all = Bytestring.to_iter all in
-      Bytestring.Transient.add_string _trns
-        (Bytestring.Iter.next_bits ~size:8 _iter_all);
+      Bytestring.Transient.add_bits _trns ~size:8 all;
       Bytestring.Transient.commit _trns];
   test "all::1024"
     [%expr
       let _trns = Bytestring.Transient.create () in
-      let _iter_all = Bytestring.to_iter all in
-      Bytestring.Transient.add_string _trns
-        (Bytestring.Iter.next_bits ~size:1024 _iter_all);
+      Bytestring.Transient.add_bits _trns ~size:1024 all;
       Bytestring.Transient.commit _trns];
   test "all::utf8"
     [%expr
       let _trns = Bytestring.Transient.create () in
-      let _iter_all = Bytestring.to_iter all in
-      Bytestring.Transient.add_string _trns
-        (Bytestring.Iter.next_utf8 _iter_all);
+      Bytestring.Transient.add_utf8 _trns all;
       Bytestring.Transient.commit _trns];
   test "all::bytes(10)"
     [%expr
       let _trns = Bytestring.Transient.create () in
-      let _iter_all = Bytestring.to_iter all in
-      Bytestring.Transient.add_string _trns
-        (Bytestring.Iter.next_bytes ~size:10 _iter_all);
+      Bytestring.Transient.add_string _trns ~size:10 all;
       Bytestring.Transient.commit _trns];
   test "len::8 , body::bytes(len)"
     [%expr
       let _trns = Bytestring.Transient.create () in
-      let _iter_body = Bytestring.to_iter body in
-      let _iter_len = Bytestring.to_iter len in
-      Bytestring.Transient.add_string _trns
-        (Bytestring.Iter.next_bits ~size:8 _iter_len);
-      Bytestring.Transient.add_string _trns
-        (Bytestring.Iter.next_bytes ~size:len _iter_body);
+      Bytestring.Transient.add_bits _trns ~size:8 len;
+      Bytestring.Transient.add_string _trns ~size:len body;
       Bytestring.Transient.commit _trns];
   test "one::8, all ::bytes"
     [%expr
       let _trns = Bytestring.Transient.create () in
-      let _iter_all = Bytestring.to_iter all in
-      let _iter_one = Bytestring.to_iter one in
-      Bytestring.Transient.add_string _trns
-        (Bytestring.Iter.next_bits ~size:8 _iter_one);
-      Bytestring.Transient.add_string _trns (Bytestring.Iter.rest _iter_all);
+      Bytestring.Transient.add_bits _trns ~size:8 one;
+      Bytestring.Transient.add_string _trns all;
       Bytestring.Transient.commit _trns];
   test
     {| fin::1, comp::1, _rsv::2,
@@ -329,28 +299,15 @@ let () =
         payload::bytes(len), rest |}
     [%expr
       let _trns = Bytestring.Transient.create () in
-      let _iter__rsv = Bytestring.to_iter _rsv in
-      let _iter_comp = Bytestring.to_iter comp in
-      let _iter_fin = Bytestring.to_iter fin in
-      let _iter_len = Bytestring.to_iter len in
-      let _iter_mask = Bytestring.to_iter mask in
-      let _iter_payload = Bytestring.to_iter payload in
-      let _iter_rest = Bytestring.to_iter rest in
-      Bytestring.Transient.add_string _trns
-        (Bytestring.Iter.next_bits ~size:1 _iter_fin);
-      Bytestring.Transient.add_string _trns
-        (Bytestring.Iter.next_bits ~size:1 _iter_comp);
-      Bytestring.Transient.add_string _trns
-        (Bytestring.Iter.next_bits ~size:2 _iter__rsv);
-      Bytestring.Transient.add_literal_int _trns int;
-      Bytestring.Transient.add_literal_int _trns int;
-      Bytestring.Transient.add_literal_int _trns int;
-      Bytestring.Transient.add_string _trns
-        (Bytestring.Iter.next_bytes ~size:8 _iter_len);
-      Bytestring.Transient.add_string _trns
-        (Bytestring.Iter.next_bits ~size:32 _iter_mask);
-      Bytestring.Transient.add_string _trns
-        (Bytestring.Iter.next_bytes ~size:len _iter_payload);
-      Bytestring.Transient.add_string _trns (Bytestring.Iter.rest _iter_rest);
+      Bytestring.Transient.add_bits _trns ~size:1 fin;
+      Bytestring.Transient.add_bits _trns ~size:1 comp;
+      Bytestring.Transient.add_bits _trns ~size:2 _rsv;
+      Bytestring.Transient.add_literal_int _trns ~size:4 1;
+      Bytestring.Transient.add_literal_int _trns ~size:1 0;
+      Bytestring.Transient.add_literal_int _trns ~size:7 127;
+      Bytestring.Transient.add_string _trns ~size:8 len;
+      Bytestring.Transient.add_bits _trns ~size:32 mask;
+      Bytestring.Transient.add_string _trns ~size:len payload;
+      Bytestring.Transient.add_string _trns rest;
       Bytestring.Transient.commit _trns];
   ()

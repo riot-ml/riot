@@ -24,7 +24,7 @@ module Iter : sig
   exception Byte_not_found
 
   val next_bit : t -> int
-  val next_bits : size:int -> t -> int64
+  val next_bits : size:int -> t -> int
   val next_byte : t -> string
   val next_bytes : size:int -> t -> string
   val next_utf8 : t -> string
@@ -40,7 +40,12 @@ module Transient : sig
   type string = t
   type t
 
-  val add_string : string -> t -> t
+  val create : unit -> t
+  val add_string : t -> ?size:int -> string -> unit
+  val add_bits : t -> ?size:int -> int -> unit
+  val add_utf8 : t -> ?size:int -> string -> unit
+  val add_literal_int : t -> ?size:int -> int -> unit
+  val add_literal_string : t -> ?size:int -> int -> unit
   val commit : t -> string
 end
 

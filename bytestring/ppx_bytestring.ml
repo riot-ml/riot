@@ -1,5 +1,4 @@
 open Ppxlib
-open Ast_helper
 
 let tag = "bytestring"
 

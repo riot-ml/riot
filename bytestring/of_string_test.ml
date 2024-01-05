@@ -1,4 +1,4 @@
-open Binstring
+open Bytestring
 
 let () =
   (* Basic ASCII *)

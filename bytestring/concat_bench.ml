@@ -55,14 +55,14 @@ let strings =
     List.init 1_000_000 (fun _k -> str);
   |]
 
-let binstrings = Array.map (List.map Binstring.of_string) strings
+let binstrings = Array.map (List.map Bytestring.of_string) strings
 
 let str_make_and_fold n () =
   let _sum = String.concat "" strings.(n - 1) in
   Ok ()
 
 let binstr_make_and_fold n () =
-  let _sum = Binstring.concat Binstring.empty binstrings.(n - 1) in
+  let _sum = Bytestring.concat Bytestring.empty binstrings.(n - 1) in
   Ok ()
 
 let () =

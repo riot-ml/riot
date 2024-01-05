@@ -46,7 +46,7 @@ He gets right onto the friction of the day!
 |})
   |> String.concat ""
 
-let binstr = Binstring.of_string str
+let binstr = Bytestring.of_string str
 
 let str_full () =
   let _sum = String.sub str 0 (String.length str) in
@@ -65,19 +65,19 @@ let str_100 () =
   Ok ()
 
 let binstr_full () =
-  let _sum = Binstring.sub ~len:(Binstring.length binstr) binstr in
+  let _sum = Bytestring.sub ~len:(Bytestring.length binstr) binstr in
   Ok ()
 
 let binstr_half () =
-  let _sum = Binstring.sub ~len:(Binstring.length binstr / 2) binstr in
+  let _sum = Bytestring.sub ~len:(Bytestring.length binstr / 2) binstr in
   Ok ()
 
 let binstr_10 () =
-  let _sum = Binstring.sub ~len:10 binstr in
+  let _sum = Bytestring.sub ~len:10 binstr in
   Ok ()
 
 let binstr_100 () =
-  let _sum = Binstring.sub ~len:100 binstr in
+  let _sum = Bytestring.sub ~len:100 binstr in
   Ok ()
 
 let () =

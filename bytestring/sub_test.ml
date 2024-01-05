@@ -1,4 +1,4 @@
-open Binstring
+open Bytestring
 
 let view str off len = to_string (sub ~off ~len str)
 

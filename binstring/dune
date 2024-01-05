@@ -26,9 +26,9 @@
 (executable
  (name sub_bench)
  (modules sub_bench)
- (libraries binstring criterion))
+ (libraries binstring scarab))
 
 (executable
  (name concat_bench)
  (modules concat_bench)
- (libraries binstring criterion))
+ (libraries binstring scarab))

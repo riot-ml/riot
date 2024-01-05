@@ -48,7 +48,7 @@ let to_string t =
 
 exception View_out_of_bounds
 
-let sub ?(off = 0) ~len t =
+let view ?(off = 0) ~len t =
   if len + off > t.length then raise View_out_of_bounds;
   { t with offset = off; length = len }
 
@@ -71,40 +71,31 @@ let rec concat sep ls acc =
 let concat sep ls = concat sep ls empty
 
 module Iter = struct
+  type string = t
+  type t = I
   exception Invalid_position
   exception Byte_not_found
 
-  let get_bits t pos =
-    let counter = ref pos in
-    let exception Done of char in
-    try
-      for i = 0 to List.length t.inner - 1 do
-        let part = List.nth t.inner i in
-        let bits = Str.length part * 8 in
-        for j = 0 to bits do
-          if !counter = 0 then
-            let byte = String.get part j in
-            raise_notrace (Done byte)
-          else counter := !counter - 1
-        done
-      done;
-      raise_notrace Byte_not_found
-    with Done byte -> byte
+  let next_bit _t = 0
+  let next_bits ~size:_ _t = 0L
+  let next_byte _t = empty
+  let next_bytes ~size:_ _t = empty
+  let next_utf8 _t = empty
+  let next_utf8_seq ~len:_ _t = empty
+  let rest _t = empty
 
-  let get_byte t pos =
-    let counter = ref pos in
-    let exception Done of char in
-    try
-      for i = 0 to List.length t.inner - 1 do
-        let part = List.nth t.inner i in
-        let len = Str.length part in
-        for j = 0 to len - 1 do
-          if !counter = 0 then
-            let byte = String.get part j in
-            raise_notrace (Done byte)
-          else counter := !counter - 1
-        done
-      done;
-      raise_notrace Byte_not_found
-    with Done byte -> byte
+  let expect_bits _bit _t = ()
+  let expect_bytes _bytes _t = ()
 end
+
+  let to_iter _t = Iter.I
+
+module Transient = struct
+  type string = t
+  type t = T
+
+  let add_string _str t = t
+  let commit _t = empty
+end
+
+  let to_transient _t = Transient.T

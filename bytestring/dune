@@ -1,7 +1,15 @@
 (library
- (name bytestring)
+ (public_name bytestring)
  (modules bytestring)
  (libraries cstruct uutf))
+
+(library
+  (package bytestring)
+  (name ppx_bytestring)
+  (modules ppx_bytestring)
+  (kind ppx_rewriter)
+  (libraries compiler-libs ppxlib bytestring)
+  (preprocess (pps ppxlib.metaquot)))
 
 (test
  (name get_bits_test)

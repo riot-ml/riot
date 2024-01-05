@@ -31,10 +31,27 @@ let () =
   let payload = {%bytestring| "this is my data"::utf8 |} in
   let rest = {%bytestring| "here's the rest"::bytes |} in
   let len = 9000 in
-  let _str =
+  let str =
     {%bytestring|
       fin::1, comp::1, 0::2, 1::4, 0::1, 127::7,
       len::bits(8*8), mask::32, payload::bytes(len), rest
     |}
+  in
+
+  let _ =
+    match%bytestring str with
+    | {|
+      fin::1, comp::1, 0::2, 1::4, 0::1, 127::7,
+      len::bits(8*8), mask::32, payload::bytes(len), rest
+    |}
+      ->
+        fin + comp
+    | {|
+      fin::1, comp::1, 0::2, 1::4, 0::1, 127::7,
+    |} -> fin + comp
+    | {|
+      fin::1, comp::1
+    |} -> fin + comp
+    | {| rest |} -> Bytestring.length rest
   in
   ()

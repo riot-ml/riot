@@ -10,9 +10,10 @@ tags: ["multicore" "erlang" "actor" "message-passing" "processes"]
 homepage: "https://github.com/leostera/riot"
 bug-reports: "https://github.com/leostera/riot/issues"
 depends: [
-  "io" {= version}
-  "gluon" {= version}
+  "bytestring" {= version}
   "castore" {with-test & >= "0.0.2"}
+  "gluon" {= version}
+  "io" {= version}
   "mdx" {with-test & >= "2.3.1"}
   "mtime" {>= "2.0.0"}
   "ocaml" {>= "5.1"}

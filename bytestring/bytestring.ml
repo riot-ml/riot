@@ -73,6 +73,7 @@ let concat sep ls = concat sep ls empty
 module Iter = struct
   type string = t
   type t = I
+
   exception Invalid_position
   exception Byte_not_found
 
@@ -83,12 +84,11 @@ module Iter = struct
   let next_utf8 _t = empty
   let next_utf8_seq ~len:_ _t = empty
   let rest _t = empty
-
   let expect_bits _bit _t = ()
   let expect_bytes _bytes _t = ()
 end
 
-  let to_iter _t = Iter.I
+let to_iter _t = Iter.I
 
 module Transient = struct
   type string = t
@@ -98,4 +98,4 @@ module Transient = struct
   let commit _t = empty
 end
 
-  let to_transient _t = Transient.T
+let to_transient _t = Transient.T

@@ -46,5 +46,6 @@
   (depends
     (ocaml (>= "5.1.1"))
     (ppxlib (>= 0.31.0))
+    (sedlex (>= "3.2"))
     dune
     ))

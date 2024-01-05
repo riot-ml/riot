@@ -4,12 +4,14 @@
  (libraries riot))
 
 (test
+ (package riot)
  (name ssl_test)
  (modules ssl_test)
  (deps fixtures/tls.crt fixtures/tls.key)
  (libraries riot port_finder x509 mirage-crypto-rng mirage-crypto-rng.unix))
 
 (test
+ (package riot)
  (name io_copy_buffered_test)
  (enabled_if
   (= %{env:OPAM_REPO_CI=false} false))
@@ -17,6 +19,7 @@
  (libraries riot))
 
 (test
+ (package riot)
  (name io_copy_test)
  (enabled_if
   (= %{env:OPAM_REPO_CI=false} false))
@@ -24,6 +27,7 @@
  (libraries riot))
 
 (test
+ (package riot)
  (name io_writer_test)
  (enabled_if
   (= %{env:OPAM_REPO_CI=false} false))
@@ -31,6 +35,7 @@
  (libraries riot))
 
 (test
+ (package riot)
  (name io_reader_test)
  (enabled_if
   (= %{env:OPAM_REPO_CI=false} false))
@@ -39,6 +44,7 @@
  (libraries riot))
 
 (test
+ (package riot)
  (name io_reader_large_test)
  (enabled_if
   (= %{env:OPAM_REPO_CI=false} false))
@@ -47,6 +53,7 @@
  (libraries riot))
 
 (test
+ (package riot)
  (name io_readv_test)
  (enabled_if
   (= %{env:OPAM_REPO_CI=false} false))
@@ -55,6 +62,7 @@
  (libraries riot))
 
 (test
+ (package riot)
  (name io_writev_test)
  (enabled_if
   (= %{env:OPAM_REPO_CI=false} false))
@@ -63,6 +71,7 @@
  (libraries riot))
 
 (test
+ (package riot)
  (name net_timeout_test)
  (enabled_if
   (= %{env:OPAM_REPO_CI=false} false))
@@ -70,6 +79,7 @@
  (libraries riot port_finder))
 
 (test
+ (package riot)
  (name net_addr_uri_test)
  (enabled_if
   (= %{env:OPAM_REPO_CI=false} false))
@@ -77,6 +87,7 @@
  (libraries riot port_finder))
 
 (test
+ (package riot)
  (name net_reader_writer_test)
  (enabled_if
   (= %{env:OPAM_REPO_CI=false} false))
@@ -84,6 +95,7 @@
  (libraries riot port_finder))
 
 (test
+ (package riot)
  (name net_reader_writer_timeout_test)
  (enabled_if
   (= %{env:OPAM_REPO_CI=false} false))
@@ -91,6 +103,7 @@
  (libraries riot port_finder))
 
 (test
+ (package riot)
  (name net_test)
  (enabled_if
   (= %{env:OPAM_REPO_CI=false} false))
@@ -98,86 +111,103 @@
  (libraries riot port_finder))
 
 (test
+ (package riot)
  (name add_monitor_test)
  (modules add_monitor_test)
  (libraries riot))
 
 (test
+ (package riot)
  (name application_test)
  (modules application_test)
  (libraries riot))
 
 (test
+ (package riot)
  (name link_processes_test)
  (modules link_processes_test)
  (libraries riot))
 
 (test
+ (package riot)
  (name process_registration_test)
  (modules process_registration_test)
  (libraries riot))
 
 (test
+ (package riot)
  (name process_priority_test)
  (modules process_priority_test)
  (libraries riot))
 
 (test
+ (package riot)
  (name readme_example)
  (modules readme_example)
  (libraries riot))
 
 (test
+ (package riot)
  (name selective_receive_test)
  (modules selective_receive_test)
  (libraries riot))
 
 (test
+ (package riot)
  (name send_after_test)
  (modules send_after_test)
  (libraries riot))
 
 (test
+ (package riot)
  (name cancel_timer_test)
  (modules cancel_timer_test)
  (libraries riot))
 
 (test
+ (package riot)
  (name send_interval_test)
  (modules send_interval_test)
  (libraries riot))
 
 (test
+ (package riot)
  (name send_order_test)
  (modules send_order_test)
  (libraries riot))
 
 (test
+ (package riot)
  (name spawn_and_exit_test)
  (modules spawn_and_exit_test)
  (libraries riot))
 
 (test
+ (package riot)
  (name supervisor_shutdown_test)
  (modules supervisor_shutdown_test)
  (libraries riot))
 
 (test
+ (package riot)
  (name telemetry_test)
  (modules telemetry_test)
  (libraries riot))
 
 (test
+ (package riot)
  (name receive_timeout_test)
  (modules receive_timeout_test)
  (libraries riot))
 
 (test
+ (package riot)
  (name task_test)
  (modules task_test)
  (libraries riot))
 
 (test
+ (package riot)
  (name io_buffer_test)
  (modules io_buffer_test)
  (libraries riot))

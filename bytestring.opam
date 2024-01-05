@@ -15,6 +15,7 @@ bug-reports: "https://github.com/leostera/riot/issues"
 depends: [
   "ocaml" {>= "5.1.1"}
   "ppxlib" {>= "0.31.0"}
+  "sedlex" {>= "3.2"}
   "dune" {>= "3.11"}
   "odoc" {with-doc}
 ]

@@ -91,52 +91,42 @@ let () =
     Bytestring.Transient.add_string _trns rest;
     Bytestring.Transient.commit _trns
   in
+  let compute_bits () = 8 * 8 in
   let _ =
-    try
-      let matcher _data_src =
+    (fun _data_src ->
+      try
         let _data_src = Bytestring.to_iter _data_src in
         let fin = Bytestring.Iter.next_bits ~size:1 _data_src in
         let comp = Bytestring.Iter.next_bits ~size:1 _data_src in
-        Bytestring.Iter.expect_literal_int _data_src ~size:2 0;
-        Bytestring.Iter.expect_literal_int _data_src ~size:4 1;
-        Bytestring.Iter.expect_literal_int _data_src ~size:1 0;
-        Bytestring.Iter.expect_literal_int _data_src ~size:7 127;
-        let len = Bytestring.Iter.next_bits ~size:(8 * 8) _data_src in
-        let mask = Bytestring.Iter.next_bits ~size:32 _data_src in
-        let payload = Bytestring.Iter.next_bytes ~size:len _data_src in
-        let rest = Bytestring.Iter.rest _data_src in
-        fin + comp
-      in
-      matcher str
-    with Bytestring.No_match -> (
-      try
-        let matcher _data_src =
-          let _data_src = Bytestring.to_iter _data_src in
-          let fin = Bytestring.Iter.next_bits ~size:1 _data_src in
-          let comp = Bytestring.Iter.next_bits ~size:1 _data_src in
+        try
           Bytestring.Iter.expect_literal_int _data_src ~size:2 0;
           Bytestring.Iter.expect_literal_int _data_src ~size:4 1;
           Bytestring.Iter.expect_literal_int _data_src ~size:1 0;
           Bytestring.Iter.expect_literal_int _data_src ~size:7 127;
-          fin + comp
-        in
-        matcher str
-      with Bytestring.No_match -> (
-        try
-          let matcher _data_src =
-            let _data_src = Bytestring.to_iter _data_src in
-            let fin = Bytestring.Iter.next_bits ~size:1 _data_src in
-            let comp = Bytestring.Iter.next_bits ~size:1 _data_src in
+          try
+            let len =
+              Bytestring.Iter.next_bits ~size:(compute_bits ()) _data_src
+            in
+            let _mask = Bytestring.Iter.next_bits ~size:32 _data_src in
+            let _payload = Bytestring.Iter.next_bytes ~size:len _data_src in
+            let rest = Bytestring.Iter.rest _data_src in
+            Bytestring.Iter.expect_empty _data_src;
             fin + comp
-          in
-          matcher str
+          with Bytestring.No_match -> (
+            try
+              Bytestring.Iter.expect_empty _data_src;
+              fin + comp
+            with Bytestring.No_match -> raise Bytestring.No_match)
         with Bytestring.No_match -> (
           try
-            let matcher _data_src =
-              let rest = _data_src in
-              Bytestring.length rest
-            in
-            matcher str
-          with Bytestring.No_match -> raise Bytestring.No_match)))
+            Bytestring.Iter.expect_empty _data_src;
+            fin + comp
+          with Bytestring.No_match -> raise Bytestring.No_match)
+      with Bytestring.No_match -> (
+        try
+          let rest = _data_src in
+          Bytestring.length rest
+        with Bytestring.No_match -> raise Bytestring.No_match))
+      str
   in
   ()

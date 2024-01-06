@@ -9,7 +9,7 @@
  (modules bytepattern)
  (preprocess
   (pps sedlex.ppx ppxlib.metaquot))
- (libraries compiler-libs ppxlib sedlex bytestring))
+ (libraries compiler-libs ppxlib sedlex bytestring spices))
 
 (library
  (public_name bytestring.ppx)

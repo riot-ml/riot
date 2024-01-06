@@ -166,7 +166,7 @@ module Parser = struct
 
   and do_parse tokens acc =
     match tokens with
-    | [] -> List.rev acc
+    | [] | [ COMMA ] -> List.rev acc
     | _ ->
         let pattern, rest = parse_pattern tokens in
         (* log "\n"; *)
@@ -680,7 +680,7 @@ module Pattern_matcher = struct
   let rec to_expr ~loc ~body (lower : Matching_lower.t list) =
     match lower with
     | [] -> body
-    | [ Empty src ] -> [%expr Bytestring.is_empty [%e id ~loc src]]
+    | [ Empty src ] -> [%expr Bytestring.assert_empty [%e id ~loc src]]
     | [ Bypass { src; name } ] ->
         [%expr
           let [%p var ~loc name] = [%e id ~loc src] in

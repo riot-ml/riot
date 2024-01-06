@@ -393,7 +393,7 @@ let () =
     let expect_str = Format.asprintf "%a" Matching_lower.pp expected in
 
     if String.equal actual_str expect_str then
-      Format.printf "cstr-low test %S OK\r\n%!" str
+      Format.printf "match-low test %S OK\r\n%!" str
     else (
       Format.printf
         "Error %S – lowered repr doesn't match, expected:\n\n\
@@ -404,8 +404,8 @@ let () =
       assert false)
   in
 
-  test "" [ Empty ];
-  test "all" [ Bypass "all" ];
+  test "" [ Empty "_data_src" ];
+  test "all" [ Bypass { src = "_data_src"; name = "all" } ];
   test "all::8"
     [
       Create_iterator "_data_src";
@@ -421,7 +421,7 @@ let () =
       Create_iterator "_data_src";
       Bind_next_utf8 { src = "all"; iter = "_data_src" };
     ];
-  test "all::bytes" [ Bypass "all" ];
+  test "all::bytes" [ Bypass { src = "_data_src"; name = "all" } ];
   test "all::bytes(10)"
     [
       Create_iterator "_data_src";
@@ -508,25 +508,31 @@ let () =
     let expected = Ppxlib.Pprintast.string_of_expression expected in
     if not (String.equal actual expected) then (
       Format.printf
-        "Error AST doesn't match, expected:\n\n%s\n\nbut found:\n\n%s\n\n"
-        expected actual;
+        "Error on %S AST doesn't match, expected:\n\n%s\n\nbut found:\n\n%s\n\n"
+        str expected actual;
       assert false)
     else Format.printf "match test %S OK\r\n%!" str
   in
 
   (* test: empty pattern is just an empty bytestring *)
-  test {| |} [%expr Bytestring.empty];
-  test {| all |} [%expr all];
-  test {| all::bytes |} [%expr all];
+  test {| |} [%expr Bytestring.assert_empty _data_src];
+  test {| all |}
+    [%expr
+      let all = _data_src in
+      ()];
+  test {| all::bytes |}
+    [%expr
+      let all = _data_src in
+      ()];
   test {| all::8 |}
     [%expr
       let _data_src = Bytestring.to_iter _data_src in
-      let all = Bytestring.Iter.next_utf8 ~size:8 _data_src in
+      let all = Bytestring.Iter.next_bits ~size:8 _data_src in
       ()];
   test "all::1024"
     [%expr
       let _data_src = Bytestring.to_iter _data_src in
-      let all = Bytestring.Iter.next_utf8 ~size:1024 _data_src in
+      let all = Bytestring.Iter.next_bits ~size:1024 _data_src in
       ()];
   test "all::utf8"
     [%expr
@@ -541,13 +547,13 @@ let () =
   test "len::8 , body::bytes(len)"
     [%expr
       let _data_src = Bytestring.to_iter _data_src in
-      let len = Bytestring.Iter.next_utf8 ~size:8 _data_src in
+      let len = Bytestring.Iter.next_bits ~size:8 _data_src in
       let body = Bytestring.Iter.next_bytes ~size:len _data_src in
       ()];
   test "one::8, all ::bytes"
     [%expr
       let _data_src = Bytestring.to_iter _data_src in
-      let one = Bytestring.Iter.next_utf8 ~size:8 _data_src in
+      let one = Bytestring.Iter.next_bits ~size:8 _data_src in
       let all = Bytestring.Iter.rest _data_src in
       ()];
   test "2112::1"
@@ -589,14 +595,15 @@ let () =
         payload::bytes(len), rest |}
     [%expr
       let _data_src = Bytestring.to_iter _data_src in
-      let fin = Bytestring.Iter.next_utf8 ~size:1 _data_src in
-      let comp = Bytestring.Iter.next_utf8 ~size:1 _data_src in
-      let _rsv = Bytestring.Iter.next_utf8 ~size:2 _data_src in
+      let fin = Bytestring.Iter.next_bits ~size:1 _data_src in
+      let comp = Bytestring.Iter.next_bits ~size:1 _data_src in
+      let _rsv = Bytestring.Iter.next_bits ~size:2 _data_src in
       Bytestring.Iter.expect_literal_int _data_src ~size:4 1;
       Bytestring.Iter.expect_literal_int _data_src ~size:1 0;
       Bytestring.Iter.expect_literal_int _data_src ~size:7 127;
       let len = Bytestring.Iter.next_bits ~size:(8 * 8) _data_src in
-      let mask = Bytestring.Iter.next_utf8 ~size:32 _data_src in
+      let mask = Bytestring.Iter.next_bits ~size:32 _data_src in
       let payload = Bytestring.Iter.next_bytes ~size:len _data_src in
       let rest = Bytestring.Iter.rest _data_src in
+
       ()]

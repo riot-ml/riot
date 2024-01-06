@@ -31,6 +31,7 @@ module Iter : sig
   val next_utf8 : t -> string
   val next_utf8_seq : len:int -> t -> string
   val rest : t -> string
+  val expect_empty : t -> unit
   val expect_bits : t -> int -> unit
   val expect_bytes : t -> string -> unit
   val expect_literal_int : t -> ?size:int -> int -> unit

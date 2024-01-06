@@ -1,5 +1,6 @@
 open Ppxlib
-(* let log = Printf.printf *)
+
+let log = Printf.printf
 
 type token =
   | IDENT of string
@@ -60,7 +61,7 @@ module Lexer = struct
         token buf (COLON_COLON :: acc)
     | "(", Star white_space ->
         (* log "(%!"; *)
-        expr buf acc
+        expr ~parens:0 buf acc
     | "\"" ->
         (* log "\"%!"; *)
         string buf acc
@@ -88,18 +89,25 @@ module Lexer = struct
         string buf ~str:(ident :: str) acc
     | _ -> failwith "Unexpected character"
 
-  and expr buf ?(exp = []) acc =
+  and expr buf ~parens ?(exp = []) acc =
     match%sedlex buf with
-    | Star white_space, ")" ->
-        let expr = List.rev exp |> String.concat "" in
-        (* log "%s)%!" expr; *)
-        let lexbuf = Lexing.from_string ~with_positions:false expr in
-        let expr = Parse.expression lexbuf in
-        let expr = EXPRESSION expr in
-        token buf (expr :: acc)
+    | ")" ->
+        if parens > 0 then
+          let ident = Sedlexing.Utf8.lexeme buf in
+          expr buf ~parens:(parens - 1) ~exp:(ident :: exp) acc
+        else
+          let expr = List.rev exp |> String.concat "" in
+          (* log "%s)%!" expr; *)
+          let lexbuf = Lexing.from_string ~with_positions:false expr in
+          let expr = Parse.expression lexbuf in
+          let expr = EXPRESSION expr in
+          token buf (expr :: acc)
+    | "(" ->
+        let ident = Sedlexing.Utf8.lexeme buf in
+        expr buf ~parens:(parens + 1) ~exp:(ident :: exp) acc
     | any ->
         let ident = Sedlexing.Utf8.lexeme buf in
-        expr buf ~exp:(ident :: exp) acc
+        expr buf ~parens ~exp:(ident :: exp) acc
     | _ -> failwith "Unexpected character"
 
   let read str =
@@ -166,7 +174,13 @@ module Parser = struct
 
   and do_parse tokens acc =
     match tokens with
-    | [] | [ COMMA ] -> List.rev acc
+    | [] -> List.rev acc
+    (* note: support trailing commas, but not just a comma *)
+    | [ COMMA ] when List.length acc > 0 -> List.rev acc
+    | [ COMMA ] when List.length acc = 0 ->
+        failwith
+          "The bytestring syntax supports trailing commas, but a single comma \
+           is not a valid bytestring pattern."
     | _ ->
         let pattern, rest = parse_pattern tokens in
         (* log "\n"; *)
@@ -225,7 +239,25 @@ module Parser = struct
     | NUMBER n :: rest ->
         (* log "size is fixed bits %d" n; *)
         (Fixed_bits n, rest)
-    | _ -> failwith "invalid size"
+    | tokens ->
+        failwith
+          (Format.asprintf
+             {|
+        We found an invalid size: 
+           
+          %a
+
+        Valid sizes are: bytes, bytes(expr), bits(expr), utf8, and a number.
+
+        For example:
+
+          \{| hello::bytes |\}
+          \{| hello::bytes(len * 10) |\}
+          \{| hello::bits(1024) |\}
+          \{| hello::utf8 |\}
+          \{| hello::7 |\}
+|}
+             Lexer.pp tokens)
 
   and expect_comma rest =
     match rest with COMMA :: rest -> `cont rest | _ -> `halt
@@ -269,10 +301,10 @@ module Construction_lower = struct
     | Add_next_fixed_bits { src; size } ->
         Format.fprintf fmt "Add_next_fixed_bits {src=%S; size=%d}" src size
     | Add_next_dynamic_bits { src; expr } ->
-        Format.fprintf fmt "Add_next_dynamic_bits {src=%s; expr=%S}" src
+        Format.fprintf fmt "Add_next_dynamic_bits {src=%S; expr=%S}" src
           (Pprintast.string_of_expression expr)
     | Add_next_dynamic_bytes { src; expr } ->
-        Format.fprintf fmt "Add_next_dynamic_bytes {src=%s; expr=%S}" src
+        Format.fprintf fmt "Add_next_dynamic_bytes {src=%S; expr=%S}" src
           (Pprintast.string_of_expression expr)
     | Add_next_dynamic_utf8 { src; expr } ->
         Format.fprintf fmt "Add_next_dynamic_utf8 {src=%s; expr=%S}" src
@@ -539,8 +571,9 @@ module Matching_lower = struct
           size iter
     | Bind_next_dynamic_bits { iter; src; expr } ->
         Format.fprintf fmt "Bind_next_dynamic_bits {src=%S; expr=%S; iter=%S}"
-          src iter
+          src
           (Pprintast.string_of_expression expr)
+          iter
     | Bind_next_dynamic_bytes { iter; src; expr } ->
         Format.fprintf fmt "Bind_next_dynamic_bytes {src=%S; expr=%S; iter=%S}"
           src
@@ -597,7 +630,8 @@ module Matching_lower = struct
     match patterns with
     | [] -> [ Empty iter ]
     | [ Bind { name; size = Rest } ] -> [ Bypass { src = iter; name } ]
-    | pats -> [ Create_iterator iter ] @ create_ops ~iter pats []
+    | pats ->
+        [ Create_iterator iter ] @ create_ops ~iter pats [] @ [ Empty iter ]
 
   and create_ops ~iter pats acc =
     match pats with
@@ -680,7 +714,10 @@ module Pattern_matcher = struct
   let rec to_expr ~loc ~body (lower : Matching_lower.t list) =
     match lower with
     | [] -> body
-    | [ Empty src ] -> [%expr Bytestring.assert_empty [%e id ~loc src]]
+    | [ Empty src ] ->
+        [%expr
+          Bytestring.Iter.expect_empty [%e id ~loc src];
+          [%e body]]
     | [ Bypass { src; name } ] ->
         [%expr
           let [%p var ~loc name] = [%e id ~loc src] in
@@ -789,4 +826,86 @@ module Pattern_matcher = struct
     to_expr ~body ~loc lower
 end
 
+module Prefix_matching = struct
+  type t =
+    | Try_run of Matching_lower.t list * Parsetree.expression
+    | Prefix of Matching_lower.t list * t list
+
+  let rec pp fmt t =
+    Format.fprintf fmt "[\r\n  ";
+    Format.pp_print_list
+      ~pp_sep:(fun fmt () -> Format.fprintf fmt ";\r\n  ")
+      pp_one fmt t;
+    Format.fprintf fmt "\r\n]\r\n"
+
+  and pp_one fmt t =
+    match t with
+    | Prefix (ops, t) ->
+        Format.fprintf fmt "Prefix(%a, %a)" Matching_lower.pp ops pp t
+    | Try_run (ops, body) ->
+        Format.fprintf fmt "Try_run(%a, %S)" Matching_lower.pp ops
+          (Pprintast.string_of_expression body)
+
+  let rec prefix op1 op2 =
+    match (op1, op2) with
+    | el1 :: rest1, el2 :: rest2 when el1 = el2 ->
+        let prefix, rest1, rest2 = prefix rest1 rest2 in
+        (el1 :: prefix, rest1, rest2)
+    | _ -> ([], op1, op2)
+
+  let merge p1 p2 =
+    match (p1, p2) with
+    | _, Prefix ([], []) ->
+        (* log "skipped p2\n"; *)
+        p1
+    | Prefix ([], []), _ ->
+        (* log "skipped p1\n"; *)
+        p2
+    | Prefix (op1, body1), Prefix (op2, body2) ->
+        (* log "merging prefix with prefix\n"; *)
+        let prefix, op1, op2 = prefix op1 op2 in
+        Prefix (prefix, [ Prefix (op1, body1); Prefix (op2, body2) ])
+    | Try_run (op1, body1), Try_run (op2, body2) ->
+        (* log "merging try_run with try_run\n"; *)
+        let prefix, op1, op2 = prefix op1 op2 in
+        Prefix (prefix, [ Try_run (op1, body1); Try_run (op2, body2) ])
+    | Prefix (op1, body1), Try_run (op2, body2) ->
+        (* log "merging prefix with try_run\n"; *)
+        let prefix, op1, op2 = prefix op1 op2 in
+        Prefix (prefix, [ Prefix (op1, body1); Try_run (op2, body2) ])
+    | Try_run (op1, body1), Prefix (op2, body2) ->
+        (* log "merging try_run with prefix\n"; *)
+        let prefix, op1, op2 = prefix op1 op2 in
+        Prefix (prefix, [ Try_run (op1, body1); Prefix (op2, body2) ])
+
+  let to_prefix_match patterns =
+    let cases =
+      List.map
+        (fun (pattern, body) -> Try_run (Matching_lower.lower pattern, body))
+        patterns
+    in
+    List.fold_left merge (Prefix ([], [])) cases
+
+  let rec to_expr ~loc ~data t =
+    match t with
+    | Prefix ([], t) -> build_body ~loc ~data t
+    | Prefix (ops, t) ->
+        let body = build_body ~loc ~data t in
+        Pattern_matcher.to_expr ~loc ~body ops
+    | Try_run ([], body) -> body
+    | Try_run (ops, body) -> Pattern_matcher.to_expr ~loc ~body ops
+
+  and build_body ~loc ~data t =
+    List.fold_left
+      (fun acc t ->
+        let case = to_expr ~loc ~data t in
+        [%expr try [%e case] with Bytestring.No_match -> [%e acc]])
+      [%expr raise Bytestring.No_match] (List.rev t)
+
+  let to_match_expression ~loc ~data patterns =
+    to_expr ~loc ~data (to_prefix_match patterns)
+end
+
 let to_pattern_match = Pattern_matcher.to_pattern_match
+let to_prefix_match = Prefix_matching.to_prefix_match
+let to_match_expression = Prefix_matching.to_match_expression

@@ -88,7 +88,8 @@ module Iter = struct
   let expect_bits _bit _t = ()
   let expect_bytes _bytes _t = ()
   let expect_literal_int _t ?size:_ _bit = ()
-  let expect_literal_string _t  ?size:_  _str = ()
+  let expect_literal_string _t ?size:_ _str = ()
+  let expect_empty _t = ()
 end
 
 let to_iter _t = Iter.I

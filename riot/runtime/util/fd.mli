@@ -19,6 +19,7 @@ val close : t -> unit
 val use : op_name:string -> t -> (fd -> 'a) -> 'a
 val equal : t -> t -> bool
 val pp : Format.formatter -> t -> unit
+val seek : t -> int -> Unix.seek_command -> int option
 
 module Set : sig
   type elt = t

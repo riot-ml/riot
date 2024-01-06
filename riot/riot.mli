@@ -663,6 +663,7 @@ module File : sig
   val remove : string -> unit
   val to_reader : [ `r ] file -> [ `r ] file IO.Reader.t
   val to_writer : [ `w ] file -> [ `w ] file IO.Writer.t
+  val seek : _ file -> int -> Unix.seek_command -> int option
   val stat : string -> Unix.stats
 
   val send :
@@ -762,8 +763,8 @@ module Hashmap : sig
 
     val create : int -> 'v t
     val keys : 'v t -> key Seq.t
-  val get : 'v t -> key -> 'v option
-  val get_all : 'v t -> key -> 'v list
+    val get : 'v t -> key -> 'v option
+    val get_all : 'v t -> key -> 'v list
     val is_empty : 'v t -> bool
     val find_by : 'v t -> (key * 'v -> bool) -> (key * 'v) option
     val remove : 'v t -> key -> unit

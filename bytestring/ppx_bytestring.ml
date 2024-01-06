@@ -16,9 +16,7 @@ let mk_expression ~ctxt:_ expr =
             | { ppat_desc = Ppat_constant (Pconst_string (value, _, _)); _ } ->
                 let bytepattern = Bytepattern.parse value in
                 let body = case.pc_rhs in
-                [%expr
-                  fun _data_src ->
-                    [%e Bytepattern.to_pattern_match ~loc ~body bytepattern]]
+                (bytepattern, body)
             | _ ->
                 Location.raise_errorf ~loc "%s"
                   {| Bytestrings in match expressions are only valie when the patterns are constant strings, like:
@@ -30,14 +28,7 @@ let mk_expression ~ctxt:_ expr =
           cases
       in
 
-      List.fold_left
-        (fun acc case ->
-          [%expr
-            try
-              let matcher = [%e case] in
-              matcher [%e data]
-            with Bytestring.No_match -> [%e acc]])
-        [%expr raise Bytestring.No_match] (List.rev cases)
+      Bytepattern.to_match_expression ~loc ~data cases
   | _ ->
       Location.raise_errorf ~loc "%s"
         {|Bytestrings are only supported when constructing new values with

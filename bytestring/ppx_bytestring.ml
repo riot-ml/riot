@@ -16,7 +16,8 @@ let mk_expression ~ctxt:_ expr =
             | { ppat_desc = Ppat_constant (Pconst_string (value, _, _)); _ } ->
                 let bytepattern = Bytepattern.parse value in
                 let body = case.pc_rhs in
-                (bytepattern, body)
+                let guard = case.pc_guard in
+                (bytepattern, guard, body)
             | _ ->
                 Location.raise_errorf ~loc "%s"
                   {| Bytestrings in match expressions are only valie when the patterns are constant strings, like:

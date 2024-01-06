@@ -7,6 +7,7 @@ let empty = { inner = []; length = 0; offset = 0 }
 let length t = t.length
 
 exception No_match
+exception Guard_mismatch
 exception Malformed of string
 
 let of_string str =

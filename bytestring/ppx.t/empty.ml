@@ -1,1 +1,1 @@
-let () = assert ({%bytestring| |} = Bytestring.empty)
+let () = assert ({%b| |} = Bytestring.empty)

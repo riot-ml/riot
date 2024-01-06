@@ -1,1 +1,1 @@
-let _ = {%bytestring| "rush"::2112 |}
+let _ = {%b| "rush"::2112 |}

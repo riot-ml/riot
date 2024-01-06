@@ -33,8 +33,8 @@ module Iter : sig
   val rest : t -> string
   val expect_bits : t -> int -> unit
   val expect_bytes : t -> string -> unit
-  val expect_literal_int : t -> int -> unit
-  val expect_literal_string : t -> int -> unit
+  val expect_literal_int : t -> ?size:int -> int -> unit
+  val expect_literal_string : t -> ?size:string -> Stdlib.String.t -> unit
 end
 
 val to_iter : t -> Iter.t

@@ -2,16 +2,25 @@
   File "error_empty_comma.ml", line 1, characters 17-35:
   1 | let () = assert ({%bytestring| , |} = Bytestring.empty)
                        ^^^^^^^^^^^^^^^^^^
-  Error: The bytestring syntax supports trailing commas, but a single comma is
-         not a valid bytestring pattern.
+  Error: Invalid bytestring pattern
+         
+         A bytestring pattern must have zero, one, or more fields separated by
+         commas.
+         
+         Trailing commas are supported, but a single comma is not a valid
+         bytestring pattern.
+             
          
   File "error_invalid_number_bytes.ml", line 1, characters 8-36:
   1 | let _ = {%bytestring| 2112::bytes |}
               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  Error: We found an invalid size: bytes for value 2112
+  Error: Invalid size "bytes" for value 2112
          
-         Valid sizes are for literal numbers are : bytes(expr), bits(expr), a
-         number (like 3, 7, or 2112).
+         Valid sizes for number literals are:
+         
+           bytes(expr) - use up to `expr` bytes
+           bits(expr)  - use up to `expr` bits
+           <number>    - use exactly `<number>` bits
          
          For example:
          
@@ -23,10 +32,13 @@
   File "error_invalid_number_size.ml", line 1, characters 9-37:
   1 | let () = {%bytestring| 2112::bytes |}
                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  Error: We found an invalid size: bytes for value 2112
+  Error: Invalid size "bytes" for value 2112
          
-         Valid sizes are for literal numbers are : bytes(expr), bits(expr), a
-         number (like 3, 7, or 2112).
+         Valid sizes for number literals are:
+         
+           bytes(expr) - use up to `expr` bytes
+           bits(expr)  - use up to `expr` bits
+           <number>    - use exactly `<number>` bits
          
          For example:
          
@@ -38,10 +50,13 @@
   File "error_invalid_number_size_utf8.ml", line 1, characters 9-40:
   1 | let () = {%bytestring| 2112::utf8(10) |}
                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  Error: We found an invalid size: utf8(10) for value 2112
+  Error: Invalid size "utf8(10)" for value 2112
          
-         Valid sizes are for literal numbers are : bytes(expr), bits(expr), a
-         number (like 3, 7, or 2112).
+         Valid sizes for number literals are:
+         
+           bytes(expr) - use up to `expr` bytes
+           bits(expr)  - use up to `expr` bits
+           <number>    - use exactly `<number>` bits
          
          For example:
          
@@ -53,10 +68,14 @@
   File "error_invalid_string_size.ml", line 1, characters 8-37:
   1 | let _ = {%bytestring| "rush"::2112 |}
               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  Error: We found an invalid size: 2112 for value "rush"
+  Error: Invalid size "2112" for value "rush"
          
-         Valid sizes are for string literals are: bytes, bytes(expr), utf8, and
-         utf8(expr).
+         Valid sizes for string literals are:
+         
+           bytes       - match on the entire string
+           bytes(expr) - match `expr` bytes
+           utf8        - match on 1 UTF-8 grapheme
+           utf8(expr)  - match `expr` UTF-8 graphemes
          
          For example:
          
@@ -66,29 +85,29 @@
            "rush"::utf8(10)   – use "rush" as a 10-grapheme utf-8 string
          
          
-  File "_none_", line 1:
-  Error (warning 26 [unused-var]): unused variable opcode.
-  
-  File "_none_", line 1:
-  Error (warning 26 [unused-var]): unused variable mask.
-  
-  File "_none_", line 1:
-  Error (warning 26 [unused-var]): unused variable payload.
-  
-  File "_none_", line 1:
-  Error (warning 26 [unused-var]): unused variable rest.
-  
-  File "_none_", line 1:
-  Error (warning 26 [unused-var]): unused variable mask.
-  
-  File "_none_", line 1:
-  Error (warning 26 [unused-var]): unused variable payload.
-  
-  File "_none_", line 1:
-  Error (warning 26 [unused-var]): unused variable payload.
-  
-  File "_none_", line 1:
-  Error (warning 26 [unused-var]): unused variable rest.
+  File "match_error_invalid_expect_number_size.ml", lines 2-3, characters 2-44:
+  2 | ..match%bytestring {%bytestring| |} with
+  3 |   | {| 2112::utf8, 0::1, rest::rush |} -> ()
+  Error: Invalid size "rush" for "rest"
+         
+         Valid sizes are:
+         
+           bytes       - match on the entire string
+           bytes(expr) - match `expr` bytes
+           utf8        - match on 1 UTF-8 grapheme
+           utf8(expr)  - match `expr` UTF-8 graphemes
+           bits(expr)  - use up to `expr` bits
+           <number>    - use exactly `<number>` bits
+         
+         For example:
+         
+           hello::bytes       – use all of `hello` as a byte string
+           hello::bytes(len)  – use `len` bytes from `hello`
+           hello::bits(len)   – use len bits of `hello` (128 bytes)
+           hello::utf8        – use 1 valid utf8 grapheme from `hello`
+           hello::7           – use 8 bits of `hello`
+         
+         
   [1]
   $ dune describe pp ./empty.ml
   [@@@ocaml.ppx.context
@@ -277,49 +296,62 @@
       (fun _data_src ->
          try
            let _data_src = Bytestring.to_iter _data_src in
-           let fin = Bytestring.Iter.next_bits ~size:1 _data_src in
-           let compressed = Bytestring.Iter.next_bits ~size:1 _data_src in
-           let rsv = Bytestring.Iter.next_bits ~size:2 _data_src in
-           let opcode = Bytestring.Iter.next_bits ~size:4 _data_src in
-           Bytestring.Iter.expect_literal_int _data_src ~size:1 0;
-           (try
-              Bytestring.Iter.expect_literal_int _data_src ~size:7 126;
-              (try
-                 let length = Bytestring.Iter.next_bits ~size:64 _data_src in
-                 let mask = Bytestring.Iter.next_bits ~size:32 _data_src in
-                 let payload =
-                   Bytestring.Iter.next_bytes ~size:(length * 8) _data_src in
-                 let rest = Bytestring.Iter.rest _data_src in
-                 Bytestring.Iter.expect_empty _data_src;
-                 if (compressed = 0) || (length > 0)
-                 then fin
-                 else raise Bytestring.Guard_mismatch
-               with
-               | Bytestring.No_match ->
-                   (try
-                      let length = Bytestring.Iter.next_bits ~size:16 _data_src in
-                      let mask = Bytestring.Iter.next_bits ~size:32 _data_src in
-                      let payload =
-                        Bytestring.Iter.next_bytes ~size:(length * 8) _data_src in
-                      let rest = Bytestring.Iter.rest _data_src in
-                      Bytestring.Iter.expect_empty _data_src;
-                      if rest != Bytestring.empty
-                      then compressed
-                      else raise Bytestring.Guard_mismatch
-                    with | Bytestring.No_match -> raise Bytestring.No_match))
-            with
-            | Bytestring.No_match ->
-                (try
-                   let length = Bytestring.Iter.next_bits ~size:7 _data_src in
-                   let mask = Bytestring.Iter.next_bits ~size:32 _data_src in
-                   let payload =
+           try
+             let fin = Bytestring.Iter.next_bits ~size:1 _data_src in
+             let compressed = Bytestring.Iter.next_bits ~size:1 _data_src in
+             let _rsv = Bytestring.Iter.next_bits ~size:2 _data_src in
+             let _opcode = Bytestring.Iter.next_bits ~size:4 _data_src in
+             Bytestring.Iter.expect_literal_int _data_src ~size:1 0;
+             Bytestring.Iter.expect_literal_int _data_src ~size:7 126;
+             (let length = Bytestring.Iter.next_bits ~size:64 _data_src in
+              let _mask = Bytestring.Iter.next_bits ~size:32 _data_src in
+              let _payload =
+                Bytestring.Iter.next_bytes ~size:(length * 8) _data_src in
+              let _rest = Bytestring.Iter.rest _data_src in
+              Bytestring.Iter.expect_empty _data_src;
+              if (compressed = 0) || (length > 0)
+              then fin
+              else raise Bytestring.Guard_mismatch)
+           with
+           | Bytestring.No_match ->
+               (try
+                  let _fin = Bytestring.Iter.next_bits ~size:1 _data_src in
+                  let compressed = Bytestring.Iter.next_bits ~size:1 _data_src in
+                  let _rsv = Bytestring.Iter.next_bits ~size:2 _data_src in
+                  let _opcode = Bytestring.Iter.next_bits ~size:4 _data_src in
+                  Bytestring.Iter.expect_literal_int _data_src ~size:1 0;
+                  Bytestring.Iter.expect_literal_int _data_src ~size:7 126;
+                  (let length = Bytestring.Iter.next_bits ~size:16 _data_src in
+                   let _mask = Bytestring.Iter.next_bits ~size:32 _data_src in
+                   let _payload =
                      Bytestring.Iter.next_bytes ~size:(length * 8) _data_src in
                    let rest = Bytestring.Iter.rest _data_src in
                    Bytestring.Iter.expect_empty _data_src;
-                   if (length <= 125) && ((fin == 0) || (length <= mask))
-                   then rsv
-                   else raise Bytestring.Guard_mismatch
-                 with | Bytestring.No_match -> raise Bytestring.No_match))
+                   if rest != Bytestring.empty
+                   then compressed
+                   else raise Bytestring.Guard_mismatch)
+                with
+                | Bytestring.No_match ->
+                    (try
+                       let fin = Bytestring.Iter.next_bits ~size:1 _data_src in
+                       let _compressed =
+                         Bytestring.Iter.next_bits ~size:1 _data_src in
+                       let rsv = Bytestring.Iter.next_bits ~size:2 _data_src in
+                       let _opcode =
+                         Bytestring.Iter.next_bits ~size:4 _data_src in
+                       Bytestring.Iter.expect_literal_int _data_src ~size:1 0;
+                       (let length =
+                          Bytestring.Iter.next_bits ~size:7 _data_src in
+                        let mask = Bytestring.Iter.next_bits ~size:32 _data_src in
+                        let _payload =
+                          Bytestring.Iter.next_bytes ~size:(length * 8)
+                            _data_src in
+                        let _rest = Bytestring.Iter.rest _data_src in
+                        Bytestring.Iter.expect_empty _data_src;
+                        if (length <= 125) && ((fin == 0) || (length <= mask))
+                        then rsv
+                        else raise Bytestring.Guard_mismatch)
+                     with | Bytestring.No_match -> raise Bytestring.No_match))
          with
          | Bytestring.No_match ->
              (try let data = _data_src in Bytestring.length data

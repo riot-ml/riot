@@ -34,9 +34,11 @@ let () =
   let str =
     {%bytestring|
       fin::1, comp::1, 0::2, 1::4, 0::1, 127::7,
-      len::bits(8*8), mask::32, payload::bytes(len), rest
+      len::bits(8*8), mask::32, payload::bytes(len), rest,
     |}
   in
+
+  let compute_bits () = 8 * 8 in
 
   let _ =
     match%bytestring str with
@@ -46,9 +48,9 @@ let () =
          1::4,
          0::1,
          127::7,
-         len::bits(8*8),
-         mask::32,
-         payload::bytes(len),
+         len::bits(compute_bits ()),
+         _mask::32,
+         _payload::bytes(len),
          rest,
         |}
       ->

@@ -110,7 +110,7 @@ module Lexer = struct
     | eof ->
         (* log "\n%!"; *)
         acc
-    | _ -> failwith ~loc "Unexpected character"
+    | _ -> failwith ~loc "Unexpected character asdf"
 
   and string ~loc buf ?(str = []) acc =
     match%sedlex buf with

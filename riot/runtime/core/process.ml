@@ -136,6 +136,7 @@ let is_waiting_io t =
 let is_runnable t = Atomic.get t.state = Runnable
 let is_running t = Atomic.get t.state = Running
 let is_finalized t = Atomic.get t.state = Finalized
+let is_main t = Pid.equal (pid t) Pid.main
 
 let has_empty_mailbox t =
   Mailbox.is_empty t.save_queue && Mailbox.is_empty t.mailbox

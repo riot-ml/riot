@@ -1,5 +1,6 @@
 type t
 
+val main : t
 val zero : t
 val equal : t -> t -> bool
 val next : unit -> t

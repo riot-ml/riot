@@ -886,24 +886,25 @@ module Prefix_matching = struct
     in
     List.fold_left merge (Prefix ([], [])) cases
 
-  let rec to_expr ~loc ~data t =
+  let rec to_expr ~loc t =
     match t with
-    | Prefix ([], t) -> build_body ~loc ~data t
+    | Prefix ([], t) -> build_body ~loc t
     | Prefix (ops, t) ->
-        let body = build_body ~loc ~data t in
+        let body = build_body ~loc t in
         Pattern_matcher.to_expr ~loc ~body ops
     | Try_run ([], body) -> body
     | Try_run (ops, body) -> Pattern_matcher.to_expr ~loc ~body ops
 
-  and build_body ~loc ~data t =
+  and build_body ~loc t =
     List.fold_left
       (fun acc t ->
-        let case = to_expr ~loc ~data t in
+        let case = to_expr ~loc t in
         [%expr try [%e case] with Bytestring.No_match -> [%e acc]])
       [%expr raise Bytestring.No_match] (List.rev t)
 
   let to_match_expression ~loc ~data patterns =
-    to_expr ~loc ~data (to_prefix_match patterns)
+    [%expr
+      (fun _data_src -> [%e to_expr ~loc (to_prefix_match patterns)]) [%e data]]
 end
 
 let to_pattern_match = Pattern_matcher.to_pattern_match

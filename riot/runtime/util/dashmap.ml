@@ -1,7 +1,8 @@
 type ('k, 'v) t = { tbl : ('k, 'v) Hashtbl.t; lock : Mutex.t }
 
 let create size = { lock = Mutex.create (); tbl = Hashtbl.create size }
-let get t k = Mutex.protect t.lock (fun () -> Hashtbl.find_all t.tbl k)
+let get_all t k = Mutex.protect t.lock (fun () -> Hashtbl.find_all t.tbl k)
+let get t k = Mutex.protect t.lock (fun () -> Hashtbl.find_opt t.tbl k)
 let remove t k = Mutex.protect t.lock (fun () -> Hashtbl.remove t.tbl k)
 
 let remove_all t ks =
@@ -51,7 +52,8 @@ module type Intf = sig
 
   val create : int -> 'v t
   val keys : 'v t -> key Seq.t
-  val get : 'v t -> key -> 'v list
+  val get : 'v t -> key -> 'v option
+  val get_all : 'v t -> key -> 'v list
   val is_empty : 'v t -> bool
   val find_by : 'v t -> (key * 'v -> bool) -> (key * 'v) option
   val remove : 'v t -> key -> unit
@@ -78,7 +80,8 @@ module Make (B : Base) : Intf with type key = B.key = struct
 
   let keys t = Hashtbl.to_seq_keys t.tbl
   let create size = { lock = Mutex.create (); tbl = Hashtbl.create size }
-  let get t k = Mutex.protect t.lock (fun () -> Hashtbl.find_all t.tbl k)
+  let get_all t k = Mutex.protect t.lock (fun () -> Hashtbl.find_all t.tbl k)
+  let get t k = Mutex.protect t.lock (fun () -> Hashtbl.find_opt t.tbl k)
   let remove t k = Mutex.protect t.lock (fun () -> Hashtbl.remove t.tbl k)
 
   let remove_all t ks =

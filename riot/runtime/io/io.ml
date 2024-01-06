@@ -71,7 +71,7 @@ let register t proc mode fd =
 
 let unregister_process t proc =
   Log.debug (fun f -> f "Unregistering %a" Pid.pp (Process.pid proc));
-  let fds = Dashmap.get t.fds proc in
+  let fds = Dashmap.get_all t.fds proc in
   fds |> Dashmap.remove_all t.procs;
   List.iter
     (fun fd ->
@@ -93,7 +93,7 @@ let poll t fn =
           | None -> ()
           | Some mode ->
               let fd = Fd.make raw_fd in
-              let procs = Dashmap.get t.procs fd in
+              let procs = Dashmap.get_all t.procs fd in
               let mode_and_flag (proc, mode') =
                 Log.trace (fun f ->
                     f "io_poll(%a=%a,%a=%a): %a" Fd.pp fd Fd.pp fd Fd.Mode.pp

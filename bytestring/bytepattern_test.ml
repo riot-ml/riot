@@ -2,8 +2,10 @@ open Ppxlib
 open Ast_helper
 open Bytepattern
 
+let loc = Location.none
+
 let id name =
-  let longident = Location.{ loc = none; txt = Longident.parse name } in
+  let longident = Location.{ loc; txt = Longident.parse name } in
   Exp.ident longident
 
 let int n = Exp.constant (Const.int n)
@@ -14,7 +16,7 @@ let ocaml str =
 
 let () =
   let test str expected =
-    let actual = Lexer.read str in
+    let actual = Lexer.read ~loc str in
 
     let actual_str = Format.asprintf "%a" Lexer.pp actual in
     let expect_str = Format.asprintf "%a" Lexer.pp expected in
@@ -127,7 +129,7 @@ let () =
 let () =
   let open Parser in
   let test str expected =
-    let actual = Parser.parse str in
+    let actual = Parser.parse ~loc str in
 
     let actual_str = Format.asprintf "%a" Parser.pp actual in
     let expect_str = Format.asprintf "%a" Parser.pp expected in
@@ -196,7 +198,7 @@ let () =
 let () =
   let open Construction_lower in
   let test str expected =
-    let actual = parse str |> Construction_lower.lower in
+    let actual = parse ~loc str |> Construction_lower.lower ~loc in
     let actual_str = Format.asprintf "%a" Construction_lower.pp actual in
     let expect_str = Format.asprintf "%a" Construction_lower.pp expected in
 
@@ -329,9 +331,8 @@ let () =
    Bytestring construction tests
  *)
 let () =
-  let loc = Location.none in
   let test str expected =
-    let lower = Bytepattern.parse str in
+    let lower = Bytepattern.parse ~loc str in
     let actual = lower |> Bytepattern.to_transient_builder ~loc in
     let actual = Ppxlib.Pprintast.string_of_expression actual in
     let expected = Ppxlib.Pprintast.string_of_expression expected in
@@ -445,7 +446,7 @@ let () =
 let () =
   let open Matching_lower in
   let test str expected =
-    let actual = parse str |> Matching_lower.lower in
+    let actual = parse ~loc str |> Matching_lower.lower ~loc in
     let actual_str = Format.asprintf "%a" Matching_lower.pp actual in
     let expect_str = Format.asprintf "%a" Matching_lower.pp expected in
 
@@ -591,7 +592,7 @@ let () =
 let () =
   let loc = Location.none in
   let test str expected =
-    let lower = Bytepattern.parse str in
+    let lower = Bytepattern.parse ~loc str in
     let actual = lower |> Bytepattern.to_pattern_match ~loc ~body:[%expr ()] in
     let actual = Ppxlib.Pprintast.string_of_expression actual in
     let expected = Ppxlib.Pprintast.string_of_expression expected in
@@ -741,10 +742,10 @@ let () =
           let test_name =
             id ("test_" ^ string_of_int n ^ "_body_" ^ string_of_int idx)
           in
-          (Bytepattern.parse str, guard, [%expr [%e test_name]]))
+          (Bytepattern.parse ~loc str, guard, [%expr [%e test_name]]))
         strs
     in
-    let actual = Bytepattern.to_prefix_match lowers in
+    let actual = Bytepattern.to_prefix_match ~loc lowers in
     let actual =
       Format.asprintf "%a" Bytepattern.Prefix_matching.pp [ actual ]
     in
@@ -1058,7 +1059,7 @@ let () =
           let test_name =
             id ("test_" ^ string_of_int n ^ "_body_" ^ string_of_int idx)
           in
-          (Bytepattern.parse str, guard, [%expr [%e test_name]]))
+          (Bytepattern.parse ~loc str, guard, [%expr [%e test_name]]))
         strs
     in
     let actual =

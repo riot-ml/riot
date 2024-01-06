@@ -1,5 +1,25 @@
 open Ppxlib
 
+let error fmt = Spices.(default |> fg (color "#FF0000") |> build) fmt
+let mint = Spices.color "#77e5b7"
+let keyword fmt = Spices.(default |> fg mint |> build) fmt
+
+type error = { loc : Location.t; error : string }
+
+exception Error of error
+
+let failwith ~loc error = raise (Error { loc; error = error ^ "\n" })
+
+let bug ~loc reason =
+  failwith ~loc
+    (Format.sprintf
+       {|Oops! This is a bug. We should never get here, please file an issue here \
+
+https://github.com/leostera/riot/issues/new
+
+Contenxt: %s |}
+       reason)
+
 let log = Printf.printf
 
 type token =
@@ -28,6 +48,20 @@ type pattern =
 type parsetree = pattern list
 
 module Lexer = struct
+  let to_string ts =
+    ts
+    |> List.map (fun t ->
+           match t with
+           | IDENT name -> name
+           | COMMA -> ","
+           | COLON_COLON -> "::"
+           | EOF -> ""
+           | NUMBER n -> Format.sprintf "%d" n
+           | STRING s -> Format.sprintf "%S" s
+           | EXPRESSION e ->
+               Format.sprintf "%S" (Pprintast.string_of_expression e))
+    |> String.concat ""
+
   let pp_one fmt (t : token) =
     match t with
     | IDENT name -> Format.fprintf fmt "IDENT(%S)" name
@@ -50,69 +84,69 @@ module Lexer = struct
   let letter = [%sedlex.regexp? '_' | 'a' .. 'z' | 'A' .. 'Z']
   let ident = [%sedlex.regexp? letter, Star (letter | digit)]
 
-  let rec token buf acc =
+  let rec token ~loc buf acc =
     match%sedlex buf with
-    | white_space -> token buf acc
+    | white_space -> token ~loc buf acc
     | "," ->
         (* log ",%!"; *)
-        token buf (COMMA :: acc)
+        token ~loc buf (COMMA :: acc)
     | "::" ->
         (* log "::%!"; *)
-        token buf (COLON_COLON :: acc)
+        token ~loc buf (COLON_COLON :: acc)
     | "(", Star white_space ->
         (* log "(%!"; *)
-        expr ~parens:0 buf acc
+        expr ~loc ~parens:0 buf acc
     | "\"" ->
         (* log "\"%!"; *)
-        string buf acc
+        string ~loc buf acc
     | ident ->
         let ident = Sedlexing.Utf8.lexeme buf in
         (* log "%s%!" ident; *)
-        token buf (IDENT ident :: acc)
+        token ~loc buf (IDENT ident :: acc)
     | digit ->
         let num = Sedlexing.Utf8.lexeme buf in
         (* log "%s%!" num; *)
-        token buf (NUMBER (Int64.of_string num |> Int64.to_int) :: acc)
+        token ~loc buf (NUMBER (Int64.of_string num |> Int64.to_int) :: acc)
     | eof ->
         (* log "\n%!"; *)
         acc
-    | _ -> failwith "Unexpected character"
+    | _ -> failwith ~loc "Unexpected character"
 
-  and string buf ?(str = []) acc =
+  and string ~loc buf ?(str = []) acc =
     match%sedlex buf with
     | "\"" ->
         let str = List.rev str |> String.concat "" in
         (* log "%s\"%!" str; *)
-        token buf (STRING str :: acc)
+        token ~loc buf (STRING str :: acc)
     | any ->
         let ident = Sedlexing.Utf8.lexeme buf in
-        string buf ~str:(ident :: str) acc
-    | _ -> failwith "Unexpected character"
+        string ~loc buf ~str:(ident :: str) acc
+    | _ -> failwith ~loc "Unexpected character"
 
-  and expr buf ~parens ?(exp = []) acc =
+  and expr ~loc buf ~parens ?(exp = []) acc =
     match%sedlex buf with
     | ")" ->
         if parens > 0 then
           let ident = Sedlexing.Utf8.lexeme buf in
-          expr buf ~parens:(parens - 1) ~exp:(ident :: exp) acc
+          expr ~loc buf ~parens:(parens - 1) ~exp:(ident :: exp) acc
         else
           let expr = List.rev exp |> String.concat "" in
           (* log "%s)%!" expr; *)
           let lexbuf = Lexing.from_string ~with_positions:false expr in
           let expr = Parse.expression lexbuf in
           let expr = EXPRESSION expr in
-          token buf (expr :: acc)
+          token ~loc buf (expr :: acc)
     | "(" ->
         let ident = Sedlexing.Utf8.lexeme buf in
-        expr buf ~parens:(parens + 1) ~exp:(ident :: exp) acc
+        expr ~loc buf ~parens:(parens + 1) ~exp:(ident :: exp) acc
     | any ->
         let ident = Sedlexing.Utf8.lexeme buf in
-        expr buf ~parens ~exp:(ident :: exp) acc
-    | _ -> failwith "Unexpected character"
+        expr ~loc buf ~parens ~exp:(ident :: exp) acc
+    | _ -> failwith ~loc "Unexpected character"
 
-  let read str =
+  let read ~loc str =
     let lexbuf = Sedlexing.Utf8.from_string str in
-    token lexbuf [] |> List.rev
+    token ~loc lexbuf [] |> List.rev
 end
 
 module Parser = struct
@@ -168,30 +202,36 @@ module Parser = struct
   let bind name size = Bind { name; size }
   let expect value size = Expect { value; size }
 
-  let rec parse str =
-    let tokens = Lexer.read str in
-    if tokens = [] then [] else do_parse tokens []
+  let rec parse ~loc str =
+    let tokens = Lexer.read ~loc str in
+    if tokens = [] then [] else do_parse ~loc tokens []
 
-  and do_parse tokens acc =
+  and do_parse ~loc tokens acc =
     match tokens with
     | [] -> List.rev acc
     (* note: support trailing commas, but not just a comma *)
     | [ COMMA ] when List.length acc > 0 -> List.rev acc
     | [ COMMA ] when List.length acc = 0 ->
-        failwith
-          "The bytestring syntax supports trailing commas, but a single comma \
-           is not a valid bytestring pattern."
-    | _ ->
-        let pattern, rest = parse_pattern tokens in
-        (* log "\n"; *)
-        do_parse rest (pattern :: acc)
+        failwith ~loc
+          (Format.sprintf
+             {|%s
 
-  and parse_pattern (tokens : token list) =
+A bytestring pattern must have zero, one, or more fields separated by commas.
+
+Trailing commas are supported, but a single comma is not a valid bytestring pattern.
+    |}
+             (error "Invalid bytestring pattern"))
+    | _ ->
+        let pattern, rest = parse_pattern ~loc tokens in
+        (* log "\n"; *)
+        do_parse ~loc rest (pattern :: acc)
+
+  and parse_pattern ~loc (tokens : token list) =
     match tokens with
     | IDENT name :: COLON_COLON :: rest -> (
         (* log "bind %s:: " name; *)
-        let size, rest = parse_size rest in
-        match expect_comma rest with
+        let size, rest = parse_size ~name ~loc rest in
+        match expect_comma ~loc rest with
         | `cont rest -> (bind name size, rest)
         | `halt -> (bind name size, []))
     | IDENT name :: rest ->
@@ -200,8 +240,8 @@ module Parser = struct
     | STRING s :: COLON_COLON :: rest -> (
         (* log "expect %n:: " n; *)
         let value = String s in
-        let size, rest = parse_size rest in
-        match expect_comma rest with
+        let size, rest = parse_size ~name:s ~loc rest in
+        match expect_comma ~loc rest with
         | `cont rest -> (expect value size, rest)
         | `halt -> (expect value size, []))
     | STRING s :: rest ->
@@ -210,16 +250,16 @@ module Parser = struct
     | NUMBER n :: COLON_COLON :: rest -> (
         (* log "expect %n:: " n; *)
         let value = Number n in
-        let size, rest = parse_size rest in
-        match expect_comma rest with
+        let size, rest = parse_size ~name:(string_of_int n) ~loc rest in
+        match expect_comma ~loc rest with
         | `cont rest -> (expect value size, rest)
         | `halt -> (expect value size, []))
     | NUMBER n :: rest ->
         (* log "expect %d with implied size of 1 byte" n; *)
         (expect (Number n) (Fixed_bits 1), rest)
-    | _ -> failwith "patterns must begin with identifiers or constants"
+    | _ -> failwith ~loc "patterns must begin with identifiers or constants"
 
-  and parse_size (tokens : token list) =
+  and parse_size ~name ~loc (tokens : token list) =
     match tokens with
     | IDENT "bytes" :: EXPRESSION expr :: rest ->
         (* log "dynamic bytes(%s)" expr; *)
@@ -240,26 +280,36 @@ module Parser = struct
         (* log "size is fixed bits %d" n; *)
         (Fixed_bits n, rest)
     | tokens ->
-        failwith
+        failwith ~loc
           (Format.asprintf
-             {|
-        We found an invalid size: 
-           
-          %a
+             {|%s
 
-        Valid sizes are: bytes, bytes(expr), bits(expr), utf8, and a number.
+Valid sizes are:
 
-        For example:
+  %s       - match on the entire string
+  %s - match `expr` bytes
+  %s        - match on 1 UTF-8 grapheme
+  %s  - match `expr` UTF-8 graphemes
+  %s  - use up to `expr` bits
+  %s    - use exactly `<number>` bits
 
-          \{| hello::bytes |\}
-          \{| hello::bytes(len * 10) |\}
-          \{| hello::bits(1024) |\}
-          \{| hello::utf8 |\}
-          \{| hello::7 |\}
+For example:
+
+  hello::bytes       – use all of `hello` as a byte string
+  hello::bytes(len)  – use `len` bytes from `hello`
+  hello::bits(len)   – use len bits of `hello` (128 bytes)
+  hello::utf8        – use 1 valid utf8 grapheme from `hello`
+  hello::7           – use 8 bits of `hello`
 |}
-             Lexer.pp tokens)
+             (error "Invalid size %S for %S" (Lexer.to_string tokens) name)
+             (keyword "%s" "bytes")
+             (keyword "%s" "bytes(expr)")
+             (keyword "%s" "utf8")
+             (keyword "%s" "utf8(expr)")
+             (keyword "%s" "bits(expr)")
+             (keyword "%s" "<number>"))
 
-  and expect_comma rest =
+  and expect_comma ~loc:_ rest =
     match rest with COMMA :: rest -> `cont rest | _ -> `halt
 end
 
@@ -341,75 +391,116 @@ module Construction_lower = struct
     let compare = compare
   end)
 
-  let rec lower patterns =
+  let rec lower ~loc patterns =
     match patterns with
     | [] -> [ Empty ]
     | [ Bind { name; size = Rest } ] -> [ Bypass name ]
     | pats ->
         let trns = "_trns" in
-        [ Create_transient trns ] @ create_ops pats []
+        [ Create_transient trns ] @ create_ops ~loc pats []
         @ [ Commit_transient trns ]
 
-  and create_ops pats acc =
+  and create_ops ~loc pats acc =
     match pats with
     | [] -> List.rev acc
     | Bind { name = src; size = Rest } :: rest ->
         (* log "add_rest %s\n" src; *)
-        create_ops rest (Add_rest { src } :: acc)
+        create_ops ~loc rest (Add_rest { src } :: acc)
     | Bind { name = src; size = Utf8 } :: rest ->
         (* log "add_next_utf8 %s\n" src; *)
-        create_ops rest (Add_next_utf8 { src } :: acc)
+        create_ops ~loc rest (Add_next_utf8 { src } :: acc)
     | Bind { name = src; size = Fixed_bits size } :: rest ->
         (* log "add_next_fixe_bits %s %d\n" src size; *)
-        create_ops rest (Add_next_fixed_bits { src; size } :: acc)
+        create_ops ~loc rest (Add_next_fixed_bits { src; size } :: acc)
     | Bind { name = src; size = Dynamic_bits expr } :: rest ->
         (* log "add_dynamic_bits %s %s\n" src expr; *)
-        create_ops rest (Add_next_dynamic_bits { src; expr } :: acc)
+        create_ops ~loc rest (Add_next_dynamic_bits { src; expr } :: acc)
     | Bind { name = src; size = Dynamic_utf8 expr } :: rest ->
         (* log "add_dynamic_utf8 %s %s\n" src expr; *)
-        create_ops rest (Add_next_dynamic_utf8 { src; expr } :: acc)
+        create_ops ~loc rest (Add_next_dynamic_utf8 { src; expr } :: acc)
     | Bind { name = src; size = Dynamic_bytes expr } :: rest ->
         (* log "add_dynamic_bytes %s %s\n" src expr; *)
-        create_ops rest (Add_next_dynamic_bytes { src; expr } :: acc)
+        create_ops ~loc rest (Add_next_dynamic_bytes { src; expr } :: acc)
     (*
       handle number literals
     *)
-    | Expect { value = Number value; size = Utf8 | Dynamic_utf8 _ } :: _rest ->
-        failwith
+    | Expect
+        { value = Number value; size = (Rest | Utf8 | Dynamic_utf8 _) as size }
+      :: _rest ->
+        let[@warning "-8"] size =
+          match size with
+          | Rest -> "bytes"
+          | Utf8 -> "utf8"
+          | Dynamic_utf8 n -> "utf8(" ^ Pprintast.string_of_expression n ^ ")"
+        in
+        failwith ~loc
           (Format.sprintf
-             "Invalid size `utf8` for number %d. UTF-8 sizes expect the value \
-              to be a string literal."
-             value)
-    | Expect { value = Number value; size = Rest } :: _rest ->
-        failwith
-          (Format.sprintf
-             "Invalid size `bytes` for number %d. The size `bytes` expects the \
-              value to be a string literal."
-             value)
+             {|%s
+
+Valid sizes for number literals are:
+
+  %s - use up to `expr` bytes
+  %s  - use up to `expr` bits
+  %s    - use exactly `<number>` bits
+
+For example:
+
+  2112::bytes(10)  – use `2112` as a 10 byte integer
+  2112::bits(len)  – use `2112` as a `len` bits integer
+  2112::7          – use `2112` as a 7 bit integer
+|}
+             (error "Invalid size %S for value %d" size value)
+             (keyword "%s" "bytes(expr)")
+             (keyword "%s" "bits(expr)")
+             (keyword "%s" "<number>"))
     | Expect { value = Number value; size = Dynamic_bits expr } :: rest ->
-        create_ops rest (Add_int_dynamic_bits { value; expr } :: acc)
+        create_ops ~loc rest (Add_int_dynamic_bits { value; expr } :: acc)
     | Expect { value = Number value; size = Dynamic_bytes expr } :: rest ->
-        create_ops rest (Add_int_dynamic_bytes { value; expr } :: acc)
+        create_ops ~loc rest (Add_int_dynamic_bytes { value; expr } :: acc)
     | Expect { value = Number value; size = Fixed_bits size } :: rest ->
-        create_ops rest (Add_int_fixed_bits { value; size } :: acc)
+        create_ops ~loc rest (Add_int_fixed_bits { value; size } :: acc)
     (*
       handle string literals
     *)
-    | Expect { value = String value; size = Fixed_bits _ | Dynamic_bits _ }
+    | Expect
+        { value = String value; size = (Fixed_bits _ | Dynamic_bits _) as size }
       :: _rest ->
-        failwith
+        let[@warning "-8"] size =
+          match size with
+          | Fixed_bits n -> string_of_int n
+          | Dynamic_bits n -> "bits(" ^ Pprintast.string_of_expression n ^ ")"
+        in
+        failwith ~loc
           (Format.sprintf
-             "Invalid string %S with size specified in bits. Bits sizes \
-              expected the value to be an int."
-             value)
+             {|%s
+
+Valid sizes for string literals are:
+
+  %s       - match on the entire string
+  %s - match `expr` bytes
+  %s        - match on 1 UTF-8 grapheme
+  %s  - match `expr` UTF-8 graphemes
+
+For example:
+
+  "rush"::bytes      – use all of the "rush" string
+  "rush"::bytes(10)  – use "rush" as a 10-byte string
+  "rush"::utf8       – use "rush" as a valid UTF-8 string
+  "rush"::utf8(10)   – use "rush" as a 10-grapheme utf-8 string
+|}
+             (error "Invalid size %S for value %S" size value)
+             (keyword "%s" "bytes")
+             (keyword "%s" "bytes(expr)")
+             (keyword "%s" "utf8")
+             (keyword "%s" "utf8(expr)"))
     | Expect { value = String value; size = Utf8 } :: rest ->
-        create_ops rest (Add_string_utf8 { value } :: acc)
+        create_ops ~loc rest (Add_string_utf8 { value } :: acc)
     | Expect { value = String value; size = Rest } :: rest ->
-        create_ops rest (Add_string_bytes { value } :: acc)
+        create_ops ~loc rest (Add_string_bytes { value } :: acc)
     | Expect { value = String value; size = Dynamic_bytes expr } :: rest ->
-        create_ops rest (Add_string_dynamic_bytes { value; expr } :: acc)
+        create_ops ~loc rest (Add_string_dynamic_bytes { value; expr } :: acc)
     | Expect { value = String value; size = Dynamic_utf8 expr } :: rest ->
-        create_ops rest (Add_string_dynamic_utf8 { value; expr } :: acc)
+        create_ops ~loc rest (Add_string_dynamic_utf8 { value; expr } :: acc)
 end
 
 module Transient_builder = struct
@@ -434,7 +525,7 @@ module Transient_builder = struct
     | Commit_transient name :: [] ->
         [%expr Bytestring.Transient.commit [%e id ~loc name]]
     | Commit_transient _name :: _rest ->
-        failwith "commit transient must be the last action we translate"
+        bug ~loc "commit transient must be the last action we translate"
     | Add_rest { src } :: rest ->
         [%expr
           Bytestring.Transient.add_string _trns [%e id ~loc src];
@@ -500,11 +591,11 @@ module Transient_builder = struct
         [%expr
           Bytestring.Transient.add_literal_string _trns [%e value];
           [%e to_expr ~loc rest]]
-    | _ -> failwith "invalid lower repr"
+    | _ -> bug ~loc "invalid lower repr when cosntructing bytestring"
 
   let to_transient_builder ~loc patterns =
     let lower = Construction_lower.lower patterns in
-    to_expr ~loc lower
+    to_expr ~loc (lower ~loc)
 end
 
 let to_transient_builder = Transient_builder.to_transient_builder
@@ -625,79 +716,125 @@ module Matching_lower = struct
     let compare = compare
   end)
 
-  let rec lower patterns =
+  let rec lower ~loc patterns =
     let iter = "_data_src" in
     match patterns with
     | [] -> [ Empty iter ]
     | [ Bind { name; size = Rest } ] -> [ Bypass { src = iter; name } ]
     | pats ->
-        [ Create_iterator iter ] @ create_ops ~iter pats [] @ [ Empty iter ]
+        [ Create_iterator iter ]
+        @ create_ops ~loc ~iter pats []
+        @ [ Empty iter ]
 
-  and create_ops ~iter pats acc =
+  and create_ops ~loc ~iter pats acc =
     match pats with
     | [] -> List.rev acc
     | Bind { name = src; size = Rest } :: rest ->
         (* log "bind_rest %s\n" src; *)
-        create_ops ~iter rest (Bind_rest { iter; src } :: acc)
+        create_ops ~loc ~iter rest (Bind_rest { iter; src } :: acc)
     | Bind { name = src; size = Utf8 } :: rest ->
         (* log "bind_next_utf8 %s\n" src; *)
-        create_ops ~iter rest (Bind_next_utf8 { iter; src } :: acc)
+        create_ops ~loc ~iter rest (Bind_next_utf8 { iter; src } :: acc)
     | Bind { name = src; size = Fixed_bits size } :: rest ->
         (* log "bind_next_fixe_bits %s %d\n" src size; *)
-        create_ops ~iter rest (Bind_next_fixed_bits { iter; src; size } :: acc)
+        create_ops ~loc ~iter rest
+          (Bind_next_fixed_bits { iter; src; size } :: acc)
     | Bind { name = src; size = Dynamic_bits expr } :: rest ->
         (* log "bind_dynamic_bits %s %s\n" src expr; *)
-        create_ops ~iter rest (Bind_next_dynamic_bits { iter; src; expr } :: acc)
+        create_ops ~loc ~iter rest
+          (Bind_next_dynamic_bits { iter; src; expr } :: acc)
     | Bind { name = src; size = Dynamic_utf8 expr } :: rest ->
         (* log "bind_dynamic_utf8 %s %s\n" src expr; *)
-        create_ops ~iter rest (Bind_next_dynamic_utf8 { iter; src; expr } :: acc)
+        create_ops ~loc ~iter rest
+          (Bind_next_dynamic_utf8 { iter; src; expr } :: acc)
     | Bind { name = src; size = Dynamic_bytes expr } :: rest ->
         (* log "bind_dynamic_bytes %s %s\n" src expr; *)
-        create_ops ~iter rest
+        create_ops ~loc ~iter rest
           (Bind_next_dynamic_bytes { iter; src; expr } :: acc)
     (*
       handle number literals
     *)
-    | Expect { value = Number value; size = Utf8 | Dynamic_utf8 _ } :: _rest ->
-        failwith
+    | Expect
+        { value = Number value; size = (Utf8 | Dynamic_utf8 _ | Rest) as size }
+      :: _rest ->
+        let[@warning "-8"] size =
+          match size with
+          | Utf8 -> "utf8"
+          | Rest -> "bytes"
+          | Dynamic_utf8 n -> "utf8(" ^ Pprintast.string_of_expression n ^ ")"
+        in
+        failwith ~loc
           (Format.sprintf
-             "Invalid size `utf8` for number %d. UTF-8 sizes expect the value \
-              to be a string literal."
-             value)
-    | Expect { value = Number value; size = Rest } :: _rest ->
-        failwith
-          (Format.sprintf
-             "Invalid size `bytes` for number %d. The size `bytes` expects the \
-              value to be a string literal."
-             value)
+             {|%s
+
+Valid sizes for number literals are:
+
+  %s - use up to `expr` bytes
+  %s  - use up to `expr` bits
+  %s    - use exactly `<number>` bits
+
+For example:
+
+  2112::bytes(10)  – use `2112` as a 10 byte integer
+  2112::bits(len)  – use `2112` as a `len` bits integer
+  2112::7          – use `2112` as a 7 bit integer
+|}
+             (error "Invalid size %S for expected number %d" size value)
+             (keyword "%s" "bytes(expr)")
+             (keyword "%s" "bits(expr)")
+             (keyword "%s" "<number>"))
     | Expect { value = Number value; size = Dynamic_bits expr } :: rest ->
-        create_ops ~iter rest
+        create_ops ~loc ~iter rest
           (Expect_int_dynamic_bits { iter; value; expr } :: acc)
     | Expect { value = Number value; size = Dynamic_bytes expr } :: rest ->
-        create_ops ~iter rest
+        create_ops ~loc ~iter rest
           (Expect_int_dynamic_bytes { iter; value; expr } :: acc)
     | Expect { value = Number value; size = Fixed_bits size } :: rest ->
-        create_ops ~iter rest
+        create_ops ~loc ~iter rest
           (Expect_int_fixed_bits { iter; value; size } :: acc)
     (*
       handle string literals
     *)
-    | Expect { value = String value; size = Fixed_bits _ | Dynamic_bits _ }
+    | Expect
+        { value = String value; size = (Fixed_bits _ | Dynamic_bits _) as size }
       :: _rest ->
-        failwith
+        let[@warning "-8"] size =
+          match size with
+          | Fixed_bits n -> string_of_int n
+          | Dynamic_bits n -> "bits(" ^ Pprintast.string_of_expression n ^ ")"
+        in
+        failwith ~loc
           (Format.sprintf
-             "Invalid string %S with size specified in bits. Bits sizes \
-              expected the value to be an int."
-             value)
+             {|%s
+
+Valid sizes for string literals are:
+
+  %s       - match on the entire string
+  %s - match `expr` bytes
+  %s        - match on 1 UTF-8 grapheme
+  %s  - match `expr` UTF-8 graphemes
+
+For example:
+
+  "rush"::bytes      – use all of the "rush" string
+  "rush"::bytes(10)  – use "rush" as a 10-byte string
+  "rush"::utf8       – use "rush" as a valid UTF-8 string
+  "rush"::utf8(10)   – use "rush" as a 10-grapheme utf-8 string
+|}
+             (error "Invalid size %S for expected string %S" size value)
+             (keyword "%s" "bytes")
+             (keyword "%s" "bytes(expr)")
+             (keyword "%s" "utf8")
+             (keyword "%s" "utf8(expr)"))
     | Expect { value = String value; size = Utf8 } :: rest ->
-        create_ops ~iter rest (Expect_string_utf8 { iter; value } :: acc)
+        create_ops ~loc ~iter rest (Expect_string_utf8 { iter; value } :: acc)
     | Expect { value = String value; size = Rest } :: rest ->
-        create_ops ~iter rest (Expect_string_bytes { iter; value } :: acc)
+        create_ops ~loc ~iter rest (Expect_string_bytes { iter; value } :: acc)
     | Expect { value = String value; size = Dynamic_bytes expr } :: rest ->
-        create_ops ~iter rest
+        create_ops ~loc ~iter rest
           (Expect_string_dynamic_bytes { iter; value; expr } :: acc)
     | Expect { value = String value; size = Dynamic_utf8 expr } :: rest ->
-        create_ops ~iter rest
+        create_ops ~loc ~iter rest
           (Expect_string_dynamic_utf8 { iter; value; expr } :: acc)
 end
 
@@ -823,7 +960,7 @@ module Pattern_matcher = struct
 
   let to_pattern_match ~loc ~body patterns =
     let lower = Matching_lower.lower patterns in
-    to_expr ~body ~loc lower
+    to_expr ~body ~loc (lower ~loc)
 end
 
 module Prefix_matching = struct
@@ -899,11 +1036,11 @@ module Prefix_matching = struct
         Prefix (ops, ts)
     | _ -> t
 
-  let to_prefix_match patterns =
+  let to_prefix_match ~loc patterns =
     let cases =
       List.map
         (fun (pattern, guard, body) ->
-          Try_run (Matching_lower.lower pattern, (guard, body)))
+          Try_run (Matching_lower.lower ~loc pattern, (guard, body)))
         patterns
     in
     List.fold_left merge (Prefix ([], [])) cases |> compact
@@ -946,7 +1083,7 @@ module Prefix_matching = struct
       | Try_run ([], (None, body)) :: bodies -> (bodies, body)
       | Try_run ([], (Some _guard, _)) :: _ as bodies ->
           (bodies, [%expr raise Bytestring.Guard_mismatch])
-      | _ -> failwith "invalid guarded body case"
+      | _ -> bug ~loc "build_ifelse should have been validated"
     in
     List.fold_left
       (fun acc (Try_run ([], (Some guard, body))) ->
@@ -954,7 +1091,7 @@ module Prefix_matching = struct
       last bodies
 
   let to_match_expression ~loc ~data patterns =
-    let expr = to_expr ~loc (to_prefix_match patterns) in
+    let expr = to_expr ~loc (to_prefix_match ~loc patterns) in
     [%expr (fun _data_src -> [%e expr]) [%e data]]
 end
 

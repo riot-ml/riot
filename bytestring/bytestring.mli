@@ -5,6 +5,7 @@ val empty : t
 val length : t -> int
 
 exception No_match
+exception Guard_mismatch
 exception Malformed of string
 
 val of_string : string -> t

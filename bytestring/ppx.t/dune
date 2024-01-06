@@ -1,0 +1,4 @@
+(library
+  (name test)
+  (preprocess (pps bytestring.ppx))
+  (libraries bytestring))

@@ -12,8 +12,8 @@
  (libraries compiler-libs ppxlib sedlex bytestring))
 
 (library
- (package bytestring)
- (name ppx_bytestring)
+ (public_name bytestring.ppx)
+ (name bytestring_ppx)
  (modules ppx_bytestring)
  (kind ppx_rewriter)
  (libraries compiler-libs ppxlib bytepattern bytestring)
@@ -28,14 +28,6 @@
   (pps ppxlib.metaquot))
  (libraries bytepattern))
 
-(test
- (package bytestring)
- (name bytepattern_ppx_test)
- (modules bytepattern_ppx_test)
- (preprocess
-  (pps ppx_bytestring))
- (libraries bytestring))
-
 (executable
  (name sub_bench)
  (modules sub_bench)
@@ -45,3 +37,7 @@
  (name concat_bench)
  (modules concat_bench)
  (libraries bytestring scarab))
+
+(cram
+ (deps
+  (package bytestring)))

@@ -733,14 +733,15 @@ let () =
  *)
 let () =
   let loc = Location.none in
-  let test n strs expected =
+  let test ?guard n strs expected =
     let lowers =
       List.mapi
         (fun idx str ->
+          let guard = if idx = 0 then guard else None in
           let test_name =
             id ("test_" ^ string_of_int n ^ "_body_" ^ string_of_int idx)
           in
-          (Bytepattern.parse str, [%expr [%e test_name]]))
+          (Bytepattern.parse str, guard, [%expr [%e test_name]]))
         strs
     in
     let actual = Bytepattern.to_prefix_match lowers in
@@ -764,8 +765,10 @@ let () =
     [
       Prefix
         ( [ Empty "_data_src" ],
-          [ Try_run ([], id "test_0_body_0"); Try_run ([], id "test_0_body_1") ]
-        );
+          [
+            Try_run ([], (None, id "test_0_body_0"));
+            Try_run ([], (None, id "test_0_body_1"));
+          ] );
     ];
 
   test 1
@@ -790,8 +793,8 @@ let () =
                           { src = "other"; size = 3; iter = "_data_src" };
                         Empty "_data_src";
                       ],
-                      id "test_1_body_0" );
-                  Try_run ([ Empty "_data_src" ], id "test_1_body_1");
+                      (None, id "test_1_body_0") );
+                  Try_run ([ Empty "_data_src" ], (None, id "test_1_body_1"));
                 ] );
             Try_run
               ( [
@@ -799,7 +802,7 @@ let () =
                     { src = "world"; size = 10; iter = "_data_src" };
                   Empty "_data_src";
                 ],
-                id "test_1_body_2" );
+                (None, id "test_1_body_2") );
           ] );
     ];
 
@@ -855,18 +858,100 @@ let () =
                               Bind_rest { src = "rest"; iter = "_data_src" };
                               Empty "_data_src";
                             ],
-                            id "test_2_body_0" );
-                        Try_run ([ Empty "_data_src" ], id "test_2_body_1");
+                            (None, id "test_2_body_0") );
+                        Try_run
+                          ([ Empty "_data_src" ], (None, id "test_2_body_1"));
                       ] );
-                  Try_run ([ Empty "_data_src" ], id "test_2_body_2");
+                  Try_run ([ Empty "_data_src" ], (None, id "test_2_body_2"));
                 ] );
             Try_run
               ( [ Bypass { src = "_data_src"; name = "rest" } ],
-                id "test_2_body_3" );
+                (None, id "test_2_body_3") );
           ] );
     ];
 
-  test 4
+  test 3 ~guard:[%expr run_guard ()]
+    [
+      {| fin :: 1, compressed :: 1, rsv :: 2, opcode :: 4, 1 :: 1, 127 :: 7,
+         length :: 64, mask :: 32, payload :: bytes(length), rest :: bytes |};
+      {| fin :: 1, compressed :: 1, rsv :: 2, opcode :: 4, 1 :: 1, 127 :: 7,
+         length :: 64, mask :: 32, payload :: bytes(length), rest :: bytes |};
+      {| fin :: 1, compressed :: 1, rsv :: 2, opcode :: 4, 1 :: 1, 127 :: 7,
+         length :: 64, mask :: 32, payload :: bytes(length), rest :: bytes |};
+      {| data :: bytes |};
+    ]
+    [
+      Prefix
+        ( [],
+          [
+            Prefix
+              ( [
+                  Create_iterator "_data_src";
+                  Bind_next_fixed_bits
+                    { src = "fin"; size = 1; iter = "_data_src" };
+                  Bind_next_fixed_bits
+                    { src = "compressed"; size = 1; iter = "_data_src" };
+                  Bind_next_fixed_bits
+                    { src = "rsv"; size = 2; iter = "_data_src" };
+                  Bind_next_fixed_bits
+                    { src = "opcode"; size = 4; iter = "_data_src" };
+                  Expect_int_fixed_bits
+                    { value = 1; size = 1; iter = "_data_src" };
+                  Expect_int_fixed_bits
+                    { value = 127; size = 7; iter = "_data_src" };
+                  Bind_next_fixed_bits
+                    { src = "length"; size = 64; iter = "_data_src" };
+                  Bind_next_fixed_bits
+                    { src = "mask"; size = 32; iter = "_data_src" };
+                  Bind_next_dynamic_bytes
+                    {
+                      src = "payload";
+                      expr = ocaml "length";
+                      iter = "_data_src";
+                    };
+                  Bind_rest { src = "rest"; iter = "_data_src" };
+                  Empty "_data_src";
+                ],
+                [
+                  Try_run ([], (Some (ocaml "run_guard ()"), id "test_3_body_0"));
+                  Try_run ([], (None, id "test_3_body_1"));
+                  Try_run ([], (None, id "test_3_body_2"));
+                ] );
+            Try_run
+              ( [ Bypass { src = "_data_src"; name = "data" } ],
+                (None, id "test_3_body_3") );
+          ] );
+    ];
+
+  test 4 ~guard:[%expr run_guard ()]
+    [
+      {| fin :: 1, compressed :: 1, rsv :: 2, opcode :: 4, 1 :: 1, 127 :: 7,
+         length :: 64, mask :: 32, payload :: bytes(length), rest :: bytes |};
+    ]
+    [
+      Try_run
+        ( [
+            Create_iterator "_data_src";
+            Bind_next_fixed_bits { src = "fin"; size = 1; iter = "_data_src" };
+            Bind_next_fixed_bits
+              { src = "compressed"; size = 1; iter = "_data_src" };
+            Bind_next_fixed_bits { src = "rsv"; size = 2; iter = "_data_src" };
+            Bind_next_fixed_bits
+              { src = "opcode"; size = 4; iter = "_data_src" };
+            Expect_int_fixed_bits { value = 1; size = 1; iter = "_data_src" };
+            Expect_int_fixed_bits { value = 127; size = 7; iter = "_data_src" };
+            Bind_next_fixed_bits
+              { src = "length"; size = 64; iter = "_data_src" };
+            Bind_next_fixed_bits { src = "mask"; size = 32; iter = "_data_src" };
+            Bind_next_dynamic_bytes
+              { src = "payload"; expr = ocaml "length"; iter = "_data_src" };
+            Bind_rest { src = "rest"; iter = "_data_src" };
+            Empty "_data_src";
+          ],
+          (Some (ocaml "run_guard ()"), id "test_4_body_0") );
+    ];
+
+  test 5
     [
       {| fin :: 1, compressed :: 1, rsv :: 2, opcode :: 4, 1 :: 1, 127 :: 7,
          length :: 64, mask :: 32, payload :: bytes(length), rest :: bytes |};
@@ -893,58 +978,46 @@ let () =
                     { src = "opcode"; size = 4; iter = "_data_src" };
                 ],
                 [
-                  Prefix
-                    ( [],
-                      [
-                        Try_run
-                          ( [
-                              Expect_int_fixed_bits
-                                { value = 1; size = 1; iter = "_data_src" };
-                              Expect_int_fixed_bits
-                                { value = 127; size = 7; iter = "_data_src" };
-                              Bind_next_fixed_bits
-                                {
-                                  src = "length";
-                                  size = 64;
-                                  iter = "_data_src";
-                                };
-                              Bind_next_fixed_bits
-                                { src = "mask"; size = 32; iter = "_data_src" };
-                              Bind_next_dynamic_bytes
-                                {
-                                  src = "payload";
-                                  expr = ocaml "length";
-                                  iter = "_data_src";
-                                };
-                              Bind_rest { src = "rest"; iter = "_data_src" };
-                              Empty "_data_src";
-                            ],
-                            id "test_4_body_0" );
-                        Try_run
-                          ( [
-                              Expect_int_fixed_bits
-                                { value = 0; size = 1; iter = "_data_src" };
-                              Expect_int_fixed_bits
-                                { value = 126; size = 7; iter = "_data_src" };
-                              Bind_next_fixed_bits
-                                {
-                                  src = "length";
-                                  size = 16;
-                                  iter = "_data_src";
-                                };
-                              Bind_next_fixed_bits
-                                { src = "mask"; size = 32; iter = "_data_src" };
-                              Bind_next_dynamic_bytes
-                                {
-                                  src = "payload";
-                                  expr = ocaml "length * 8";
-                                  iter = "_data_src";
-                                };
-                              Bind_rest { src = "rest"; iter = "_data_src" };
-                              Empty "_data_src";
-                            ],
-                            id "test_4_body_1" );
-                      ] );
+                  Try_run
+                    ( [
+                        Expect_int_fixed_bits
+                          { value = 1; size = 1; iter = "_data_src" };
+                        Expect_int_fixed_bits
+                          { value = 127; size = 7; iter = "_data_src" };
+                        Bind_next_fixed_bits
+                          { src = "length"; size = 64; iter = "_data_src" };
+                        Bind_next_fixed_bits
+                          { src = "mask"; size = 32; iter = "_data_src" };
+                        Bind_next_dynamic_bytes
+                          {
+                            src = "payload";
+                            expr = ocaml "length";
+                            iter = "_data_src";
+                          };
+                        Bind_rest { src = "rest"; iter = "_data_src" };
+                        Empty "_data_src";
+                      ],
+                      (None, id "test_5_body_0") );
+                  Try_run
+                    ( [
+                        Expect_int_fixed_bits
+                          { value = 0; size = 1; iter = "_data_src" };
+                        Expect_int_fixed_bits
+                          { value = 126; size = 7; iter = "_data_src" };
+                        Bind_next_fixed_bits
+                          { src = "length"; size = 16; iter = "_data_src" };
+                        Bind_next_fixed_bits
+                          { src = "mask"; size = 32; iter = "_data_src" };
+                        Bind_next_dynamic_bytes
+                          {
+                            src = "payload";
+                            expr = ocaml "length * 8";
+                            iter = "_data_src";
+                          };
+                        Bind_rest { src = "rest"; iter = "_data_src" };
+                        Empty "_data_src";
+                      ],
+                      (None, id "test_5_body_1") );
                   Try_run
                     ( [
                         Expect_int_fixed_bits
@@ -962,11 +1035,11 @@ let () =
                         Bind_rest { src = "rest"; iter = "_data_src" };
                         Empty "_data_src";
                       ],
-                      id "test_4_body_2" );
+                      (None, id "test_5_body_2") );
                 ] );
             Try_run
               ( [ Bypass { src = "_data_src"; name = "data" } ],
-                id "test_4_body_3" );
+                (None, id "test_5_body_3") );
           ] );
     ];
 
@@ -977,14 +1050,15 @@ let () =
  *)
 let () =
   let loc = Location.none in
-  let test n strs expected =
+  let test ?guard n strs expected =
     let lowers =
       List.mapi
         (fun idx str ->
+          let guard = if idx = 0 then guard else None in
           let test_name =
             id ("test_" ^ string_of_int n ^ "_body_" ^ string_of_int idx)
           in
-          (Bytepattern.parse str, [%expr [%e test_name]]))
+          (Bytepattern.parse str, guard, [%expr [%e test_name]]))
         strs
     in
     let actual =
@@ -1086,7 +1160,62 @@ let () =
           with Bytestring.No_match -> raise Bytestring.No_match))
         data];
 
-  test 3
+  test 3 ~guard:[%expr run_guard ()]
+    [
+      {| fin :: 1, compressed :: 1, rsv :: 2, opcode :: 4, 1 :: 1, 127 :: 7,
+         length :: 64, mask :: 32, payload :: bytes(length), rest :: bytes |};
+      {| fin :: 1, compressed :: 1, rsv :: 2, opcode :: 4, 1 :: 1, 127 :: 7,
+         length :: 64, mask :: 32, payload :: bytes(length), rest :: bytes |};
+      {| data :: bytes |};
+    ]
+    [%expr
+      (fun _data_src ->
+        try
+          let _data_src = Bytestring.to_iter _data_src in
+          let fin = Bytestring.Iter.next_bits ~size:1 _data_src in
+          let compressed = Bytestring.Iter.next_bits ~size:1 _data_src in
+          let rsv = Bytestring.Iter.next_bits ~size:2 _data_src in
+          let opcode = Bytestring.Iter.next_bits ~size:4 _data_src in
+          Bytestring.Iter.expect_literal_int _data_src ~size:1 1;
+          Bytestring.Iter.expect_literal_int _data_src ~size:7 127;
+          let length = Bytestring.Iter.next_bits ~size:64 _data_src in
+          let mask = Bytestring.Iter.next_bits ~size:32 _data_src in
+          let payload = Bytestring.Iter.next_bytes ~size:length _data_src in
+          let rest = Bytestring.Iter.rest _data_src in
+          Bytestring.Iter.expect_empty _data_src;
+          if run_guard () then test_3_body_0 else test_3_body_1
+        with Bytestring.No_match -> (
+          try
+            let data = _data_src in
+            test_3_body_2
+          with Bytestring.No_match -> raise Bytestring.No_match))
+        data];
+
+  test 4 ~guard:[%expr run_guard ()]
+    [
+      {| fin :: 1, compressed :: 1, rsv :: 2, opcode :: 4, 1 :: 1, 127 :: 7,
+         length :: 64, mask :: 32, payload :: bytes(length), rest :: bytes |};
+      {| fin :: 1, compressed :: 1, rsv :: 2, opcode :: 4, 1 :: 1, 127 :: 7,
+         length :: 64, mask :: 32, payload :: bytes(length), rest :: bytes |};
+    ]
+    [%expr
+      (fun _data_src ->
+        let _data_src = Bytestring.to_iter _data_src in
+        let fin = Bytestring.Iter.next_bits ~size:1 _data_src in
+        let compressed = Bytestring.Iter.next_bits ~size:1 _data_src in
+        let rsv = Bytestring.Iter.next_bits ~size:2 _data_src in
+        let opcode = Bytestring.Iter.next_bits ~size:4 _data_src in
+        Bytestring.Iter.expect_literal_int _data_src ~size:1 1;
+        Bytestring.Iter.expect_literal_int _data_src ~size:7 127;
+        let length = Bytestring.Iter.next_bits ~size:64 _data_src in
+        let mask = Bytestring.Iter.next_bits ~size:32 _data_src in
+        let payload = Bytestring.Iter.next_bytes ~size:length _data_src in
+        let rest = Bytestring.Iter.rest _data_src in
+        Bytestring.Iter.expect_empty _data_src;
+        if run_guard () then test_4_body_0 else test_4_body_1)
+        data];
+
+  test 5
     [
       {| fin :: 1, compressed :: 1, rsv :: 2, opcode :: 4, 1 :: 1, 127 :: 7,
          length :: 64, mask :: 32, payload :: bytes(length), rest :: bytes |};
@@ -1105,45 +1234,42 @@ let () =
           let rsv = Bytestring.Iter.next_bits ~size:2 _data_src in
           let opcode = Bytestring.Iter.next_bits ~size:4 _data_src in
           try
-            try
-              Bytestring.Iter.expect_literal_int _data_src ~size:1 1;
-              Bytestring.Iter.expect_literal_int _data_src ~size:7 127;
-              let length = Bytestring.Iter.next_bits ~size:64 _data_src in
-              let mask = Bytestring.Iter.next_bits ~size:32 _data_src in
-              let payload = Bytestring.Iter.next_bytes ~size:length _data_src in
-              let rest = Bytestring.Iter.rest _data_src in
-              Bytestring.Iter.expect_empty _data_src;
-              test_3_body_0
-            with Bytestring.No_match -> (
-              try
-                Bytestring.Iter.expect_literal_int _data_src ~size:1 0;
-                Bytestring.Iter.expect_literal_int _data_src ~size:7 126;
-                let length = Bytestring.Iter.next_bits ~size:16 _data_src in
-                let mask = Bytestring.Iter.next_bits ~size:32 _data_src in
-                let payload =
-                  Bytestring.Iter.next_bytes ~size:(length * 8) _data_src
-                in
-                let rest = Bytestring.Iter.rest _data_src in
-                Bytestring.Iter.expect_empty _data_src;
-                test_3_body_1
-              with Bytestring.No_match -> raise Bytestring.No_match)
+            Bytestring.Iter.expect_literal_int _data_src ~size:1 1;
+            Bytestring.Iter.expect_literal_int _data_src ~size:7 127;
+            let length = Bytestring.Iter.next_bits ~size:64 _data_src in
+            let mask = Bytestring.Iter.next_bits ~size:32 _data_src in
+            let payload = Bytestring.Iter.next_bytes ~size:length _data_src in
+            let rest = Bytestring.Iter.rest _data_src in
+            Bytestring.Iter.expect_empty _data_src;
+            test_5_body_0
           with Bytestring.No_match -> (
             try
               Bytestring.Iter.expect_literal_int _data_src ~size:1 0;
-              let length = Bytestring.Iter.next_bits ~size:7 _data_src in
+              Bytestring.Iter.expect_literal_int _data_src ~size:7 126;
+              let length = Bytestring.Iter.next_bits ~size:16 _data_src in
               let mask = Bytestring.Iter.next_bits ~size:32 _data_src in
               let payload =
                 Bytestring.Iter.next_bytes ~size:(length * 8) _data_src
               in
               let rest = Bytestring.Iter.rest _data_src in
               Bytestring.Iter.expect_empty _data_src;
-              test_3_body_2
-            with Bytestring.No_match -> raise Bytestring.No_match)
+              test_5_body_1
+            with Bytestring.No_match -> (
+              try
+                Bytestring.Iter.expect_literal_int _data_src ~size:1 0;
+                let length = Bytestring.Iter.next_bits ~size:7 _data_src in
+                let mask = Bytestring.Iter.next_bits ~size:32 _data_src in
+                let payload =
+                  Bytestring.Iter.next_bytes ~size:(length * 8) _data_src
+                in
+                let rest = Bytestring.Iter.rest _data_src in
+                Bytestring.Iter.expect_empty _data_src;
+                test_5_body_2
+              with Bytestring.No_match -> raise Bytestring.No_match))
         with Bytestring.No_match -> (
           try
             let data = _data_src in
-            test_3_body_3
+            test_5_body_3
           with Bytestring.No_match -> raise Bytestring.No_match))
         data];
-
   ()

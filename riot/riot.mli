@@ -733,7 +733,8 @@ module Hashmap : sig
   type ('k, 'v) t
 
   val create : int -> ('k, 'v) t
-  val get : ('k, 'v) t -> 'k -> 'v list
+  val get : ('k, 'v) t -> 'k -> 'v option
+  val get_all : ('k, 'v) t -> 'k -> 'v list
   val is_empty : ('k, 'v) t -> bool
   val find_by : ('k, 'v) t -> ('k * 'v -> bool) -> ('k * 'v) option
   val remove : ('k, 'v) t -> 'k -> unit
@@ -761,7 +762,8 @@ module Hashmap : sig
 
     val create : int -> 'v t
     val keys : 'v t -> key Seq.t
-    val get : 'v t -> key -> 'v list
+  val get : 'v t -> key -> 'v option
+  val get_all : 'v t -> key -> 'v list
     val is_empty : 'v t -> bool
     val find_by : 'v t -> (key * 'v -> bool) -> (key * 'v) option
     val remove : 'v t -> key -> unit

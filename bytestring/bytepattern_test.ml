@@ -1006,36 +1006,40 @@ let () =
   (* test: empty pattern is just an empty bytestring *)
   test 0 [ {| |}; {| |} ]
     [%expr
-      Bytestring.Iter.expect_empty _data_src;
-      try test_0_body_0
-      with Bytestring.No_match -> (
-        try test_0_body_1
-        with Bytestring.No_match -> raise Bytestring.No_match)];
+      (fun _data_src ->
+        Bytestring.Iter.expect_empty _data_src;
+        try test_0_body_0
+        with Bytestring.No_match -> (
+          try test_0_body_1
+          with Bytestring.No_match -> raise Bytestring.No_match))
+        data];
 
   test 1
     [
       {| hello::8, byte::2, other::3 |}; {| hello::8,byte::2 |}; {| world::10 |};
     ]
     [%expr
-      let _data_src = Bytestring.to_iter _data_src in
-      try
-        let hello = Bytestring.Iter.next_bits ~size:8 _data_src in
-        let byte = Bytestring.Iter.next_bits ~size:2 _data_src in
+      (fun _data_src ->
+        let _data_src = Bytestring.to_iter _data_src in
         try
-          let other = Bytestring.Iter.next_bits ~size:3 _data_src in
-          Bytestring.Iter.expect_empty _data_src;
-          test_1_body_0
+          let hello = Bytestring.Iter.next_bits ~size:8 _data_src in
+          let byte = Bytestring.Iter.next_bits ~size:2 _data_src in
+          try
+            let other = Bytestring.Iter.next_bits ~size:3 _data_src in
+            Bytestring.Iter.expect_empty _data_src;
+            test_1_body_0
+          with Bytestring.No_match -> (
+            try
+              Bytestring.Iter.expect_empty _data_src;
+              test_1_body_1
+            with Bytestring.No_match -> raise Bytestring.No_match)
         with Bytestring.No_match -> (
           try
+            let world = Bytestring.Iter.next_bits ~size:10 _data_src in
             Bytestring.Iter.expect_empty _data_src;
-            test_1_body_1
-          with Bytestring.No_match -> raise Bytestring.No_match)
-      with Bytestring.No_match -> (
-        try
-          let world = Bytestring.Iter.next_bits ~size:10 _data_src in
-          Bytestring.Iter.expect_empty _data_src;
-          test_1_body_2
-        with Bytestring.No_match -> raise Bytestring.No_match)];
+            test_1_body_2
+          with Bytestring.No_match -> raise Bytestring.No_match))
+        data];
 
   test 2
     [
@@ -1046,39 +1050,42 @@ let () =
       {| rest |};
     ]
     [%expr
-      try
-        let _data_src = Bytestring.to_iter _data_src in
-        let fin = Bytestring.Iter.next_bits ~size:1 _data_src in
-        let comp = Bytestring.Iter.next_bits ~size:1 _data_src in
+      (fun _data_src ->
         try
-          Bytestring.Iter.expect_literal_int _data_src ~size:2 0;
-          Bytestring.Iter.expect_literal_int _data_src ~size:4 1;
-          Bytestring.Iter.expect_literal_int _data_src ~size:1 0;
-          Bytestring.Iter.expect_literal_int _data_src ~size:7 127;
+          let _data_src = Bytestring.to_iter _data_src in
+          let fin = Bytestring.Iter.next_bits ~size:1 _data_src in
+          let comp = Bytestring.Iter.next_bits ~size:1 _data_src in
           try
-            let len =
-              Bytestring.Iter.next_bits ~size:(compute_bits ()) _data_src
-            in
-            let _mask = Bytestring.Iter.next_bits ~size:32 _data_src in
-            let _payload = Bytestring.Iter.next_bytes ~size:len _data_src in
-            let rest = Bytestring.Iter.rest _data_src in
-            Bytestring.Iter.expect_empty _data_src;
-            test_2_body_0
+            Bytestring.Iter.expect_literal_int _data_src ~size:2 0;
+            Bytestring.Iter.expect_literal_int _data_src ~size:4 1;
+            Bytestring.Iter.expect_literal_int _data_src ~size:1 0;
+            Bytestring.Iter.expect_literal_int _data_src ~size:7 127;
+            try
+              let len =
+                Bytestring.Iter.next_bits ~size:(compute_bits ()) _data_src
+              in
+              let _mask = Bytestring.Iter.next_bits ~size:32 _data_src in
+              let _payload = Bytestring.Iter.next_bytes ~size:len _data_src in
+              let rest = Bytestring.Iter.rest _data_src in
+              Bytestring.Iter.expect_empty _data_src;
+              test_2_body_0
+            with Bytestring.No_match -> (
+              try
+                Bytestring.Iter.expect_empty _data_src;
+                test_2_body_1
+              with Bytestring.No_match -> raise Bytestring.No_match)
           with Bytestring.No_match -> (
             try
               Bytestring.Iter.expect_empty _data_src;
-              test_2_body_1
+              test_2_body_2
             with Bytestring.No_match -> raise Bytestring.No_match)
         with Bytestring.No_match -> (
           try
-            Bytestring.Iter.expect_empty _data_src;
-            test_2_body_2
-          with Bytestring.No_match -> raise Bytestring.No_match)
-      with Bytestring.No_match -> (
-        try
-          let rest = _data_src in
-          test_2_body_3
-        with Bytestring.No_match -> raise Bytestring.No_match)];
+            let rest = _data_src in
+            test_2_body_3
+          with Bytestring.No_match -> raise Bytestring.No_match))
+        data];
+
   test 3
     [
       {| fin :: 1, compressed :: 1, rsv :: 2, opcode :: 4, 1 :: 1, 127 :: 7,
@@ -1090,51 +1097,53 @@ let () =
       {| data :: bytes |};
     ]
     [%expr
-      try
-        let _data_src = Bytestring.to_iter _data_src in
-        let fin = Bytestring.Iter.next_bits ~size:1 _data_src in
-        let compressed = Bytestring.Iter.next_bits ~size:1 _data_src in
-        let rsv = Bytestring.Iter.next_bits ~size:2 _data_src in
-        let opcode = Bytestring.Iter.next_bits ~size:4 _data_src in
+      (fun _data_src ->
         try
+          let _data_src = Bytestring.to_iter _data_src in
+          let fin = Bytestring.Iter.next_bits ~size:1 _data_src in
+          let compressed = Bytestring.Iter.next_bits ~size:1 _data_src in
+          let rsv = Bytestring.Iter.next_bits ~size:2 _data_src in
+          let opcode = Bytestring.Iter.next_bits ~size:4 _data_src in
           try
-            Bytestring.Iter.expect_literal_int _data_src ~size:1 1;
-            Bytestring.Iter.expect_literal_int _data_src ~size:7 127;
-            let length = Bytestring.Iter.next_bits ~size:64 _data_src in
-            let mask = Bytestring.Iter.next_bits ~size:32 _data_src in
-            let payload = Bytestring.Iter.next_bytes ~size:length _data_src in
-            let rest = Bytestring.Iter.rest _data_src in
-            Bytestring.Iter.expect_empty _data_src;
-            test_3_body_0
+            try
+              Bytestring.Iter.expect_literal_int _data_src ~size:1 1;
+              Bytestring.Iter.expect_literal_int _data_src ~size:7 127;
+              let length = Bytestring.Iter.next_bits ~size:64 _data_src in
+              let mask = Bytestring.Iter.next_bits ~size:32 _data_src in
+              let payload = Bytestring.Iter.next_bytes ~size:length _data_src in
+              let rest = Bytestring.Iter.rest _data_src in
+              Bytestring.Iter.expect_empty _data_src;
+              test_3_body_0
+            with Bytestring.No_match -> (
+              try
+                Bytestring.Iter.expect_literal_int _data_src ~size:1 0;
+                Bytestring.Iter.expect_literal_int _data_src ~size:7 126;
+                let length = Bytestring.Iter.next_bits ~size:16 _data_src in
+                let mask = Bytestring.Iter.next_bits ~size:32 _data_src in
+                let payload =
+                  Bytestring.Iter.next_bytes ~size:(length * 8) _data_src
+                in
+                let rest = Bytestring.Iter.rest _data_src in
+                Bytestring.Iter.expect_empty _data_src;
+                test_3_body_1
+              with Bytestring.No_match -> raise Bytestring.No_match)
           with Bytestring.No_match -> (
             try
               Bytestring.Iter.expect_literal_int _data_src ~size:1 0;
-              Bytestring.Iter.expect_literal_int _data_src ~size:7 126;
-              let length = Bytestring.Iter.next_bits ~size:16 _data_src in
+              let length = Bytestring.Iter.next_bits ~size:7 _data_src in
               let mask = Bytestring.Iter.next_bits ~size:32 _data_src in
               let payload =
                 Bytestring.Iter.next_bytes ~size:(length * 8) _data_src
               in
               let rest = Bytestring.Iter.rest _data_src in
               Bytestring.Iter.expect_empty _data_src;
-              test_3_body_1
+              test_3_body_2
             with Bytestring.No_match -> raise Bytestring.No_match)
         with Bytestring.No_match -> (
           try
-            Bytestring.Iter.expect_literal_int _data_src ~size:1 0;
-            let length = Bytestring.Iter.next_bits ~size:7 _data_src in
-            let mask = Bytestring.Iter.next_bits ~size:32 _data_src in
-            let payload =
-              Bytestring.Iter.next_bytes ~size:(length * 8) _data_src
-            in
-            let rest = Bytestring.Iter.rest _data_src in
-            Bytestring.Iter.expect_empty _data_src;
-            test_3_body_2
-          with Bytestring.No_match -> raise Bytestring.No_match)
-      with Bytestring.No_match -> (
-        try
-          let data = _data_src in
-          test_3_body_3
-        with Bytestring.No_match -> raise Bytestring.No_match)];
+            let data = _data_src in
+            test_3_body_3
+          with Bytestring.No_match -> raise Bytestring.No_match))
+        data];
 
   ()

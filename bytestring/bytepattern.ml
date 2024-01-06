@@ -828,7 +828,9 @@ end
 
 module Prefix_matching = struct
   type t =
-    | Try_run of Matching_lower.t list * Parsetree.expression
+    | Try_run of
+        Matching_lower.t list
+        * (Parsetree.expression option * Parsetree.expression)
     | Prefix of Matching_lower.t list * t list
 
   let rec pp fmt t =
@@ -842,8 +844,13 @@ module Prefix_matching = struct
     match t with
     | Prefix (ops, t) ->
         Format.fprintf fmt "Prefix(%a, %a)" Matching_lower.pp ops pp t
-    | Try_run (ops, body) ->
-        Format.fprintf fmt "Try_run(%a, %S)" Matching_lower.pp ops
+    | Try_run (ops, (guard, body)) ->
+        Format.fprintf fmt "Try_run(%a, (%s, id %S))" Matching_lower.pp ops
+          (match guard with
+          | None -> "None"
+          | Some guard ->
+              Format.sprintf "Some (ocaml %S)"
+                (Pprintast.string_of_expression guard))
           (Pprintast.string_of_expression body)
 
   let rec prefix op1 op2 =
@@ -878,13 +885,28 @@ module Prefix_matching = struct
         let prefix, op1, op2 = prefix op1 op2 in
         Prefix (prefix, [ Try_run (op1, body1); Prefix (op2, body2) ])
 
+  let rec compact t =
+    match t with
+    | Prefix (ops, ts) ->
+        let ts =
+          List.concat_map
+            (fun t ->
+              match t with
+              | Prefix ([], ts2) -> List.map compact ts2
+              | t -> [ compact t ])
+            ts
+        in
+        Prefix (ops, ts)
+    | _ -> t
+
   let to_prefix_match patterns =
     let cases =
       List.map
-        (fun (pattern, body) -> Try_run (Matching_lower.lower pattern, body))
+        (fun (pattern, guard, body) ->
+          Try_run (Matching_lower.lower pattern, (guard, body)))
         patterns
     in
-    List.fold_left merge (Prefix ([], [])) cases
+    List.fold_left merge (Prefix ([], [])) cases |> compact
 
   let rec to_expr ~loc t =
     match t with
@@ -892,19 +914,48 @@ module Prefix_matching = struct
     | Prefix (ops, t) ->
         let body = build_body ~loc t in
         Pattern_matcher.to_expr ~loc ~body ops
-    | Try_run ([], body) -> body
-    | Try_run (ops, body) -> Pattern_matcher.to_expr ~loc ~body ops
+    | Try_run (ops, (guard, body)) ->
+        let body =
+          match guard with
+          | None -> body
+          | Some guard ->
+              [%expr
+                if [%e guard] then [%e body]
+                else raise Bytestring.Guard_mismatch]
+        in
+        Pattern_matcher.to_expr ~loc ~body ops
 
   and build_body ~loc t =
+    if is_valid_guarded_leafs t then build_ifelse ~loc t
+    else
+      List.fold_left
+        (fun acc t ->
+          let case = to_expr ~loc t in
+          [%expr try [%e case] with Bytestring.No_match -> [%e acc]])
+        [%expr raise Bytestring.No_match] (List.rev t)
+
+  and is_valid_guarded_leafs t =
+    match t with
+    | Try_run ([], (_, _body)) :: [] -> true
+    | Try_run ([], (Some _, _body)) :: t -> true && is_valid_guarded_leafs t
+    | _ -> false
+
+  and[@warning "-8"] build_ifelse ~loc t =
+    let bodies, last =
+      match List.rev t with
+      | Try_run ([], (None, body)) :: bodies -> (bodies, body)
+      | Try_run ([], (Some _guard, _)) :: _ as bodies ->
+          (bodies, [%expr raise Bytestring.Guard_mismatch])
+      | _ -> failwith "invalid guarded body case"
+    in
     List.fold_left
-      (fun acc t ->
-        let case = to_expr ~loc t in
-        [%expr try [%e case] with Bytestring.No_match -> [%e acc]])
-      [%expr raise Bytestring.No_match] (List.rev t)
+      (fun acc (Try_run ([], (Some guard, body))) ->
+        [%expr if [%e guard] then [%e body] else [%e acc]])
+      last bodies
 
   let to_match_expression ~loc ~data patterns =
-    [%expr
-      (fun _data_src -> [%e to_expr ~loc (to_prefix_match patterns)]) [%e data]]
+    let expr = to_expr ~loc (to_prefix_match patterns) in
+    [%expr (fun _data_src -> [%e expr]) [%e data]]
 end
 
 let to_pattern_match = Pattern_matcher.to_pattern_match

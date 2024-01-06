@@ -4,6 +4,7 @@
 (name riot)
 
 (generate_opam_files true)
+(cram enable)
 
 (source
  (github leostera/riot))

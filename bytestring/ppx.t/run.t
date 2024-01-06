@@ -1,7 +1,7 @@
   $ dune build
-  File "error_empty_comma.ml", line 1, characters 17-35:
-  1 | let () = assert ({%bytestring| , |} = Bytestring.empty)
-                       ^^^^^^^^^^^^^^^^^^
+  File "error_empty_comma.ml", line 1, characters 17-26:
+  1 | let () = assert ({%b| , |} = Bytestring.empty)
+                       ^^^^^^^^^
   Error: Invalid bytestring pattern
          
          A bytestring pattern must have zero, one, or more fields separated by
@@ -11,9 +11,9 @@
          bytestring pattern.
              
          
-  File "error_invalid_number_bytes.ml", line 1, characters 8-36:
-  1 | let _ = {%bytestring| 2112::bytes |}
-              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "error_invalid_number_bytes.ml", line 1, characters 8-27:
+  1 | let _ = {%b| 2112::bytes |}
+              ^^^^^^^^^^^^^^^^^^^
   Error: Invalid size "bytes" for value 2112
          
          Valid sizes for number literals are:
@@ -29,9 +29,9 @@
            2112::7          – use `2112` as a 7 bit integer
          
          
-  File "error_invalid_number_size.ml", line 1, characters 9-37:
-  1 | let () = {%bytestring| 2112::bytes |}
-               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "error_invalid_number_size.ml", line 1, characters 9-28:
+  1 | let () = {%b| 2112::bytes |}
+               ^^^^^^^^^^^^^^^^^^^
   Error: Invalid size "bytes" for value 2112
          
          Valid sizes for number literals are:
@@ -47,9 +47,9 @@
            2112::7          – use `2112` as a 7 bit integer
          
          
-  File "error_invalid_number_size_utf8.ml", line 1, characters 9-40:
-  1 | let () = {%bytestring| 2112::utf8(10) |}
-               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "error_invalid_number_size_utf8.ml", line 1, characters 9-31:
+  1 | let () = {%b| 2112::utf8(10) |}
+               ^^^^^^^^^^^^^^^^^^^^^^
   Error: Invalid size "utf8(10)" for value 2112
          
          Valid sizes for number literals are:
@@ -65,9 +65,9 @@
            2112::7          – use `2112` as a 7 bit integer
          
          
-  File "error_invalid_string_size.ml", line 1, characters 8-37:
-  1 | let _ = {%bytestring| "rush"::2112 |}
-              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "error_invalid_string_size.ml", line 1, characters 8-28:
+  1 | let _ = {%b| "rush"::2112 |}
+              ^^^^^^^^^^^^^^^^^^^^
   Error: Invalid size "2112" for value "rush"
          
          Valid sizes for string literals are:
@@ -86,7 +86,7 @@
          
          
   File "match_error_invalid_expect_number_size.ml", lines 2-3, characters 2-44:
-  2 | ..match%bytestring {%bytestring| |} with
+  2 | ..match%b {%b| |} with
   3 |   | {| 2112::utf8, 0::1, rest::rush |} -> ()
   Error: Invalid size "rush" for "rest"
          

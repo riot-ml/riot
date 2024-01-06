@@ -1,10 +1,10 @@
 let () =
-  let str = {%bytestring| |} in
+  let str = {%b| |} in
   let compute_bits () = 8 * 8 in
   let my_guard () = false in
   let do_something _ _ = 0 in
   let _ =
-    match%bytestring str with
+    match%b str with
     | {| fin::1,
          _comp::1,
          0::2,
@@ -37,7 +37,7 @@ let () =
   in
 
   let _ =
-    match%bytestring str with
+    match%b str with
     | {| fin::1,
        compressed::1,
        _rsv::2,

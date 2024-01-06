@@ -1,6 +1,6 @@
 open Ppxlib
 
-let tag = "bytestring"
+let tag = "b"
 
 let mk_expression ~ctxt:_ expr =
   try
@@ -24,7 +24,7 @@ let mk_expression ~ctxt:_ expr =
                   Location.raise_errorf ~loc "%s"
                     {| Bytestrings in match expressions are only valie when the patterns are constant strings, like:
 
-  match%bytestring data with
+  match%b data with
   | \{| ... |\} -> ...
 
 |})
@@ -35,7 +35,7 @@ let mk_expression ~ctxt:_ expr =
     | _ ->
         Location.raise_errorf ~loc "%s"
           {|Bytestrings are only supported when constructing new values with
-tagged with `%bytestring` and when pattern matching against values in
+tagged with `%b and when pattern matching against values in
 `match` expressions.
 |}
   with Bytepattern.Error { loc; error } ->

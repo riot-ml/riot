@@ -1,1 +1,1 @@
-let () = {%bytestring| 2112::bytes |}
+let () = {%b| 2112::bytes |}

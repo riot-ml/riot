@@ -31,18 +31,19 @@ let run ?(rnd = Random.State.make_self_init ()) ?workers main =
 
 let start ?rnd ?workers ~apps () =
   run ?rnd ?workers @@ fun () ->
-  let pids =
-    List.fold_left
-      (fun acc (module App : Application.Intf) ->
-        match (acc, App.start ()) with
-        | Ok acc, Ok pid -> Ok (pid :: acc)
-        | Ok _, Error error ->
-            Logger.error (fun f ->
-                f "Could not start application %s due to %s" App.name
-                  (Marshal.to_string error []));
-            Error ()
-        | Error (), _ -> acc)
-      (Ok []) apps
-    |> Result.get_ok
+  let child_specs =
+    List.map
+      (fun (module App : Application.Intf) ->
+        Supervisor.child_spec App.start ())
+      apps
   in
-  wait_pids pids
+  Supervisor.(
+    start_supervisor
+      {
+        strategy = One_for_one;
+        restart_limit = 1;
+        restart_period = 0;
+        child_specs;
+        children = [];
+        restarts = [];
+      })

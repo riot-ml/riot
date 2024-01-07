@@ -20,6 +20,10 @@ type io = {
   io_tbl : Io.t;
   idle_mutex : Mutex.t;
   idle_condition : Condition.t;
+  mutable calls_accept : int;
+  mutable calls_connect : int;
+  mutable calls_receive : int;
+  mutable calls_send : int;
 }
 
 type pool = {
@@ -189,9 +193,12 @@ module Scheduler = struct
 
   let handle_syscall k pool (_sch : t) (proc : Process.t) syscall mode fd =
     let open Proc_state in
+    Log.debug (fun f ->
+        f "handle_syscall with %a that has %d fds ready" Pid.pp proc.pid
+          (List.length (Atomic.get proc.ready_fds)));
     if Process.has_ready_fds proc then k (Continue ())
     else (
-      Log.trace (fun f ->
+      Log.debug (fun f ->
           let mode = match mode with `r -> "r" | `w -> "w" | `rw -> "rw" in
           f "Registering %a for Syscall(%s,%s,%a)" Pid.pp proc.pid syscall mode
             Fd.pp fd);
@@ -289,7 +296,7 @@ module Scheduler = struct
     try
       Process.mark_as_running proc;
       let perform = perform pool sch proc in
-      let cont = Proc_state.run ~reductions:100 ~perform (Process.cont proc) in
+      let cont = Proc_state.run ~reductions:1000 ~perform (Process.cont proc) in
       Log.trace (fun f ->
           f "Process %a state: %a" Pid.pp proc.pid Proc_state.pp cont);
       Process.set_cont proc cont;
@@ -351,7 +358,9 @@ module Scheduler = struct
            | None -> ()
          done;
 
-         tick_timers pool sch
+         tick_timers pool sch;
+
+         if Proc_queue.is_empty sch.run_queue then Unix.sleepf 0.00005
        done
      with Exit -> ());
     Log.trace (fun f -> f "< exit worker loop")
@@ -369,15 +378,23 @@ module Io_scheduler = struct
       io_tbl = Io.create ();
       idle_mutex = Mutex.create ();
       idle_condition = Condition.create ();
+      calls_accept = 0;
+      calls_send = 0;
+      calls_connect = 0;
+      calls_receive = 0;
     }
 
   let poll_io pool io =
     Log.debug (fun f -> f "io_tbl(%a)" Io.pp io.io_tbl);
     Io.poll io.io_tbl @@ fun (proc, mode) ->
     Io.unregister_process io.io_tbl proc;
-    Log.trace (fun f -> f "io_poll(%a): %a" Fd.Mode.pp mode Process.pp proc);
+    Log.debug (fun f -> f "io_poll(%a): %a" Fd.Mode.pp mode Process.pp proc);
     match Process.state proc with
-    | Waiting_io { fd; _ } ->
+    | Waiting_io { fd; syscall; _ } ->
+        if syscall = "accept" then io.calls_accept <- io.calls_accept + 1;
+        if syscall = "connect" then io.calls_connect <- io.calls_connect + 1;
+        if syscall = "receive" then io.calls_receive <- io.calls_receive + 1;
+        if syscall = "send" then io.calls_send <- io.calls_send + 1;
         Process.set_ready_fds proc [ fd ];
         Process.mark_as_runnable proc;
         awake_process pool proc
@@ -389,7 +406,7 @@ module Io_scheduler = struct
     (try
        while true do
          if pool.stop then raise_notrace Exit;
-         if Io.can_poll io.io_tbl then poll_io pool io else Unix.sleepf 0.0001
+         if Io.can_poll io.io_tbl then poll_io pool io else Unix.sleepf 0.00001
        done
      with Exit -> ());
     Log.trace (fun f -> f "< exit worker loop")

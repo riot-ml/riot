@@ -26,44 +26,51 @@ module Timer = struct
   let is_finished t = t.status = `finished
 end
 
+module Timemap = Dashmap.Make (struct
+  type key = Mtime.t
+
+  let hash t = t |> Mtime.to_uint64_ns |> Int64.hash
+  let equal = Mtime.equal
+end)
+
 type t = {
-  timers : (Mtime.t, Timer.t) Dashmap.t;
-  ids : (unit Ref.t, Timer.t) Dashmap.t;
+  timers : Timer.t Timemap.t;
+  ids : Timer.t Ref.Map.t;
   mutable last_t : Mtime.t; [@warning "-69"]
 }
 
 let create () =
   {
-    timers = Dashmap.create 1024;
-    ids = Dashmap.create 1024;
+    timers = Timemap.create ();
+    ids = Ref.Map.create ();
     last_t = Mtime_clock.now ();
   }
 
-let can_tick t = not (Dashmap.is_empty t.timers)
+let can_tick t = not (Timemap.is_empty t.timers)
 
 let is_finished t timer =
-  let timers = Dashmap.get_all t.ids timer in
+  let timers = Ref.Map.get_all t.ids timer in
   let timer_exists = not (List.is_empty timers) in
   let timer_is_finished = List.exists Timer.is_finished timers in
   timer_exists && timer_is_finished
 
 let remove_timer t timer =
-  let timers = Dashmap.get_all t.ids timer in
+  let timers = Ref.Map.get_all t.ids timer in
   let times = List.map (fun (timer : Timer.t) -> timer.started_at) timers in
-  Dashmap.remove_by t.ids (fun (k, _) -> Ref.equal k timer);
-  Dashmap.remove_all t.timers times
+  Ref.Map.remove_by t.ids (fun (k, _) -> Ref.equal k timer);
+  Timemap.remove_all t.timers times
 
 let clear_timer t tid =
-  Dashmap.get_all t.ids tid
+  Ref.Map.get_all t.ids tid
   |> List.iter (fun timer ->
          Log.trace (fun f -> f "Cleared timer %a" Timer.pp timer);
-         Dashmap.remove t.timers timer.started_at;
-         Dashmap.remove t.ids tid)
+         Timemap.remove t.timers timer.started_at;
+         Ref.Map.remove t.ids tid)
 
 let make_timer t time mode fn =
   let timer = Timer.make time mode fn in
-  Dashmap.insert t.timers timer.started_at timer;
-  Dashmap.insert t.ids timer.id timer;
+  Timemap.insert t.timers timer.started_at timer;
+  Ref.Map.insert t.ids timer.id timer;
   Log.trace (fun f -> f "Created timer %a" Timer.pp timer);
   timer.id
 
@@ -79,11 +86,11 @@ let run_timer t now (_, timer) =
     (match timer.mode with
     | `one_off ->
         timer.status <- `finished;
-        Dashmap.remove t.timers timer.started_at
+        Timemap.remove t.timers timer.started_at
     | `interval -> timer.started_at <- now);
     timer.fn ())
 
 let tick t =
   let now = Mtime_clock.now () in
-  Dashmap.iter t.timers (run_timer t now);
+  Timemap.iter t.timers (run_timer t now);
   t.last_t <- now

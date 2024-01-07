@@ -1,8 +1,6 @@
 open Riot
 
 module Test = struct
-  let name = "test"
-
   let start () =
     Logger.set_log_level (Some Info);
     let pid =

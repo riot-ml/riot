@@ -23,9 +23,9 @@ type sendfile = [ `Sent of int | op ]
 let create () =
   {
     poll = Poll.create ();
-    poll_timeout = Poll.Timeout.After 500L;
-    procs = Dashmap.create (1024 * 10);
-    fds = Dashmap.create (1024 * 10);
+    poll_timeout = Poll.Timeout.Never;
+    procs = Dashmap.create ();
+    fds = Dashmap.create ();
   }
 
 (* pretty-printing *)
@@ -65,6 +65,7 @@ let add_fd t fd mode =
     Poll.set t.poll unix_fd flags
 
 let register t proc mode fd =
+  Log.debug (fun f -> f "Registering %a" Pid.pp (Process.pid proc));
   add_fd t fd mode;
   Dashmap.insert t.procs fd (proc, mode);
   Dashmap.insert t.fds proc fd
@@ -156,7 +157,7 @@ let connect (_t : t) (addr : Addr.stream_addr) =
       `Retry
   | exception Unix.(Unix_error (reason, _, _)) -> `Abort reason
 
-let accept (_t : t) (socket : Fd.t) : accept =
+let accept (socket : Fd.t) : accept =
   Fd.use ~op_name:"accept" socket @@ fun fd ->
   Log.debug (fun f -> f "Accepting client at fd=%a" Fd.pp socket);
   match Unix.accept ~cloexec:true fd with
@@ -223,3 +224,7 @@ let sendfile (file : Fd.t) (socket : Fd.t) ~off ~len : sendfile =
   | len -> `Sent len
   | exception Unix.(Unix_error ((EINTR | EAGAIN | EWOULDBLOCK), _, _)) -> `Retry
   | exception Unix.(Unix_error (reason, _, _)) -> `Abort reason
+
+external riot_gettimeofday : unit -> int64 = "caml_riot_posix_gettimeofday"
+
+let gettimeofday () = riot_gettimeofday ()

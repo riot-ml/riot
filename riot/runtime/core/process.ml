@@ -69,7 +69,7 @@ let make sid fn =
       cont;
       state = Atomic.make Runnable;
       links = Atomic.make [];
-      monitors = Pid.Map.create 64;
+      monitors = Pid.Map.create ();
       mailbox = Mailbox.create ();
       save_queue = Mailbox.create ();
       read_save_queue = false;

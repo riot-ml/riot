@@ -1,8 +1,6 @@
 open Riot
 
 module Registry_test = struct
-  let name = "test"
-
   type Message.t += Hello
 
   let test () =

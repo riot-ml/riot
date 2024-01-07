@@ -18,6 +18,10 @@ type io = {
   io_tbl : Io.t;
   idle_mutex : Mutex.t;
   idle_condition : Condition.t;
+  mutable calls_accept : int;
+  mutable calls_connect : int;
+  mutable calls_receive : int;
+  mutable calls_send : int;
 }
 
 type pool = {

@@ -102,14 +102,29 @@ module Socket = struct
     Logger.trace (fun f -> f "Connecting to %a via %a" Addr.pp addr pp fd);
     Ok fd
 
-  let rec accept ?(timeout = `infinity) (socket : listen_socket) =
-    let pool = Scheduler.Pool.get_pool () in
-    Log.trace (fun f -> f "Socket is Accepting client at fd=%a" Fd.pp socket);
-    match Low_level.accept pool.io_scheduler.io_tbl socket with
-    | exception Fd.(Already_closed _) -> Error `Closed
-    | `Abort reason -> Error (`Unix_error reason)
-    | `Retry -> syscall "accept" `r socket @@ accept ~timeout
-    | `Connected (conn, addr) -> Ok (conn, addr)
+  let accept ?timeout (socket : listen_socket) =
+    let this = self () in
+    let rec accept_loop socket =
+      Logger.trace (fun f ->
+          f "Socket is Accepting client at fd=%a" Fd.pp socket);
+      match Low_level.accept socket with
+      | exception Fd.(Already_closed _) -> Error `Closed
+      | `Abort reason -> Error (`Unix_error reason)
+      | `Retry ->
+          Log.debug (fun f ->
+              f "Socket not ready, %a is retrying at fd=%a" Pid.pp this Fd.pp
+                socket);
+          syscall "accept" `r socket @@ accept_loop
+      | `Connected (conn, addr) -> Ok (conn, addr)
+    in
+
+    match timeout with
+    | None -> accept_loop socket
+    | Some timeout ->
+        Logger.trace (fun f -> f "accept with timeout %Ld" timeout);
+        let task = Task.async (fun () -> accept_loop socket) in
+        let* result = Task.await ~timeout task in
+        result
 
   let controlling_process _socket ~new_owner:_ = Ok ()
 

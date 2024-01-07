@@ -7,7 +7,7 @@ type child_spec =
     }
       -> child_spec
 
-let child_spec ~start_link initial_state = Child { start_link; initial_state }
+let child_spec start_link initial_state = Child { start_link; initial_state }
 
 type strategy = One_for_one | One_for_all | Rest_for_one | Simple_one_for_one
 type timestamp = float

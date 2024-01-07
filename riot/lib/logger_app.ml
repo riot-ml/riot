@@ -42,7 +42,7 @@ module Formatter = struct
     set_on_log (fun log -> send pid (Log log));
     Ok pid
 
-  let child_spec config = Supervisor.child_spec ~start_link config
+  let child_spec config = Supervisor.child_spec start_link config
 end
 
 let name = "Riot.Logger"

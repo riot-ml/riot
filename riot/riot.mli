@@ -390,9 +390,7 @@ module Supervisor : sig
   (* The type of a child specification *)
 
   val child_spec :
-    start_link:('state -> (Pid.t, [> `Exit of exn ]) result) ->
-    'state ->
-    child_spec
+    ('state -> (Pid.t, [> `Exit of exn ]) result) -> 'state -> child_spec
   (** Create a new child specification to be used with [start_link] *)
 
   val start_link :
@@ -762,8 +760,8 @@ module Hashmap : sig
 
     val create : int -> 'v t
     val keys : 'v t -> key Seq.t
-  val get : 'v t -> key -> 'v option
-  val get_all : 'v t -> key -> 'v list
+    val get : 'v t -> key -> 'v option
+    val get_all : 'v t -> key -> 'v list
     val is_empty : 'v t -> bool
     val find_by : 'v t -> (key * 'v -> bool) -> (key * 'v) option
     val remove : 'v t -> key -> unit

@@ -23,7 +23,7 @@ let main () =
   let this = self () in
   let sup =
     Supervisor.start_link ~restart_limit:2
-      ~child_specs:[ Supervisor.child_spec ~start_link:Ping.start_link this ]
+      ~child_specs:[ Supervisor.child_spec Ping.start_link this ]
       ()
     |> Result.get_ok
   in

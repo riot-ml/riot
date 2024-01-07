@@ -19,7 +19,7 @@ let main () =
   (* we will wait so the first message from the process gets sent *)
   sleep 0.1;
 
-  let ref = Ref.make () in
+  let ref = Symbol.make () in
   send pid1 Continue;
 
   let m1 = receive ~ref ~after:50_000L () in

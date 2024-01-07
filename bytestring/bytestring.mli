@@ -2,6 +2,7 @@ type t
 (** an immutable efficient binary string *)
 
 val empty : t
+val is_empty : t -> bool
 val length : t -> int
 
 exception No_match
@@ -13,10 +14,12 @@ val to_string : t -> string
 
 exception View_out_of_bounds
 
+(* XXX: delete view in favor of sub since it takes t and returns t *)
 val view : ?off:int -> len:int -> t -> t
 val join : t -> t -> t
 val ( ^ ) : t -> t -> t
 val concat : t -> t list -> t
+val sub : ?off:int -> len:int -> t -> t
 
 module Iter : sig
   type string = t

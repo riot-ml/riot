@@ -35,9 +35,10 @@ val connect :
   Addr.stream_addr ->
   [> `Abort of Unix.error | `Connected of Fd.t | `In_progress of Fd.t | `Retry ]
 
-val accept : t -> Fd.t -> accept
+val accept : Fd.t -> accept
 val read : Fd.t -> bytes -> int -> int -> read
 val write : Fd.t -> bytes -> int -> int -> write
 val readv : Fd.t -> Cstruct.t array -> read
 val writev : Fd.t -> Cstruct.t array -> write
 val sendfile : Fd.t -> Fd.t -> off:int -> len:int -> sendfile
+val gettimeofday : unit -> int64

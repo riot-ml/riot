@@ -14,6 +14,7 @@ let self () = Scheduler.get_current_process_pid ()
 
 let syscall name mode fd cb =
   Effect.perform (Proc_effect.Syscall { name; mode; fd });
+  Process.set_ready_fds (_get_proc (self ())) [];
   cb fd
 
 let receive ?after ?ref () =

@@ -53,7 +53,6 @@ let run : type a. reductions:int -> perform:perform -> a t -> a t =
   let t = ref t in
   try
     while true do
-      Log.trace (fun f -> f "stepping process %d" !reductions);
       if !reductions = 0 then raise_notrace (Yield !t);
       reductions := !reductions - 1;
       match !t with

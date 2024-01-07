@@ -3,8 +3,6 @@ open Riot
 module Test = struct
   type Telemetry.event += Boot
 
-  let name = "test"
-
   let start () =
     Telemetry.attach (fun ev ->
         match ev with

@@ -1,6 +1,4 @@
 module type Intf = sig
-  val name : string
-
   val start :
     unit ->
     ( Pid.t,

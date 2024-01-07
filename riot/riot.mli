@@ -167,8 +167,6 @@ end
 *)
 module Application : sig
   module type Intf = sig
-    val name : string
-
     val start :
       unit ->
       ( Pid.t,
@@ -390,9 +388,7 @@ module Supervisor : sig
   (* The type of a child specification *)
 
   val child_spec :
-    start_link:('state -> (Pid.t, [> `Exit of exn ]) result) ->
-    'state ->
-    child_spec
+    ('state -> (Pid.t, [> `Exit of exn ]) result) -> 'state -> child_spec
   (** Create a new child specification to be used with [start_link] *)
 
   val start_link :
@@ -618,11 +614,9 @@ module Net : sig
     val connect : Addr.stream_addr -> (stream_socket, [> `Closed ]) IO.result
 
     val accept :
-      ?timeout:Timeout.t ->
+      ?timeout:int64 ->
       listen_socket ->
-      ( stream_socket * Addr.stream_addr,
-        [> `Closed | `Timeout | `System_limit ] )
-      IO.result
+      (stream_socket * Addr.stream_addr, [> `Closed | `Timeout ]) IO.result
 
     val close : _ socket -> unit
 
@@ -732,7 +726,7 @@ end
 module Hashmap : sig
   type ('k, 'v) t
 
-  val create : int -> ('k, 'v) t
+  val create : ?size:int -> unit -> ('k, 'v) t
   val get : ('k, 'v) t -> 'k -> 'v option
   val get_all : ('k, 'v) t -> 'k -> 'v list
   val is_empty : ('k, 'v) t -> bool
@@ -760,10 +754,10 @@ module Hashmap : sig
     type key
     type 'v t
 
-    val create : int -> 'v t
+    val create : ?size:int -> unit -> 'v t
     val keys : 'v t -> key Seq.t
-  val get : 'v t -> key -> 'v option
-  val get_all : 'v t -> key -> 'v list
+    val get : 'v t -> key -> 'v option
+    val get_all : 'v t -> key -> 'v list
     val is_empty : 'v t -> bool
     val find_by : 'v t -> (key * 'v -> bool) -> (key * 'v) option
     val remove : 'v t -> key -> unit
@@ -793,4 +787,5 @@ end
 
 module Runtime : sig
   val set_log_level : Logger.level option -> unit
+  val syscalls : unit -> int * int * int * int
 end

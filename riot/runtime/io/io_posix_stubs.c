@@ -1,3 +1,28 @@
+#include <caml/alloc.h>
+#include <caml/bigarray.h>
+#include <caml/memory.h>
+#include <caml/mlvalues.h>
+#include <caml/unixsupport.h>
+#include <sys/socket.h>
+#include <sys/time.h>
+#include <sys/types.h>
+#include <sys/uio.h>
+#include <time.h>
+
+
+CAMLprim value caml_riot_posix_sendfile(value v_fd, value v_s, value v_offset, value v_len) {
+  CAMLparam4(v_fd, v_s, v_offset, v_len);
+  int fd = Int_val(v_fd);
+  int s = Int_val(v_s);
+  off_t offset = Int_val(v_offset);
+  off_t len = Int_val(v_len);
+
+  int ret = sendfile(fd, s, offset, &len, NULL, 0);
+  if (ret == -1) uerror("sendfile", Nothing);
+
+  CAMLreturn(Val_int(len));
+}
+
 /*
 
 This code taken from Eio's eio_posix_stub.c, licensed as:
@@ -18,13 +43,6 @@ ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
 OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 
 */
-
-#include <caml/bigarray.h>
-#include <caml/memory.h>
-#include <caml/unixsupport.h>
-#include <sys/socket.h>
-#include <sys/types.h>
-#include <sys/uio.h>
 
 /* Fill [iov] with pointers to the cstructs in the array [v_bufs]. */
 static void fill_iov(struct iovec *iov, value v_bufs) {
@@ -67,16 +85,48 @@ CAMLprim value caml_riot_posix_writev(value v_fd, value v_bufs) {
   CAMLreturn(Val_long(r));
 }
 
-CAMLprim value caml_riot_posix_sendfile(value v_fd, value v_s, value v_offset, value v_len) {
-  CAMLparam4(v_fd, v_s, v_offset, v_len);
-  int fd = Int_val(v_fd);
-  int s = Int_val(v_s);
-  off_t offset = Int_val(v_offset);
-  off_t len = Int_val(v_len);
+/*
 
-  int ret = sendfile(fd, s, offset, &len, NULL, 0);
-  if (ret == -1) uerror("sendfile", Nothing);
+This code taken from Jane Street's time_now, licensed as:
 
-  CAMLreturn(Val_int(len));
+The MIT License
+
+Copyright (c) 2019--2023 Jane Street Group, LLC opensource-contacts@janestreet.com
+
+Permission is hereby granted, free of charge, to any person obtaining a copy of
+this software and associated documentation files (the "Software"), to deal in
+the Software without restriction, including without limitation the rights to
+use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies
+of the Software, and to permit persons to whom the Software is furnished to do
+so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+
+*/
+
+
+#define NANOS_PER_SECOND 1000000000
+
+CAMLprim value caml_riot_posix_gettimeofday() {
+  CAMLparam0();
+  CAMLlocal1(res);
+
+  struct timeval tp;
+  if (gettimeofday(&tp, NULL) == -1) {
+    res = caml_copy_int64(0);
+  } else {
+    res = caml_copy_int64(NANOS_PER_SECOND * (uint64_t)tp.tv_sec +
+                          (uint64_t)tp.tv_usec * 1000);
+  }
+
+  CAMLreturn(res);
 }
-

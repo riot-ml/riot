@@ -35,8 +35,6 @@ module Test_app = struct
     sleep 0.001;
     shutdown ()
 
-  let name = "Test_app"
-
   let start () =
     Logger.set_log_level (Some Info);
     let t0 = Ptime_clock.now () in

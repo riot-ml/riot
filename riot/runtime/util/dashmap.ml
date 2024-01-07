@@ -1,6 +1,8 @@
 type ('k, 'v) t = { tbl : ('k, 'v) Hashtbl.t; lock : Mutex.t }
 
-let create size = { lock = Mutex.create (); tbl = Hashtbl.create size }
+let create ?(size = 1024) () =
+  { lock = Mutex.create (); tbl = Hashtbl.create size }
+
 let get_all t k = Mutex.protect t.lock (fun () -> Hashtbl.find_all t.tbl k)
 let get t k = Mutex.protect t.lock (fun () -> Hashtbl.find_opt t.tbl k)
 let remove t k = Mutex.protect t.lock (fun () -> Hashtbl.remove t.tbl k)
@@ -50,7 +52,7 @@ module type Intf = sig
   type key
   type 'v t
 
-  val create : int -> 'v t
+  val create : ?size:int -> unit -> 'v t
   val keys : 'v t -> key Seq.t
   val get : 'v t -> key -> 'v option
   val get_all : 'v t -> key -> 'v list
@@ -79,7 +81,10 @@ module Make (B : Base) : Intf with type key = B.key = struct
   type 'v t = { tbl : 'v Hashtbl.t; lock : Mutex.t }
 
   let keys t = Hashtbl.to_seq_keys t.tbl
-  let create size = { lock = Mutex.create (); tbl = Hashtbl.create size }
+
+  let create ?(size = 1024) () =
+    { lock = Mutex.create (); tbl = Hashtbl.create size }
+
   let get_all t k = Mutex.protect t.lock (fun () -> Hashtbl.find_all t.tbl k)
   let get t k = Mutex.protect t.lock (fun () -> Hashtbl.find_opt t.tbl k)
   let remove t k = Mutex.protect t.lock (fun () -> Hashtbl.remove t.tbl k)

@@ -47,7 +47,7 @@ type t = {
   links : Pid.t list Atomic.t;
   monitors : unit Pid.Map.t;
   ready_fds : Fd.t list Atomic.t;
-  recv_timeout : unit Ref.t option Atomic.t;
+  recv_timeout : unit Symbol.t option Atomic.t;
 }
 
 exception Process_reviving_is_forbidden of t
@@ -86,13 +86,13 @@ val pp_flags : Format.formatter -> process_flags -> unit
 val pp_reason : Format.formatter -> exit_reason -> unit
 val pp_state : Format.formatter -> state -> unit
 val read_save_queue : t -> unit
-val receive_timeout : t -> unit Ref.t option
+val receive_timeout : t -> unit Symbol.t option
 val remove_monitor : t -> Pid.t -> unit
 val send_message : t -> Message.t -> unit
 val set_cont : t -> exit_reason Proc_state.t -> unit
 val set_flag : t -> process_flag -> unit
 val set_ready_fds : t -> Fd.t list -> unit
-val set_receive_timeout : t -> unit Ref.t -> unit
+val set_receive_timeout : t -> unit Symbol.t -> unit
 val should_awake : t -> bool
 val sid : t -> Scheduler_uid.t
 val state : t -> state

@@ -3,7 +3,7 @@ open Util
 
 module Timer = struct
   type t = {
-    id : unit Ref.t;
+    id : unit Symbol.t;
     mode : [ `interval | `one_off ];
     mutable status : [ `pending | `finished ];
     mutable started_at : Mtime.t;
@@ -14,21 +14,21 @@ module Timer = struct
   let pp fmt t =
     let mode = if t.mode = `interval then "interval" else "one_off" in
     Format.fprintf fmt "Timer { id=%a; started_at=%a; ends_at=%a; mode=%s }"
-      Ref.pp t.id Mtime.pp t.started_at Mtime.Span.pp t.ends_at mode
+      Symbol.pp t.id Mtime.pp t.started_at Mtime.Span.pp t.ends_at mode
 
   let make time mode fn =
-    let id = Ref.make () in
+    let id = Symbol.make () in
     let started_at = Mtime_clock.now () in
     let ends_at = Mtime.Span.of_uint64_ns Int64.(mul 1_000L time) in
     { id; started_at; ends_at; fn; mode; status = `pending }
 
-  let equal a b = Ref.equal a.id b.id
+  let equal a b = Symbol.equal a.id b.id
   let is_finished t = t.status = `finished
 end
 
 type t = {
   timers : (Mtime.t, Timer.t) Dashmap.t;
-  ids : (unit Ref.t, Timer.t) Dashmap.t;
+  ids : (unit Symbol.t, Timer.t) Dashmap.t;
   mutable last_t : Mtime.t; [@warning "-69"]
 }
 
@@ -50,7 +50,7 @@ let is_finished t timer =
 let remove_timer t timer =
   let timers = Dashmap.get_all t.ids timer in
   let times = List.map (fun (timer : Timer.t) -> timer.started_at) timers in
-  Dashmap.remove_by t.ids (fun (k, _) -> Ref.equal k timer);
+  Dashmap.remove_by t.ids (fun (k, _) -> Symbol.equal k timer);
   Dashmap.remove_all t.timers times
 
 let clear_timer t tid =

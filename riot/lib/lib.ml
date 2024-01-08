@@ -16,4 +16,5 @@ module Task = Task
 module Telemetry = Telemetry_app
 module Timeout = Timeout
 module Fd = Fd
+module Bytestring = Bytestring
 include Global

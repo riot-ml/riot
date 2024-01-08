@@ -50,16 +50,6 @@
   (pps ppxlib.metaquot))
  (libraries bytepattern))
 
-(executable
- (name sub_bench)
- (modules sub_bench)
- (libraries bytestring scarab))
-
-(executable
- (name concat_bench)
- (modules concat_bench)
- (libraries bytestring scarab))
-
 (cram
  (deps
   (package bytestring)))

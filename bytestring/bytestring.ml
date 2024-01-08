@@ -1,6 +1,8 @@
 module Str = Stdlib.String
 module Buf = Stdlib.Buffer
 
+let ( let* ) = Result.bind
+
 exception No_match
 exception Guard_mismatch
 exception Malformed of string
@@ -278,7 +280,7 @@ let length = function
   | Rep.Flat s -> String.length s
   | Rep.View ({ length; _ }, _) -> length
   | Rep.Chunked ({ length; _ }, suffix) -> length + Rep.suffix_length suffix
-  | Rep.ChunkedWithOffset (prefix, { parts=_; length }, suffix) ->
+  | Rep.ChunkedWithOffset (prefix, { parts = _; length }, suffix) ->
       (fst prefix).length + length + Rep.suffix_length suffix
 
 let is_empty t =
@@ -340,8 +342,8 @@ let sub ?(off = 0) ~len t =
     | Rep.View view -> Rep.sub_from_view ~view ~off ~len
     | Rep.Chunked (chunked, suffix) ->
         Rep.sub_from_chunked ~chunked ~suffix ~off ~len
-    | Rep.ChunkedWithOffset ((({ offset=_; length }, _s) as view), chunked, suffix)
-      ->
+    | Rep.ChunkedWithOffset
+        ((({ offset = _; length }, _s) as view), chunked, suffix) ->
         if off >= length then
           (* skip the entire prefix *)
           Rep.sub_from_chunked ~chunked ~suffix ~off:(off - length) ~len
@@ -498,3 +500,8 @@ module Transient = struct
 end
 
 let to_transient = TransientRep.from_source
+
+let with_buffer ?(capacity = 1024 * 50) fn =
+  let buf = Buffer.create capacity in
+  let* () = fn buf in
+  Ok (of_string (Buffer.contents buf))

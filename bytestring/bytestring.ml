@@ -463,15 +463,36 @@ module Transient = struct
     TransientRep.add_string t str
 
   let add_bits _t ?size:_ _str = ()
-  let add_utf8 _t ?size:_ _utf8 = ()
   let add_literal_int _t ?size:_ _str = ()
-  let add_literal_utf8 _t ?size:_ _str = ()
+  let add_utf8 _t ?size:_ _utf8 = ()
 
   let add_literal_string t ?size str =
     let str =
       match size with None -> str | Some len -> String.sub str 0 len
     in
     TransientRep.add_literal_string t str
+
+  exception Invalid_utf8 of string
+
+  let add_literal_utf8 t ?size str =
+    let str, size =
+      match size with
+      | None -> (str, String.length str)
+      | Some len -> (String.sub str 0 len, len)
+    in
+    let decoder = Uutf.decoder (`String str) in
+    let buf = Buffer.create size in
+    let rec decode_all () =
+      match Uutf.decode decoder with
+      | `Uchar char ->
+          Uutf.Buffer.add_utf_8 buf char;
+          decode_all ()
+      | `Malformed str -> raise (Invalid_utf8 str)
+      | `Await -> ()
+      | `End -> ()
+    in
+    decode_all ();
+    add_literal_string t (Buffer.contents buf)
 
   let commit = TransientRep.commit
 end

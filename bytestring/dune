@@ -20,18 +20,21 @@
  (preprocess
   (pps ppxlib.metaquot)))
 
+(library
+ (name naughty_strings)
+ (modules naughty_strings))
+
 (test
  (package bytestring)
  (name bytestring_test)
  (modules bytestring_test)
- (libraries bytestring qcheck spices))
+ (libraries naughty_strings bytestring qcheck spices))
 
 (test
  (package bytestring)
  (name bytestring_iter_test)
  (modules bytestring_iter_test)
  (libraries bytestring qcheck spices))
-
 
 (test
  (package bytestring)

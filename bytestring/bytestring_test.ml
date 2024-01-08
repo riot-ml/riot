@@ -2,13 +2,16 @@ let keyword fmt = Spices.(default |> fg (color "#00FF00") |> build) fmt
 let error fmt = Spices.(default |> fg (color "#FF0000") |> build) fmt
 
 let () =
-  let test name fn expected =
+  let test ?(print_expected = true) name fn expected =
     let actual =
       match fn () with
       | exception exn -> Format.sprintf "Exception: %s" (Printexc.to_string exn)
       | str -> str
     in
-    let name = Format.sprintf "%S = %S" name expected in
+    let name =
+      if not print_expected then Format.sprintf "%S <input skipped>" name
+      else Format.sprintf "%S = %S" name expected
+    in
     if String.equal actual expected then
       Format.printf "test %s %s\r\n%!" name (keyword "OK")
     else (
@@ -30,6 +33,18 @@ let () =
         assert false
     | () -> ()
   in
+
+  List.iteri
+    (fun idx naughty_string ->
+      let print_expected =
+        match idx with
+        | 96 | 97 | 98 | 178 | 162 | 163 | 164 | 165 -> false
+        | _ -> true
+      in
+      test ~print_expected "naughty_string"
+        (fun () -> Bytestring.of_string naughty_string |> Bytestring.to_string)
+        naughty_string)
+    Naughty_strings.strings;
 
   test {|concat (empty, ["a"; empty])|}
     (fun () ->

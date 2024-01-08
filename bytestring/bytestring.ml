@@ -389,18 +389,43 @@ end
 
 let to_iter _t = Iter.I
 
-module Transient = struct
-  type string = t
-  type t = T
+module TransientRep = struct
+  type t = { mutable store : Rep.t }
+  (** Transient representations implement the CoW pattern.
 
-  let add_bits _t ?size:_ _str = ()
-  let add_literal_int _t ?size:_ _str = ()
-  let add_literal_string _t ?size:_ _str = ()
-  let add_literal_utf8 _t ?size:_ _str = ()
-  let add_string _t ?size:_ _str = ()
-  let add_utf8 _t ?size:_ _utf8 = ()
-  let commit _t = empty
-  let create () = T
+      When they are created, they are just a reference to the source
+      Bytestring representation. When a mutation happens, we copy parts of it
+      to a mutable representation and perform the mutation on these
+      mutation-friendly parts.
+
+      When the transient representation is committed, we copy the mutated parts
+      back to an immutable representation and return it.
+
+      TODO(felipecrv): implement a more sophisticated version of Mut
+      *)
+
+  let from_source t = { store = t }
+  let create () = { store = empty }
+  let add_string t bs = t.store <- join t.store bs
+  let add_literal_string t s = t.store <- Rep.join_string t.store s
+  let commit t = t.store
 end
 
-let to_transient _t = Transient.T
+module Transient = struct
+  type string = t
+  type t = TransientRep.t
+
+  let create = TransientRep.create
+  let add_string _t ?size:_ _str = TransientRep.add_string _t _str
+  let add_bits _t ?size:_ _str = ()
+  let add_utf8 _t ?size:_ _utf8 = ()
+  let add_literal_int _t ?size:_ _str = ()
+  let add_literal_utf8 _t ?size:_ _str = ()
+
+  let add_literal_string _t ?size:_ _str =
+    TransientRep.add_literal_string _t _str
+
+  let commit = TransientRep.commit
+end
+
+let to_transient = TransientRep.from_source

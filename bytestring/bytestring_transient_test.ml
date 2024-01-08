@@ -32,34 +32,43 @@ let () =
     | () -> ()
   in
 
-  proptest "add literal string"
-    (fun input ->
+  test {|add_literal_utf trns "\xc3\x28" raises|}
+    (fun () ->
+      let trn = Bytestring.(to_transient empty) in
+      Bytestring.Transient.add_literal_utf8 trn "\xc3\x28";
+      "")
+    "Exception: Bytestring.Transient.Invalid_utf8(\"\\195(\")";
+
+  proptest "add literal utf8 string" (fun input ->
+      let str = Bytestring.of_string input in
+      let trn = Bytestring.to_transient str in
+      Bytestring.Transient.add_literal_utf8 trn "🦮 ";
+      let str = Bytestring.Transient.commit trn in
+      let output = Bytestring.to_string str in
+      String.equal (input ^ "🦮 ") output);
+
+  proptest "add literal string" (fun input ->
       let str = Bytestring.of_string input in
       let trn = Bytestring.to_transient str in
       Bytestring.Transient.add_literal_string trn "hello";
       let str = Bytestring.Transient.commit trn in
       let output = Bytestring.to_string str in
-      String.equal (input^"hello") output
-    );
+      String.equal (input ^ "hello") output);
 
-  proptest "add to empty string"
-    (fun input ->
+  proptest "add to empty string" (fun input ->
       let str = Bytestring.of_string "" in
       let trn = Bytestring.to_transient str in
       Bytestring.Transient.add_string trn (Bytestring.of_string input);
       let str = Bytestring.Transient.commit trn in
       let output = Bytestring.to_string str in
-      String.equal input output
-    );
+      String.equal input output);
 
-  proptest "duplicate"
-    (fun input ->
+  proptest "duplicate" (fun input ->
       let str = Bytestring.of_string input in
       let trn = Bytestring.to_transient str in
       Bytestring.Transient.add_string trn str;
       let str = Bytestring.Transient.commit trn in
       let output = Bytestring.to_string str in
-      String.equal (input^input) output
-    );
+      String.equal (input ^ input) output);
 
   ()

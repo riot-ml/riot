@@ -10,7 +10,11 @@ module Rep = struct
   type range = { offset : int; length : int }
 
   type view = range * string
-  (** A valid, non-empty, and strict sub-range with an associated string. *)
+  (** A valid sub-range with an associated string.
+
+      When used inside representations, it should always be a, non-empty, and a
+      strict sub-range of the associated string.
+   *)
 
   let suffix_length suffix_opt =
     match suffix_opt with None -> 0 | Some ({ length; _ }, _) -> length
@@ -27,9 +31,9 @@ module Rep = struct
 
       [View] can be reduced to [Flat ""] if [length=0].
 
-      [Chunked ({parts = []; length = 0}, Some v)] can be reduced to [View v].
+      [Chunked ({_; length = 0}, Some v)] can be reduced to [View v].
 
-      [Chunked ({parts = []; length = 0}, None)] can be reduced to [Flat ""].
+      [Chunked ({_; length = 0}, None)] can be reduced to [Flat ""].
 
       [Chunked ({parts = [s]; _}, None)] can be reduced to [Flat s].
 
@@ -53,7 +57,7 @@ module Rep = struct
     *)
   let cheap_sub_threshold = 16
 
-  let cheap_concat_threshold = 128
+  let cheap_join_threshold = 128
   let sum_lengths = List.fold_left (fun acc s -> acc + String.length s) 0
 
   (** [copy_string_chunks ~src_parts ~dst ~dst_pos ~len] copies all bytes
@@ -84,30 +88,172 @@ module Rep = struct
     | Some (r, s) ->
         Bytes.blit_string s r.offset dst (dst_pos + chunked.length) r.length
 
+  let[@tail_mod_cons] rec fuse_last l ~f x =
+    match l with
+    | a :: [] -> ( match f a x with Some a' -> [ a' ] | None -> [ a; x ])
+    | a :: l' -> a :: fuse_last l' ~f x
+    | [] -> failwith "fuse_last: empty list"
+
+  let join_views (v1 : view) (v2 : view) =
+    let range1, s1 = v1 in
+    let range2, s2 = v2 in
+    let length = range1.length + range2.length in
+    let buf = Bytes.create length in
+    Bytes.blit_string s1 range1.offset buf 0 range1.length;
+    Bytes.blit_string s2 range2.offset buf range1.length range2.length;
+    Bytes.unsafe_to_string buf
+
+  (** Join 2 strings if they are small enough or return a list containing both
+      strings. *)
+  let maybe_join s1 s2 =
+    if String.length s1 + String.length s2 <= cheap_join_threshold then
+      Some (s1 ^ s2)
+    else None
+
+  let maybe_join_views (v1 : view) (v2 : view) =
+    if (fst v1).length + (fst v2).length <= cheap_join_threshold then
+      Some (join_views v1 v2)
+    else None
+
+  let view_of_string s = ({ offset = 0; length = String.length s }, s)
+  let view_to_string (r, s) = String.sub s r.offset r.length
+
   let join_string t1 s2 =
-    if String.length s2 = 0 then t1
+    let s2_length = String.length s2 in
+    if s2_length = 0 then t1
     else
       match t1 with
       | Flat s1 ->
-          let length = String.length s1 + String.length s2 in
-          if length <= cheap_concat_threshold then Flat (s1 ^ s2)
+          let length = String.length s1 + s2_length in
+          if length <= cheap_join_threshold then Flat (s1 ^ s2)
           else Chunked ({ parts = [ s1; s2 ]; length }, None)
       | View (({ offset; length }, s1) as view) ->
-          let length' = length + String.length s2 in
-          if length' <= cheap_concat_threshold then
-            (* TODO: fuse sub and ^ for a single allocation *)
-            let s1' = String.sub s1 offset length in
-            Flat (s1' ^ s2)
+          let length' = length + s2_length in
+          if length' <= cheap_join_threshold then
+            Flat (join_views view (view_of_string s2))
           else if length <= cheap_sub_threshold then
             let s1' = String.sub s1 offset length in
             Chunked ({ parts = [ s1'; s2 ]; length = length' }, None)
           else
             ChunkedWithOffset
-              (view, { parts = [ s2 ]; length = String.length s2 }, None)
-      | _ -> failwith "TODO: implement join_string"
+              (view, { parts = [ s2 ]; length = s2_length }, None)
+      | Chunked (chunked, None) ->
+          Chunked
+            ( {
+                parts = fuse_last chunked.parts s2 ~f:maybe_join;
+                length = chunked.length + s2_length;
+              },
+              None )
+      | Chunked (chunked, Some suffix) ->
+          Chunked
+            ( {
+                parts = chunked.parts @ [ join_views suffix (view_of_string s2) ];
+                length = chunked.length + (fst suffix).length + s2_length;
+              },
+              None )
+      | ChunkedWithOffset (prefix, chunked, None) ->
+          ChunkedWithOffset
+            ( prefix,
+              {
+                parts = fuse_last chunked.parts s2 ~f:maybe_join;
+                length = chunked.length + s2_length;
+              },
+              None )
+      | ChunkedWithOffset (prefix, chunked, Some suffix) ->
+          ChunkedWithOffset
+            ( prefix,
+              {
+                parts =
+                  chunked.parts @ [ join_views suffix (view_of_string s2) ];
+                length = chunked.length + (fst suffix).length + s2_length;
+              },
+              None )
 
-  let join_chunked t1 chunked suffix =
-    failwith "TODO: implement join_chunked"
+  let join_view t1 (v2 : view) =
+    (* v2 is canonical, so it's non-empty *)
+    let v2_length = (fst v2).length in
+    assert (v2_length > 0);
+    match t1 with
+    | Flat s -> (
+        let s_length = String.length s in
+        if s_length = 0 then View v2
+        else
+          match maybe_join_views (view_of_string s) v2 with
+          | Some s' -> Flat s
+          | None -> Chunked ({ parts = [ s ]; length = s_length }, Some v2))
+    | View v -> ChunkedWithOffset (v, { parts = []; length = 0 }, Some v2)
+    | Chunked (chunked, None) -> Chunked (chunked, Some v2)
+    | Chunked (chunked, Some suffix) ->
+        let suffix' = join_views suffix v2 in
+        Chunked
+          ( {
+              parts = chunked.parts @ [ suffix' ];
+              length = chunked.length + String.length suffix';
+            },
+            None )
+    | ChunkedWithOffset (prefix, chunked, None) ->
+        ChunkedWithOffset (prefix, chunked, Some v2)
+    | ChunkedWithOffset (prefix, chunked, Some suffix) ->
+        let suffix' = join_views suffix v2 in
+        ChunkedWithOffset
+          ( prefix,
+            {
+              parts = chunked.parts @ [ suffix' ];
+              length = chunked.length + String.length suffix';
+            },
+            None )
+
+  let join_chunked t1 chunked2 suffix2 =
+    match t1 with
+    | Flat s ->
+        let s_length = String.length s in
+        if s_length = 0 then Chunked (chunked2, suffix2)
+        else
+          Chunked
+            ( {
+                parts = s :: chunked2.parts;
+                length = s_length + chunked2.length;
+              },
+              suffix2 )
+    | View v -> ChunkedWithOffset (v, chunked2, suffix2)
+    | Chunked (chunked1, None) ->
+        Chunked
+          ( {
+              parts = chunked1.parts @ chunked2.parts;
+              length = chunked1.length + chunked2.length;
+            },
+            suffix2 )
+    | Chunked (chunked1, Some suffix1) ->
+        (* XXX: if suffix1 is small enough, then we could join it with
+           the last chunk of chunked1 or the first chunk of chunked2, but this
+           view materialization will do for now *)
+        let suffix1' = view_to_string suffix1 in
+        Chunked
+          ( {
+              parts = chunked1.parts @ [ suffix1' ] @ chunked2.parts;
+              length = chunked1.length + (fst suffix1).length + chunked2.length;
+            },
+            suffix2 )
+    | ChunkedWithOffset (prefix1, chunked1, None) ->
+        ChunkedWithOffset
+          ( prefix1,
+            {
+              parts = chunked1.parts @ chunked2.parts;
+              length = chunked1.length + chunked2.length;
+            },
+            suffix2 )
+    | ChunkedWithOffset (prefix1, chunked1, Some suffix1) ->
+        (* XXX: if suffix1 is small enough, then we could join it with
+           the last chunk of chunked1 or the first chunk of chunked2, but this
+           view materialization will do for now *)
+        let suffix1' = view_to_string suffix1 in
+        ChunkedWithOffset
+          ( prefix1,
+            {
+              parts = chunked1.parts @ [ suffix1' ] @ chunked2.parts;
+              length = chunked1.length + (fst suffix1).length + chunked2.length;
+            },
+            suffix2 )
 
   (** Pre-conditions: off >= 0 && len >= 0 *)
   let sub_from_view ~view ~off ~len =
@@ -120,6 +266,7 @@ module Rep = struct
         else View ({ offset = offset + off; length = len }, s)
 
   let sub_from_chunked ~chunked ~suffix ~off ~len =
+    (* XXX: remember to ensure the returned representation is in canonical form *)
     failwith "TODO: implement sub_from_chunked"
 end
 
@@ -159,12 +306,14 @@ let to_string = function
       Rep.copy_chunked_string ~chunked ~suffix ~dst:buf ~dst_pos:r.length;
       Bytes.unsafe_to_string buf
 
-let join s1 s2 =
-  match s2 with
-  | Rep.Flat s2' -> Rep.join_string s1 s2'
-  | Rep.Chunked (chunked, suffix) -> Rep.join_chunked s1 chunked suffix
-  | _ -> failwith "TODO: implement join"
-(* TODO(felipcrv): continue from here *)
+let join t1 t2 =
+  match t2 with
+  | Rep.Flat s2 -> Rep.join_string t1 s2
+  | Rep.View v2 -> Rep.join_view t1 v2
+  | Rep.Chunked (chunked, suffix) -> Rep.join_chunked t1 chunked suffix
+  | Rep.ChunkedWithOffset (prefix, chunked, suffix) ->
+      let t1' = Rep.join_view t1 prefix in
+      Rep.join_chunked t1' chunked suffix
 
 let ( ^ ) = join
 

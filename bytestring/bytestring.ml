@@ -356,6 +356,16 @@ let sub ?(off = 0) ~len t =
 
 let view = sub
 
+(** TODO: there should be two types of Iter:
+    - Iter that iteretes only on byte boundaries
+    - BitIter that iterates on arbitrary bit boundaries
+
+    This is necessary because the overhead of keeping non-byte aligned
+    boundaries is too high for the common case of byte aligned boundaries.
+
+    Imagine a request for multiple bytes that starts at a non-byte aligned
+    boundary.
+    *)
 module Iter = struct
   type string = t
   type t = I

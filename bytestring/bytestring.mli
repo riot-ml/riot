@@ -57,3 +57,8 @@ module Transient : sig
 end
 
 val to_transient : t -> Transient.t
+
+val with_buffer :
+  ?capacity:int ->
+  (Stdlib.Buffer.t -> (unit, 'error) result) ->
+  (t, 'error) result

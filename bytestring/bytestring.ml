@@ -8,18 +8,11 @@ exception Guard_mismatch
 exception Malformed of string
 exception View_out_of_bounds
 
+type view = { offset : int; length : int; data : string }
+
 module Rep = struct
-  type range = { offset : int; length : int }
-
-  type view = range * string
-  (** A valid sub-range with an associated string.
-
-      When used inside representations, it should always be a, non-empty, and a
-      strict sub-range of the associated string.
-   *)
-
   let suffix_length suffix_opt =
-    match suffix_opt with None -> 0 | Some ({ length; _ }, _) -> length
+    match suffix_opt with None -> 0 | Some { length; _ } -> length
 
   type chunked = { parts : string list; length : int }
   (** A non-empty list of strings and a cached sum of all the lengths. *)
@@ -27,8 +20,8 @@ module Rep = struct
   (** Every operation should produce a representation in canonical form -- a
       form that can't be reduced by any reduction rule below:
 
-      [View ({offset; length}, s)] can be reduced to [Flat s] if
-      [offset=0 && length=String.length s]. A [view] should always be a,
+      [View ({offset; length; data = s})] can be reduced to [Flat s] if
+      [offset=0 && length=String.length s]. A [view] should always have a
       non-empty, and strict sub-range of the associated string.
 
       [View] can be reduced to [Flat ""] if [length=0].
@@ -39,7 +32,7 @@ module Rep = struct
 
       [Chunked ({parts = [s]; _}, None)] can be reduced to [Flat s].
 
-      [ChunkedWithOffset ((range, s) as view, parts, suffix)] can be reduced to
+      [ChunkedWithOffset ({offset; length; data = s} as view, parts, suffix)] can be reduced to
       [Chunked (s :: parts, suffix)] if [view] is empty or covers the entire range
       of the associated string.
     *)
@@ -87,8 +80,8 @@ module Rep = struct
     copy_string_chunks ~src_parts:chunked.parts ~dst ~dst_pos;
     match suffix with
     | None -> ()
-    | Some (r, s) ->
-        Bytes.blit_string s r.offset dst (dst_pos + chunked.length) r.length
+    | Some { offset; length; data } ->
+        Bytes.blit_string data offset dst (dst_pos + chunked.length) length
 
   let[@tail_mod_cons] rec fuse_last l ~f x =
     match l with
@@ -97,12 +90,10 @@ module Rep = struct
     | [] -> failwith "fuse_last: empty list"
 
   let join_views (v1 : view) (v2 : view) =
-    let range1, s1 = v1 in
-    let range2, s2 = v2 in
-    let length = range1.length + range2.length in
+    let length = v1.length + v2.length in
     let buf = Bytes.create length in
-    Bytes.blit_string s1 range1.offset buf 0 range1.length;
-    Bytes.blit_string s2 range2.offset buf range1.length range2.length;
+    Bytes.blit_string v1.data v1.offset buf 0 v1.length;
+    Bytes.blit_string v2.data v2.offset buf v1.length v2.length;
     Bytes.unsafe_to_string buf
 
   (** Join 2 strings if they are small enough or return a list containing both
@@ -113,12 +104,12 @@ module Rep = struct
     else None
 
   let maybe_join_views (v1 : view) (v2 : view) =
-    if (fst v1).length + (fst v2).length <= cheap_join_threshold then
+    if v1.length + v2.length <= cheap_join_threshold then
       Some (join_views v1 v2)
     else None
 
-  let view_of_string s = ({ offset = 0; length = String.length s }, s)
-  let view_to_string (r, s) = String.sub s r.offset r.length
+  let view_of_string s = { offset = 0; length = String.length s; data = s }
+  let view_to_string v = String.sub v.data v.offset v.length
 
   let join_string t1 s2 =
     let s2_length = String.length s2 in
@@ -129,7 +120,7 @@ module Rep = struct
           let length = String.length s1 + s2_length in
           if length <= cheap_join_threshold then Flat (s1 ^ s2)
           else Chunked ({ parts = [ s1; s2 ]; length }, None)
-      | View (({ offset; length }, s1) as view) ->
+      | View ({ offset; length; data = s1 } as view) ->
           let length' = length + s2_length in
           if length' <= cheap_join_threshold then
             Flat (join_views view (view_of_string s2))
@@ -150,7 +141,7 @@ module Rep = struct
           Chunked
             ( {
                 parts = chunked.parts @ [ join_views suffix (view_of_string s2) ];
-                length = chunked.length + (fst suffix).length + s2_length;
+                length = chunked.length + suffix.length + s2_length;
               },
               None )
       | ChunkedWithOffset (prefix, chunked, None) ->
@@ -167,14 +158,13 @@ module Rep = struct
               {
                 parts =
                   chunked.parts @ [ join_views suffix (view_of_string s2) ];
-                length = chunked.length + (fst suffix).length + s2_length;
+                length = chunked.length + suffix.length + s2_length;
               },
               None )
 
   let join_view t1 (v2 : view) =
     (* v2 is canonical, so it's non-empty *)
-    let v2_length = (fst v2).length in
-    assert (v2_length > 0);
+    assert (v2.length > 0);
     match t1 with
     | Flat s -> (
         let s_length = String.length s in
@@ -233,7 +223,7 @@ module Rep = struct
         Chunked
           ( {
               parts = chunked1.parts @ [ suffix1' ] @ chunked2.parts;
-              length = chunked1.length + (fst suffix1).length + chunked2.length;
+              length = chunked1.length + suffix1.length + chunked2.length;
             },
             suffix2 )
     | ChunkedWithOffset (prefix1, chunked1, None) ->
@@ -253,7 +243,7 @@ module Rep = struct
           ( prefix1,
             {
               parts = chunked1.parts @ [ suffix1' ] @ chunked2.parts;
-              length = chunked1.length + (fst suffix1).length + chunked2.length;
+              length = chunked1.length + suffix1.length + chunked2.length;
             },
             suffix2 )
 
@@ -261,11 +251,11 @@ module Rep = struct
   let sub_from_view ~view ~off ~len =
     assert (off >= 0 && len >= 0);
     match view with
-    | { offset; length }, s ->
+    | { offset; length; data = s } ->
         if offset + off > length - len then raise View_out_of_bounds
         else if len <= cheap_sub_threshold then
           Flat (String.sub s (offset + off) len)
-        else View ({ offset = offset + off; length = len }, s)
+        else View { offset = offset + off; length = len; data = s }
 
   let sub_from_chunked ~chunked:_ ~suffix:_ ~off:_ ~len:_ =
     (* XXX: remember to ensure the returned representation is in canonical form *)
@@ -278,10 +268,10 @@ let empty = Rep.Flat ""
 
 let length = function
   | Rep.Flat s -> String.length s
-  | Rep.View ({ length; _ }, _) -> length
+  | Rep.View { length; _ } -> length
   | Rep.Chunked ({ length; _ }, suffix) -> length + Rep.suffix_length suffix
   | Rep.ChunkedWithOffset (prefix, { parts = _; length }, suffix) ->
-      (fst prefix).length + length + Rep.suffix_length suffix
+      prefix.length + length + Rep.suffix_length suffix
 
 let is_empty t =
   match t with
@@ -296,16 +286,16 @@ let of_string str = Rep.Flat str
 
 let to_string = function
   | Rep.Flat s -> s
-  | Rep.View ({ offset; length }, s) -> String.sub s offset length
+  | Rep.View { offset; length; data = s } -> String.sub s offset length
   | Rep.Chunked (chunked, suffix) ->
       let len = chunked.length + Rep.suffix_length suffix in
       let buf (* : local_ *) = Bytes.create len in
       Rep.copy_chunked_string ~chunked ~suffix ~dst:buf ~dst_pos:0;
       Bytes.unsafe_to_string buf
-  | Rep.ChunkedWithOffset ((r, _s), chunked, suffix) ->
-      let len = r.length + chunked.length + Rep.suffix_length suffix in
+  | Rep.ChunkedWithOffset (prefix, chunked, suffix) ->
+      let len = prefix.length + chunked.length + Rep.suffix_length suffix in
       let buf (*: local_ *) = Bytes.create len in
-      Rep.copy_chunked_string ~chunked ~suffix ~dst:buf ~dst_pos:r.length;
+      Rep.copy_chunked_string ~chunked ~suffix ~dst:buf ~dst_pos:prefix.length;
       Bytes.unsafe_to_string buf
 
 let join t1 t2 =
@@ -338,12 +328,12 @@ let sub ?(off = 0) ~len t =
         else if off = 0 && len = s_len then t
         else if len <= Rep.cheap_sub_threshold then
           Rep.Flat (String.sub s off len)
-        else Rep.View ({ offset = off; length = len }, s)
+        else Rep.View { offset = off; length = len; data = s }
     | Rep.View view -> Rep.sub_from_view ~view ~off ~len
     | Rep.Chunked (chunked, suffix) ->
         Rep.sub_from_chunked ~chunked ~suffix ~off ~len
     | Rep.ChunkedWithOffset
-        ((({ offset = _; length }, _s) as view), chunked, suffix) ->
+        (({ offset = _; length; data = _s } as view), chunked, suffix) ->
         if off >= length then
           (* skip the entire prefix *)
           Rep.sub_from_chunked ~chunked ~suffix ~off:(off - length) ~len

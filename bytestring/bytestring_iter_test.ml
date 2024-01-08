@@ -33,7 +33,7 @@ let () =
   in
 
   test "create iterator and expect empty"
-    (fun input ->
+    (fun () ->
       let str = Bytestring.of_string "" in
       let iter = Bytestring.to_iter str in
       Bytestring.Iter.expect_empty iter;
@@ -41,7 +41,7 @@ let () =
     "";
 
   test "create iterator and expect empty to fail"
-    (fun input ->
+    (fun () ->
       let str = Bytestring.of_string "asdf" in
       let iter = Bytestring.to_iter str in
       Bytestring.Iter.expect_empty iter;
@@ -57,7 +57,7 @@ let () =
     "Exception: Bytestring.Iter.Invalid_position";
 
   test "create empty iterator and get 10 byte fails"
-    (fun input ->
+    (fun () ->
       let str = Bytestring.of_string "" in
       let iter = Bytestring.to_iter str in
       let _byte = Bytestring.Iter.next_bytes ~size:10 iter in

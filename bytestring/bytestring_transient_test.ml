@@ -17,7 +17,7 @@ let () =
       assert false)
   in
 
-  let non_empty_string ?(min = 3) ?(max = 100_000) () =
+  let _non_empty_string ?(min = 3) ?(max = 100_000) () =
     QCheck.string_of_size (QCheck.Gen.int_range min max)
   in
   let proptest ?(count = 1_000) ?(gen = fun () -> QCheck.string) name fn =

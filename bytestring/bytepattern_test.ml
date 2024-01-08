@@ -2,6 +2,8 @@ open Ppxlib
 open Ast_helper
 open Bytepattern
 
+let keyword fmt = Spices.(default |> fg (color "#00FF00") |> build) fmt
+let error fmt = Spices.(default |> fg (color "#FF0000") |> build) fmt
 let loc = Location.none
 
 let id name =
@@ -22,10 +24,10 @@ let () =
     let expect_str = Format.asprintf "%a" Lexer.pp expected in
 
     if String.equal actual_str expect_str then
-      Format.printf "lexer test %S OK\r\n%!" str
+      Format.printf "lexer test %S %s\r\n%!" str (keyword "OK")
     else (
-      Format.printf
-        "Error tokens do not match, expected:\n\n%a\n\nbut found:\n\n%a\n\n"
+      Format.printf "%s\n\nExpected:\n\n%a\n\nbut found:\n\n%a\n\n"
+        (error "Tokens do not match")
         Lexer.pp expected Lexer.pp actual;
       assert false)
   in
@@ -135,13 +137,10 @@ let () =
     let expect_str = Format.asprintf "%a" Parser.pp expected in
 
     if String.equal actual_str expect_str then
-      Format.printf "parser test %S OK\r\n%!" str
+      Format.printf "parser test %S %s\r\n%!" str (keyword "OK")
     else (
-      Format.printf
-        "Error parsetree does not match, expected:\n\n\
-         %a\n\n\
-         but found:\n\n\
-         %a\n\n"
+      Format.printf "%s\n\nExpected:\n\n%a\n\nbut found:\n\n%a\n\n"
+        (error "Parse trees do not match")
         Parser.pp expected Parser.pp actual;
       assert false)
   in
@@ -203,14 +202,11 @@ let () =
     let expect_str = Format.asprintf "%a" Construction_lower.pp expected in
 
     if String.equal actual_str expect_str then
-      Format.printf "cstr-low test %S OK\r\n%!" str
+      Format.printf "cstr-low test %S %s\r\n%!" str (keyword "OK")
     else (
-      Format.printf
-        "Error %S – lowered repr doesn't match, expected:\n\n\
-         %a\n\n\
-         but found:\n\n\
-         %a\n\n"
-        str Construction_lower.pp expected Construction_lower.pp actual;
+      Format.printf "%s\n\nExpected:\n\n%a\n\nbut found:\n\n%a\n\n"
+        (error "Construction_lowered trees do not match")
+        Construction_lower.pp expected Construction_lower.pp actual;
       assert false)
   in
 
@@ -337,11 +333,11 @@ let () =
     let actual = Ppxlib.Pprintast.string_of_expression actual in
     let expected = Ppxlib.Pprintast.string_of_expression expected in
     if not (String.equal actual expected) then (
-      Format.printf
-        "Error AST doesn't match, expected:\n\n%s\n\nbut found:\n\n%s\n\n"
+      Format.printf "%s\n\nExpected:\n\n%s\n\nbut found:\n\n%s\n\n"
+        (error "Construction ASTs do not match")
         expected actual;
       assert false)
-    else Format.printf "transl test %S OK\r\n%!" str
+    else Format.printf "transl-low test %S %s\r\n%!" str (keyword "OK")
   in
 
   (* test: empty pattern is just an empty bytestring *)
@@ -451,14 +447,11 @@ let () =
     let expect_str = Format.asprintf "%a" Matching_lower.pp expected in
 
     if String.equal actual_str expect_str then
-      Format.printf "match-low test %S OK\r\n%!" str
+      Format.printf "match-low test %S %s\r\n%!" str (keyword "OK")
     else (
-      Format.printf
-        "Error %S – lowered repr doesn't match, expected:\n\n\
-         %a\n\n\
-         but found:\n\n\
-         %a\n\n"
-        str Matching_lower.pp expected Matching_lower.pp actual;
+      Format.printf "%s\n\nExpected:\n\n%a\n\nbut found:\n\n%a\n\n"
+        (error "Matching_lower trees do not match")
+        Matching_lower.pp expected Matching_lower.pp actual;
       assert false)
   in
 
@@ -597,11 +590,11 @@ let () =
     let actual = Ppxlib.Pprintast.string_of_expression actual in
     let expected = Ppxlib.Pprintast.string_of_expression expected in
     if not (String.equal actual expected) then (
-      Format.printf
-        "Error on %S AST doesn't match, expected:\n\n%s\n\nbut found:\n\n%s\n\n"
-        str expected actual;
+      Format.printf "%s\n\nExpected:\n\n%s\n\nbut found:\n\n%s\n\n"
+        (error "Native matching trees do not match")
+        expected actual;
       assert false)
-    else Format.printf "match-naive test %S OK\r\n%!" str
+    else Format.printf "match-native test %S %s\r\n%!" str (keyword "OK")
   in
 
   (* test: empty pattern is just an empty bytestring *)
@@ -751,14 +744,11 @@ let () =
     in
     let expect = Format.asprintf "%a" Bytepattern.Prefix_matching.pp expected in
     if not (String.equal actual expect) then (
-      Format.printf
-        "Error on test #%d AST doesn't match, expected:\n\n\
-         %s\n\n\
-         but found:\n\n\
-         %s\n\n"
-        n expect actual;
+      Format.printf "%s\n\nExpected:\n\n%s\n\nbut found:\n\n%s\n\n"
+        (error "#%d Prefix matching trees do not match" n)
+        expect actual;
       assert false)
-    else Format.printf "match-prefix test #%d OK\r\n%!" n
+    else Format.printf "match-prefix test #%d %s\r\n%!" n (keyword "OK")
   in
 
   (* test: empty pattern is just an empty bytestring *)
@@ -1068,14 +1058,11 @@ let () =
     let actual = Ppxlib.Pprintast.string_of_expression actual in
     let expect = Ppxlib.Pprintast.string_of_expression expected in
     if not (String.equal actual expect) then (
-      Format.printf
-        "Error on test #%d AST doesn't match, expected:\n\n\
-         %s\n\n\
-         but found:\n\n\
-         %s\n\n"
-        n expect actual;
+      Format.printf "%s\n\nExpected:\n\n%s\n\nbut found:\n\n%s\n\n"
+        (error "#%d OCaml ASTs do not match" n)
+        expect actual;
       assert false)
-    else Format.printf "match test #%d OK\r\n%!" n
+    else Format.printf "match test #%d %s\r\n%!" n (keyword "OK")
   in
 
   (* test: empty pattern is just an empty bytestring *)

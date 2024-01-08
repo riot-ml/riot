@@ -22,6 +22,25 @@
 
 (test
  (package bytestring)
+ (name bytestring_test)
+ (modules bytestring_test)
+ (libraries bytestring qcheck spices))
+
+(test
+ (package bytestring)
+ (name bytestring_iter_test)
+ (modules bytestring_iter_test)
+ (libraries bytestring qcheck spices))
+
+
+(test
+ (package bytestring)
+ (name bytestring_transient_test)
+ (modules bytestring_transient_test)
+ (libraries bytestring qcheck spices))
+
+(test
+ (package bytestring)
  (name bytepattern_test)
  (modules bytepattern_test)
  (preprocess

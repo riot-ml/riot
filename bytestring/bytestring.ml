@@ -320,8 +320,8 @@ let ( ^ ) = join
 let rec concat sep ls acc =
   match ls with
   | [] -> empty
-  | h :: [] -> h
-  | h :: t -> concat sep t ((h ^ sep) ^ acc)
+  | h :: [] -> acc ^ h
+  | h :: t -> concat sep t (acc ^ h ^ sep)
 
 let concat sep ls = concat sep ls empty
 
@@ -354,8 +354,6 @@ let sub ?(off = 0) ~len t =
           in
           join new_prefix new_tail
 
-let view = sub
-
 (** TODO: there should be two types of Iter:
     - Iter that iteretes only on byte boundaries
     - BitIter that iterates on arbitrary bit boundaries
@@ -367,27 +365,70 @@ let view = sub
     boundary.
     *)
 module Iter = struct
-  type string = t
-  type t = I
+  type bytestring = t
+  type t = { mutable length : int; mutable bytes : int Seq.t }
 
   exception Invalid_position
   exception Byte_not_found
 
+  (* Iterators on bits *)
+
   let next_bit _t = 0
   let next_bits ~size:_ _t = 0
-  let next_byte _t = empty
-  let next_bytes ~size:_ _t = empty
-  let next_utf8 _t = empty
-  let next_utf8_seq ~len:_ _t = empty
-  let rest _t = empty
   let expect_bits _bit _t = ()
+
+  (* Iterators on bytes *)
+
   let expect_bytes _bytes _t = ()
   let expect_literal_int _t ?size:_ _bit = ()
   let expect_literal_string _t ?size:_ _str = ()
-  let expect_empty _t = ()
+  let expect_empty t = if t.length != 0 then raise Invalid_position
+
+  let next_byte t =
+    if t.length = 0 then raise Invalid_position;
+    (* this is safe because we expect [t.length > 0] *)
+    let byte, bytes = Seq.uncons t.bytes |> Option.get in
+    t.length <- t.length - 1;
+    t.bytes <- bytes;
+    String.make 1 (Char.chr byte) |> of_string
+
+  let next_bytes ~size t =
+    if t.length = 0 || size > t.length then raise Invalid_position;
+    let rec read bytes acc =
+      if List.length acc = size then
+        let read =
+          List.rev acc |> List.map Char.chr |> List.to_seq |> String.of_seq
+          |> of_string
+        in
+        (read, bytes)
+      else
+        (* this is safe because we expect [t.length > 0 && size <= t.length ] *)
+        let byte, next = Seq.uncons bytes |> Option.get in
+        read next (byte :: acc)
+    in
+    let read, bytes = read t.bytes [] in
+    t.bytes <- bytes;
+    t.length <- t.length - size;
+    read
+
+  let next_utf8 _t = empty
+  let next_utf8_seq ~len:_ _t = empty
+
+  (** [rest t] turns our iterator back into a bytestring *)
+  let rest t =
+    let rest = t.bytes |> Seq.map Char.chr |> String.of_seq |> of_string in
+    t.bytes <- Seq.empty;
+    t.length <- 0;
+    rest
+
+  let make string =
+    let bytes = to_string string in
+    let length = String.length bytes in
+    let bytes = bytes |> String.to_seq |> Seq.map Char.code in
+    { length; bytes }
 end
 
-let to_iter _t = Iter.I
+let to_iter t = Iter.make t
 
 module TransientRep = struct
   type t = { mutable store : Rep.t }
@@ -412,18 +453,25 @@ module TransientRep = struct
 end
 
 module Transient = struct
-  type string = t
+  type bytestring = t
   type t = TransientRep.t
 
   let create = TransientRep.create
-  let add_string _t ?size:_ _str = TransientRep.add_string _t _str
+
+  let add_string t ?size str =
+    let str = match size with None -> str | Some len -> sub ~len str in
+    TransientRep.add_string t str
+
   let add_bits _t ?size:_ _str = ()
   let add_utf8 _t ?size:_ _utf8 = ()
   let add_literal_int _t ?size:_ _str = ()
   let add_literal_utf8 _t ?size:_ _str = ()
 
-  let add_literal_string _t ?size:_ _str =
-    TransientRep.add_literal_string _t _str
+  let add_literal_string t ?size str =
+    let str =
+      match size with None -> str | Some len -> String.sub str 0 len
+    in
+    TransientRep.add_literal_string t str
 
   let commit = TransientRep.commit
 end

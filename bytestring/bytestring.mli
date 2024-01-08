@@ -1,6 +1,13 @@
 type t
 (** an immutable efficient binary string *)
 
+type view = { offset : int; length : int; data : string }
+(** A valid sub-range with an associated string.
+
+      When used inside representations, it should always be a, non-empty, and a
+      strict sub-range of the associated string.
+   *)
+
 val empty : t
 val is_empty : t -> bool
 val length : t -> int

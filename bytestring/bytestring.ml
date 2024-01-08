@@ -179,7 +179,7 @@ module Rep = struct
         if s_length = 0 then View v2
         else
           match maybe_join_views (view_of_string s) v2 with
-          | Some s' -> Flat s
+          | Some _s' -> Flat s
           | None -> Chunked ({ parts = [ s ]; length = s_length }, Some v2))
     | View v -> ChunkedWithOffset (v, { parts = []; length = 0 }, Some v2)
     | Chunked (chunked, None) -> Chunked (chunked, Some v2)
@@ -265,7 +265,7 @@ module Rep = struct
           Flat (String.sub s (offset + off) len)
         else View ({ offset = offset + off; length = len }, s)
 
-  let sub_from_chunked ~chunked ~suffix ~off ~len =
+  let sub_from_chunked ~chunked:_ ~suffix:_ ~off:_ ~len:_ =
     (* XXX: remember to ensure the returned representation is in canonical form *)
     failwith "TODO: implement sub_from_chunked"
 end
@@ -278,7 +278,7 @@ let length = function
   | Rep.Flat s -> String.length s
   | Rep.View ({ length; _ }, _) -> length
   | Rep.Chunked ({ length; _ }, suffix) -> length + Rep.suffix_length suffix
-  | Rep.ChunkedWithOffset (prefix, { parts; length }, suffix) ->
+  | Rep.ChunkedWithOffset (prefix, { parts=_; length }, suffix) ->
       (fst prefix).length + length + Rep.suffix_length suffix
 
 let is_empty t =
@@ -300,7 +300,7 @@ let to_string = function
       let buf (* : local_ *) = Bytes.create len in
       Rep.copy_chunked_string ~chunked ~suffix ~dst:buf ~dst_pos:0;
       Bytes.unsafe_to_string buf
-  | Rep.ChunkedWithOffset ((r, s), chunked, suffix) ->
+  | Rep.ChunkedWithOffset ((r, _s), chunked, suffix) ->
       let len = r.length + chunked.length + Rep.suffix_length suffix in
       let buf (*: local_ *) = Bytes.create len in
       Rep.copy_chunked_string ~chunked ~suffix ~dst:buf ~dst_pos:r.length;
@@ -340,7 +340,7 @@ let sub ?(off = 0) ~len t =
     | Rep.View view -> Rep.sub_from_view ~view ~off ~len
     | Rep.Chunked (chunked, suffix) ->
         Rep.sub_from_chunked ~chunked ~suffix ~off ~len
-    | Rep.ChunkedWithOffset ((({ offset; length }, s) as view), chunked, suffix)
+    | Rep.ChunkedWithOffset ((({ offset=_; length }, _s) as view), chunked, suffix)
       ->
         if off >= length then
           (* skip the entire prefix *)

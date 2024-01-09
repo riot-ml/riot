@@ -54,7 +54,8 @@ let use ~op_name t fn =
   | Some sock -> fn sock
   | None -> raise (Already_closed (op_name ^ ": fd already closed"))
 
-let seek t pos command = use t (fun sock ->Unix.lseek sock pos command)
+let seek t pos command =
+  use ~op_name:"Fd.seek" t (fun sock -> Unix.lseek sock pos command)
 
 module Set = Set.Make (struct
   type nonrec t = t

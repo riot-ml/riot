@@ -67,10 +67,12 @@ module Tls_unix = struct
     | `Unix_error err -> Unix.error_message err
 
   let read_t t cs =
-    match IO.Reader.read t.reader ~buf:(IO.Buffer.of_cstruct cs) with
-    | Ok n ->
-        Logger.debug (fun f -> f "read_t: %d/%d" n (Cstruct.length cs));
-        n
+    let buf = IO.Bytes.with_capacity (Cstruct.length cs) in
+    match IO.read t.reader ~buf with
+    | Ok len ->
+        Logger.debug (fun f -> f "read_t: %d/%d" len (Cstruct.length cs));
+        Cstruct.blit_from_bytes buf 0 cs 0 len;
+        len
     | Error (`Closed | `Eof) ->
         Logger.debug (fun f -> f "read_t: 0/%d" (Cstruct.length cs));
         raise End_of_file
@@ -83,7 +85,8 @@ module Tls_unix = struct
         raise exn
 
   let write_t t cs =
-    match IO.write_all t.writer ~data:(IO.Buffer.of_cstruct cs) with
+    let bufs = IO.Iovec.from_cstruct cs in
+    match IO.write_owned_vectored t.writer ~bufs with
     | Ok bytes ->
         Logger.debug (fun f -> f "write_t: %d/%d" bytes (Cstruct.length cs))
     | Error err ->
@@ -131,12 +134,12 @@ module Tls_unix = struct
         | `Error e, _ -> raise e
         | `Eof, _ -> raise End_of_file)
 
-  let rec single_read t buf =
+  let rec single_read t cs =
     let writeout res =
       let open Cstruct in
       let rlen = length res in
-      let n = min (length buf) rlen in
-      blit res 0 buf 0 n;
+      let n = min (length cs) rlen in
+      blit res 0 cs 0 n;
       t.linger <- (if n < rlen then Some (sub res n (rlen - n)) else None);
       n
     in
@@ -145,7 +148,7 @@ module Tls_unix = struct
     | Some res -> writeout res
     | None -> (
         match read_react t with
-        | None -> single_read t buf
+        | None -> single_read t cs
         | Some res -> writeout res)
 
   exception Tls_socket_closed
@@ -163,8 +166,7 @@ module Tls_unix = struct
             write_t t tlsdata
         | None -> invalid_arg "tls: write: socket not ready")
 
-  let single_write t ~data =
-    let cs = IO.Buffer.as_cstruct data in
+  let single_write t cs =
     writev t [ cs ];
     let written = Cstruct.lenv [ cs ] in
     Ok written
@@ -223,27 +225,35 @@ module Tls_unix = struct
 
   let to_reader : type src. src t -> src t IO.Reader.t =
    fun t ->
-    let module Read = IO.Reader.Make (struct
+    let module Read = struct
       type nonrec t = src t
 
       let read t ~buf =
-        let cs = IO.Buffer.as_cstruct buf in
+        let cs = Cstruct.create 1024 in
         let len =
           match single_read t cs with exception End_of_file -> 0 | len -> len
         in
-        IO.Buffer.set_filled buf ~filled:len;
+        let bufs = IO.Iovec.from_cstruct cs in
+        let writer = IO.Bytes.to_writer buf in
+        let* _ = IO.write_owned_vectored writer ~bufs in
         Ok len
-    end) in
+
+      let read_vectored _t ~bufs:_ = Ok 0
+    end in
     IO.Reader.of_read_src (module Read) t
 
   let to_writer : type src. src t -> src t IO.Writer.t =
    fun t ->
-    let module Write = IO.Writer.Make (struct
+    let module Write = struct
       type nonrec t = src t
 
-      let write = single_write
+      let write t ~buf = single_write t (Cstruct.of_bytes buf)
+
+      let write_owned_vectored t ~bufs =
+        single_write t (IO.Iovec.into_cstruct bufs)
+
       let flush _t = Ok ()
-    end) in
+    end in
     IO.Writer.of_write_src (module Write) t
 end
 

@@ -10,20 +10,6 @@
  (libraries riot port_finder x509 mirage-crypto-rng mirage-crypto-rng.unix))
 
 (test
- (name io_copy_buffered_test)
- (enabled_if
-  (= %{env:OPAM_REPO_CI=false} false))
- (modules io_copy_buffered_test)
- (libraries riot))
-
-(test
- (name io_copy_test)
- (enabled_if
-  (= %{env:OPAM_REPO_CI=false} false))
- (modules io_copy_test)
- (libraries riot))
-
-(test
  (name io_writer_test)
  (enabled_if
   (= %{env:OPAM_REPO_CI=false} false))
@@ -175,11 +161,6 @@
 (test
  (name task_test)
  (modules task_test)
- (libraries riot))
-
-(test
- (name io_buffer_test)
- (modules io_buffer_test)
  (libraries riot))
 
 (test

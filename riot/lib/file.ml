@@ -18,6 +18,7 @@ let open_write path = do_open path Unix.[ O_WRONLY; O_CREAT ]
 let close t = Fd.close t
 let remove path = Unix.unlink path
 let stat path = Unix.stat path
+let seek t = Fd.seek t
 
 let rec send ?(off = 0) ~len file socket =
   match Low_level.sendfile file socket ~off ~len with

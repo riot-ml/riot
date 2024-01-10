@@ -1,0 +1,9 @@
+(library
+ (package riot)
+ (name gluon)
+ (foreign_stubs
+  (language c)
+  (names gluon_unix_stubs)
+  (flags
+   (:standard -O2)))
+ (libraries io net core util log poll uri unix telemetry bigstringaf cstruct))

@@ -12,3 +12,5 @@ module Runtime = struct
       pool.io_scheduler.calls_send,
       pool.io_scheduler.calls_connect )
 end
+
+let ( let* ) = Result.bind

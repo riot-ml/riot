@@ -1,3 +1,4 @@
+open Io
 open Core
 open Net
 open Util
@@ -23,7 +24,7 @@ type sendfile = [ `Sent of int | op ]
 let create () =
   {
     poll = Poll.create ();
-    poll_timeout = Poll.Timeout.Never;
+    poll_timeout = Poll.Timeout.After 1000L;
     procs = Dashmap.create ();
     fds = Dashmap.create ();
   }
@@ -170,44 +171,44 @@ let accept (socket : Fd.t) : accept =
   | exception Unix.(Unix_error ((EINTR | EAGAIN | EWOULDBLOCK), _, _)) -> `Retry
   | exception Unix.(Unix_error (reason, _, _)) -> `Abort reason
 
-let read (fd : Fd.t) buf off len : read =
+let read (fd : Fd.t) buf ~pos ~len : read =
   Fd.use ~op_name:"read" fd @@ fun unix_fd ->
   Log.debug (fun f -> f "Reading from fd=%a" Fd.pp fd);
-  match Unix.read unix_fd buf off len with
+  match UnixLabels.read unix_fd ~buf ~pos ~len with
   | len ->
       Log.debug (fun f -> f "read %d bytes from fd=%a" len Fd.pp fd);
       `Read len
   | exception Unix.(Unix_error ((EINTR | EAGAIN | EWOULDBLOCK), _, _)) -> `Retry
   | exception Unix.(Unix_error (reason, _, _)) -> `Abort reason
 
-let write (fd : Fd.t) buf off len : write =
+let write (fd : Fd.t) buf ~pos ~len : write =
   Fd.use ~op_name:"write" fd @@ fun unix_fd ->
   Log.debug (fun f -> f "Writing to fd=%a" Fd.pp fd);
-  match Unix.write unix_fd buf off len with
+  match UnixLabels.write unix_fd ~buf ~pos ~len with
   | len -> `Wrote len
   | exception Unix.(Unix_error ((EINTR | EAGAIN | EWOULDBLOCK), _, _)) -> `Retry
   | exception Unix.(Unix_error (reason, _, _)) -> `Abort reason
 
-external riot_readv : Unix.file_descr -> Cstruct.t array -> int
+external riot_readv : Unix.file_descr -> Iovec.t -> int
   = "caml_riot_posix_readv"
 
-let readv (fd : Fd.t) (cs : Cstruct.t array) : read =
+let readv (fd : Fd.t) (iov : Iovec.t) : read =
   Fd.use ~op_name:"readv" fd @@ fun unix_fd ->
   Log.debug (fun f -> f "Readv-ing from fd=%a" Fd.pp fd);
-  match riot_readv unix_fd cs with
+  match riot_readv unix_fd iov with
   | len ->
       Log.debug (fun f -> f "read %d bytes from fd=%a" len Fd.pp fd);
       `Read len
   | exception Unix.(Unix_error ((EINTR | EAGAIN | EWOULDBLOCK), _, _)) -> `Retry
   | exception Unix.(Unix_error (reason, _, _)) -> `Abort reason
 
-external riot_writev : Unix.file_descr -> Cstruct.t array -> int
+external riot_writev : Unix.file_descr -> Iovec.t -> int
   = "caml_riot_posix_writev"
 
-let writev (fd : Fd.t) (cs : Cstruct.t array) : write =
+let writev (fd : Fd.t) (iov : Iovec.t) : write =
   Fd.use ~op_name:"readv" fd @@ fun unix_fd ->
   Log.debug (fun f -> f "Readv-ing from fd=%a" Fd.pp fd);
-  match riot_writev unix_fd cs with
+  match riot_writev unix_fd iov with
   | len ->
       Log.debug (fun f -> f "read %d bytes from fd=%a" len Fd.pp fd);
       `Wrote len

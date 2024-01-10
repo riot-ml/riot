@@ -1,5 +1,7 @@
 open Riot
 
+exception Fail
+
 type Message.t += Received of string
 
 (* rudimentary tcp echo server *)
@@ -15,16 +17,16 @@ let server port socket =
         f "Closed client %a (%a)" Net.Addr.pp addr Net.Socket.pp conn)
   in
 
-  let buf = IO.Buffer.with_capacity 1024 in
+  let bufs = IO.Iovec.create ~size:1024 () in
   let rec echo () =
     Logger.debug (fun f ->
         f "Reading from client client %a (%a)" Net.Addr.pp addr Net.Socket.pp
           conn);
-    match Net.Socket.receive conn ~buf with
+    match Net.Socket.receive conn ~bufs with
     | Ok len -> (
         Logger.debug (fun f -> f "Server received %d bytes" len);
-        let data = IO.Buffer.sub ~off:0 ~len buf in
-        match Net.Socket.send ~data conn with
+        let bufs = IO.Iovec.sub ~len bufs in
+        match Net.Socket.send conn ~bufs with
         | Ok bytes ->
             Logger.debug (fun f -> f "Server sent %d bytes" bytes);
             echo ()
@@ -45,11 +47,11 @@ let client server_port main =
   let addr = Net.Addr.(tcp loopback server_port) in
   let conn = Net.Socket.connect addr |> Result.get_ok in
   Logger.debug (fun f -> f "Connected to server on %d" server_port);
-  let data = IO.Buffer.of_string "hello world" in
+  let bufs = IO.Iovec.from_string "hello world" in
   let rec send_loop n =
     if n = 0 then Logger.error (fun f -> f "client retried too many times")
     else
-      match Net.Socket.send ~data conn with
+      match Net.Socket.send ~bufs conn with
       | Ok bytes -> Logger.debug (fun f -> f "Client sent %d bytes" bytes)
       | Error `Closed -> Logger.debug (fun f -> f "connection closed")
       | Error (`Process_down | `Timeout) -> Logger.debug (fun f -> f "timeout")
@@ -61,9 +63,9 @@ let client server_port main =
   in
   send_loop 10_000;
 
-  let buf = IO.Buffer.with_capacity 128 in
+  let bufs = IO.Iovec.create ~size:1024 () in
   let recv_loop () =
-    match Net.Socket.receive ~buf conn with
+    match Net.Socket.receive ~bufs conn with
     | Ok bytes ->
         Logger.debug (fun f -> f "Client received %d bytes" bytes);
         bytes
@@ -76,9 +78,10 @@ let client server_port main =
         0
   in
   let len = recv_loop () in
+  let str = IO.Iovec.(sub bufs ~len |> into_string) in
 
   if len = 0 then send main (Received "empty paylaod")
-  else send main (Received (IO.Buffer.to_string buf))
+  else send main (Received str)
 
 let () =
   Riot.run @@ fun () ->
@@ -97,19 +100,19 @@ let () =
       Stdlib.exit 1
   | Received "hello world" ->
       Logger.info (fun f -> f "net_test: OK");
-
-      shutdown ()
+      sleep 0.1
   | Received other ->
       Logger.error (fun f -> f "net_test: bad payload: %S" other);
 
-      Stdlib.exit 1
+      sleep 0.1;
+      raise Fail
   | Process.Messages.Monitor (Process_down pid) ->
       let who = if Pid.equal pid server then "server" else "client" in
       Logger.error (fun f ->
           f "net_test: %s(%a) died unexpectedly" who Pid.pp pid);
 
-      Stdlib.exit 1
+      raise Fail
   | _ ->
       Logger.error (fun f -> f "net_test: unexpected message");
 
-      Stdlib.exit 1
+      raise Fail

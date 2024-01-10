@@ -1,3 +1,4 @@
+open Io
 open Core
 open Net
 open Util
@@ -36,9 +37,9 @@ val connect :
   [> `Abort of Unix.error | `Connected of Fd.t | `In_progress of Fd.t | `Retry ]
 
 val accept : Fd.t -> accept
-val read : Fd.t -> bytes -> int -> int -> read
-val write : Fd.t -> bytes -> int -> int -> write
-val readv : Fd.t -> Cstruct.t array -> read
-val writev : Fd.t -> Cstruct.t array -> write
+val read : Fd.t -> bytes -> pos:int -> len:int -> read
+val write : Fd.t -> bytes -> pos:int -> len:int -> write
+val readv : Fd.t -> Iovec.t -> read
+val writev : Fd.t -> Iovec.t -> write
 val sendfile : Fd.t -> Fd.t -> off:int -> len:int -> sendfile
 val gettimeofday : unit -> int64

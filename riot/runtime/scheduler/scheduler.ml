@@ -17,7 +17,7 @@ type t = {
 type io = {
   uid : Uid.t; [@warning "-69"]
   rnd : Random.State.t;
-  io_tbl : Gluon.t;
+  io_tbl : Process.t Gluon.t;
   idle_mutex : Mutex.t;
   idle_condition : Condition.t;
   mutable calls_accept : int;
@@ -201,7 +201,7 @@ module Scheduler = struct
       Log.debug (fun f ->
           let mode = match mode with `r -> "r" | `w -> "w" | `rw -> "rw" in
           f "Registering %a for Syscall(%s,%s,%a)" Pid.pp proc.pid syscall mode
-            Fd.pp fd);
+            Gluon.Sys.Fd.pp fd);
       Gluon.register pool.io_scheduler.io_tbl proc mode fd;
       Process.mark_as_awaiting_io proc syscall mode fd;
       k Suspend)
@@ -238,7 +238,7 @@ module Scheduler = struct
 
   let handle_exit_proc pool (_sch : t) proc reason =
     Log.debug (fun f -> f "unregistering process %a" Pid.pp (Process.pid proc));
-    Gluon.unregister_process pool.io_scheduler.io_tbl proc;
+    Gluon.unregister pool.io_scheduler.io_tbl proc;
 
     Proc_registry.remove pool.registry (Process.pid proc);
 
@@ -384,9 +384,10 @@ module Io_scheduler = struct
     }
 
   let poll_io pool io =
+    let open Gluon.Sys in
     Log.debug (fun f -> f "io_tbl(%a)" Gluon.pp io.io_tbl);
     Gluon.poll io.io_tbl @@ fun (proc, mode) ->
-    Gluon.unregister_process io.io_tbl proc;
+    Gluon.unregister io.io_tbl proc;
     Log.debug (fun f -> f "io_poll(%a): %a" Fd.Mode.pp mode Process.pp proc);
     match Process.state proc with
     | Waiting_io { fd; syscall; _ } ->

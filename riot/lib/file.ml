@@ -20,7 +20,7 @@ let seek t ~off = Fd.seek t.fd off Unix.SEEK_SET
 let stat path = Unix.stat path
 
 let rec send ?(off = 0) ~len file socket =
-  match Gluon.sendfile file.fd socket ~off ~len with
+  match Gluon.Syscall.sendfile file.fd socket ~off ~len with
   | `Abort reason -> Error (`Unix_error reason)
   | `Retry ->
       syscall "receive" `r socket @@ fun socket -> send ~off ~len file socket
@@ -31,14 +31,14 @@ module Read = struct
   type t = read_file
 
   let rec read t ~buf =
-    match Gluon.read t.fd buf ~pos:0 ~len:(Io.Bytes.length buf) with
+    match Gluon.Syscall.read t.fd buf ~pos:0 ~len:(Io.Bytes.length buf) with
     | exception Fd.(Already_closed _) -> Error `Closed
     | `Abort reason -> Error (`Unix_error reason)
     | `Retry -> syscall "File.read" `r t.fd @@ fun _ -> read t ~buf
     | `Read len -> Ok len
 
   let rec read_vectored t ~bufs =
-    match Gluon.readv t.fd bufs with
+    match Gluon.Syscall.readv t.fd bufs with
     | exception Fd.(Already_closed _) -> Error `Closed
     | `Abort reason -> Error (`Unix_error reason)
     | `Retry ->
@@ -54,7 +54,7 @@ module Write = struct
   let size t = (stat t).st_size
 
   let rec write_owned_vectored t ~bufs =
-    match Gluon.writev t.fd bufs with
+    match Gluon.Syscall.writev t.fd bufs with
     | exception Fd.(Already_closed _) -> Error `Closed
     | `Abort reason -> Error (`Unix_error reason)
     | `Retry ->

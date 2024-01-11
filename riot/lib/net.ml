@@ -8,7 +8,7 @@ end)
 let ( let* ) = Result.bind
 
 module Addr = struct
-  include Net.Addr
+  include Gluon.Sys.Addr
 
   let to_string t = t
 
@@ -26,7 +26,7 @@ module Addr = struct
     | _ -> None
 
   let rec get_info host service =
-    match Gluon.getaddrinfo host service with
+    match Gluon.Syscall.getaddrinfo host service with
     | `Ok info -> List.filter_map of_addr_info info
     | `Retry ->
         yield ();
@@ -49,7 +49,7 @@ module Addr = struct
 end
 
 module Socket = struct
-  include Net.Socket
+  include Gluon.Sys.Socket
 
   type listen_opts = {
     reuse_addr : bool;
@@ -77,16 +77,14 @@ module Socket = struct
     Gluon.close pool.io_scheduler.io_tbl socket
 
   let listen ?(opts = default_listen_opts) ~port () =
-    let pool = Scheduler.Pool.get_pool () in
     let { reuse_addr; reuse_port; backlog; addr } = opts in
     let addr = Addr.tcp addr port in
     Logger.trace (fun f -> f "Listening on 0.0.0.0:%d" port);
-    Gluon.listen pool.io_scheduler.io_tbl ~reuse_port ~reuse_addr ~backlog addr
+    Gluon.Syscall.listen ~reuse_port ~reuse_addr ~backlog addr
 
   let rec connect addr =
-    let pool = Scheduler.Pool.get_pool () in
     Logger.trace (fun f -> f "Connecting to %a" Addr.pp addr);
-    match Gluon.connect pool.io_scheduler.io_tbl addr with
+    match Gluon.Syscall.connect addr with
     | `Connected fd -> connected addr fd
     | `In_progress fd -> in_progress addr fd
     | `Abort reason -> Error (`Unix_error reason)
@@ -105,7 +103,7 @@ module Socket = struct
     let rec accept_loop socket =
       Logger.trace (fun f ->
           f "Socket is Accepting client at fd=%a" Fd.pp socket);
-      match Gluon.accept socket with
+      match Gluon.Syscall.accept socket with
       | exception Fd.(Already_closed _) -> Error `Closed
       | `Abort reason -> Error (`Unix_error reason)
       | `Retry ->
@@ -130,7 +128,7 @@ module Socket = struct
     let rec receive_loop ~bufs socket =
       Logger.trace (fun f ->
           f "receiving up to %d octets" (Io.Iovec.length bufs));
-      match Gluon.readv socket bufs with
+      match Gluon.Syscall.readv socket bufs with
       | exception Fd.(Already_closed _) -> Error `Closed
       | `Abort reason -> Error (`Unix_error reason)
       | `Retry ->
@@ -152,7 +150,7 @@ module Socket = struct
   let send ?timeout ~bufs (socket : stream_socket) =
     let rec send_loop ~bufs socket =
       Logger.trace (fun f -> f "sending: %d octets" (Io.Iovec.length bufs));
-      match Gluon.writev socket bufs with
+      match Gluon.Syscall.writev socket bufs with
       | exception Fd.(Already_closed _) -> Error `Closed
       | `Abort reason -> Error (`Unix_error reason)
       | `Retry ->

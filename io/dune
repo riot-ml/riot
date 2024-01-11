@@ -1,4 +1,3 @@
 (library
- (package riot)
- (name io)
+ (public_name io)
  (libraries unix cstruct))

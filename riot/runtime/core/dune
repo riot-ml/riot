@@ -1,4 +1,4 @@
 (library
  (package riot)
  (name core)
- (libraries log util))
+ (libraries log util gluon))

@@ -145,7 +145,7 @@ let rec run_timers now timers =
 
 let tick t =
   let now = Mtime_clock.now () in
-  Log.debug (fun f -> f "Started Ticking timers %a" Mtime.pp now);
+  Log.trace (fun f -> f "Started Ticking timers %a" Mtime.pp now);
   t.timers <- run_timers now t.timers;
   t.last_t <- now;
-  Log.debug (fun f -> f "Done Ticking timers %a" Mtime.pp (Mtime_clock.now ()))
+  Log.trace (fun f -> f "Done Ticking timers %a" Mtime.pp (Mtime_clock.now ()))

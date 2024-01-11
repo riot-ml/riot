@@ -11,6 +11,7 @@ type view = { offset : int; length : int; data : string }
 val empty : t
 val is_empty : t -> bool
 val length : t -> int
+val pp : Format.formatter -> t -> unit
 
 exception No_match
 exception Guard_mismatch

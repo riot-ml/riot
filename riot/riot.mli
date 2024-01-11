@@ -724,24 +724,31 @@ module Bytestring : sig
   type t
   (** an immutable efficient binary string *)
 
+  type view = { offset : int; length : int; data : string }
+  (** A valid sub-range with an associated string.
+
+      When used inside representations, it should always be a, non-empty, and a
+      strict sub-range of the associated string.
+   *)
+
   val empty : t
   val is_empty : t -> bool
   val length : t -> int
+  val pp : Format.formatter -> t -> unit
 
+  exception No_match
+  exception Guard_mismatch
   exception Malformed of string
-  exception View_out_of_bounds
 
   val of_string : string -> t
   val to_string : t -> string
+
+  exception View_out_of_bounds
+
   val join : t -> t -> t
   val ( ^ ) : t -> t -> t
   val concat : t -> t list -> t
   val sub : ?off:int -> len:int -> t -> t
-
-  val with_buffer :
-    ?capacity:int ->
-    (Stdlib.Buffer.t -> (unit, 'error) result) ->
-    (t, 'error) result
 
   module Iter : sig
     type bytestring = t
@@ -781,6 +788,11 @@ module Bytestring : sig
   end
 
   val to_transient : t -> Transient.t
+
+  val with_buffer :
+    ?capacity:int ->
+    (Stdlib.Buffer.t -> (unit, 'error) result) ->
+    (t, 'error) result
 end
 
 module Queue : sig

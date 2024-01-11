@@ -298,6 +298,8 @@ let to_string = function
       Rep.copy_chunked_string ~chunked ~suffix ~dst:buf ~dst_pos:prefix.length;
       Bytes.unsafe_to_string buf
 
+let pp fmt t = Format.fprintf fmt "%s" (to_string t)
+
 let join t1 t2 =
   match t2 with
   | Rep.Flat s2 -> Rep.join_string t1 s2

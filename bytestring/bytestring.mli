@@ -66,7 +66,5 @@ end
 
 val to_transient : t -> Transient.t
 
-val with_buffer :
-  ?capacity:int ->
-  (Stdlib.Buffer.t -> (unit, 'error) result) ->
-  (t, 'error) result
+val with_bytes :
+  ?capacity:int -> (bytes -> (int, 'error) result) -> (t, 'error) result

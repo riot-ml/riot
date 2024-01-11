@@ -498,7 +498,8 @@ end
 
 let to_transient = TransientRep.from_source
 
-let with_buffer ?(capacity = 1024 * 50) fn =
-  let buf = Buffer.create capacity in
-  let* () = fn buf in
-  Ok (of_string (Buffer.contents buf))
+let with_bytes ?(capacity = 1024 * 50) fn =
+  let buf = Bytes.create capacity in
+  let* len = fn buf in
+  let buf = if len < capacity then Bytes.sub buf 0 len else buf in
+  Ok (of_string (Bytes.unsafe_to_string buf))

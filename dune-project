@@ -67,6 +67,6 @@
     (ppxlib (>= 0.31.0))
     (qcheck (and :with-test (>= "0.21.3")))
     (sedlex (>= "3.2"))
-    (spices (>= "0.0.3"))
+    (spices (>= "0.0.2"))
     dune
     ))

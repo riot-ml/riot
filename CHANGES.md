@@ -19,8 +19,8 @@
 
 * Introduce specialized Dashmap's with the `Dashmap.Make` functor.
 
-* Improve `Timer_wheel` with support for clearing timers, and iterating timers
-  in the order in which they were created.
+* Improve `Timer_wheel` with support for clearing timers, iterating timers
+  in the order in which they were created, and a MinHeap backend.
 
 ## 0.0.7
 

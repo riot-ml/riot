@@ -110,7 +110,7 @@ module Lexer = struct
     | eof ->
         (* log "\n%!"; *)
         acc
-    | _ -> failwith ~loc "Unexpected character asdf"
+    | _ -> failwith ~loc "Unexpected character"
 
   and string ~loc buf ?(str = []) acc =
     match%sedlex buf with
@@ -118,8 +118,11 @@ module Lexer = struct
         let str = List.rev str |> String.concat "" in
         (* log "%s\"%!" str; *)
         token ~loc buf (STRING str :: acc)
+    | "\\r" -> string ~loc buf ~str:("\r" :: str) acc
+    | "\\n" -> string ~loc buf ~str:("\n" :: str) acc
     | any ->
         let ident = Sedlexing.Utf8.lexeme buf in
+        (* log "%s%!" ident; *)
         string ~loc buf ~str:(ident :: str) acc
     | _ -> failwith ~loc "Unexpected character"
 

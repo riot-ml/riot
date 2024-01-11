@@ -39,6 +39,7 @@ let () =
   test "all::utf8" [ IDENT "all"; COLON_COLON; IDENT "utf8" ];
 
   test "2112::utf8" [ NUMBER 2112; COLON_COLON; IDENT "utf8" ];
+  test {|"rush\r\n"::bytes|} [ STRING "rush\r\n"; COLON_COLON; IDENT "bytes" ];
   test {|"rush"::utf8|} [ STRING "rush"; COLON_COLON; IDENT "utf8" ];
 
   test "all::bytes(10)"
@@ -164,6 +165,8 @@ let () =
         };
     ];
   test "2112::utf8" [ Expect { value = Number 2112; size = Utf8 } ];
+  test {|"rush\r\n"::bytes|}
+    [ Expect { value = String "rush\r\n"; size = Rest } ];
   test {|"rush"::utf8|} [ Expect { value = String "rush"; size = Utf8 } ];
   test "len::8, body::bytes(len)"
     [
@@ -1210,7 +1213,7 @@ let () =
       {| fin :: 1, compressed :: 1, rsv :: 2, opcode :: 4, 0 :: 1, 126 :: 7,
          length :: 16, mask :: 32, payload :: bytes(length * 8), rest :: bytes |};
       {| fin :: 1, compressed :: 1, rsv :: 2, opcode :: 4, 0 :: 1,
-         length :: 7, mask :: 32, payload :: bytes(length * 8), rest :: bytes |};
+         length :: 7, mask :: 32, payload :: bytes(length * 8), "rest\r\n\r" :: bytes |};
       {| data :: bytes |};
     ]
     [%expr
@@ -1250,8 +1253,9 @@ let () =
                 let payload =
                   Bytestring.Iter.next_bytes ~size:(length * 8) _data_src
                 in
-                let rest = Bytestring.Iter.rest _data_src in
+                Bytestring.Iter.expect_literal_string _data_src "rest\r\n\r";
                 Bytestring.Iter.expect_empty _data_src;
+
                 test_5_body_2
               with Bytestring.No_match -> raise Bytestring.No_match))
         with Bytestring.No_match -> (

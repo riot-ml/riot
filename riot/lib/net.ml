@@ -1,5 +1,4 @@
 module Net = Runtime.Net
-module Low_level = Runtime.Io
 open Global
 
 module Logger = Logger.Make (struct
@@ -9,7 +8,7 @@ end)
 let ( let* ) = Result.bind
 
 module Addr = struct
-  include Net.Addr
+  include Gluon.Sys.Addr
 
   let to_string t = t
 
@@ -27,7 +26,7 @@ module Addr = struct
     | _ -> None
 
   let rec get_info host service =
-    match Low_level.getaddrinfo host service with
+    match Gluon.Syscall.getaddrinfo host service with
     | `Ok info -> List.filter_map of_addr_info info
     | `Retry ->
         yield ();
@@ -50,7 +49,7 @@ module Addr = struct
 end
 
 module Socket = struct
-  include Net.Socket
+  include Gluon.Sys.Socket
 
   type listen_opts = {
     reuse_addr : bool;
@@ -75,20 +74,17 @@ module Socket = struct
     let this = self () in
     Logger.trace (fun f ->
         f "Process %a: Closing socket fd=%a" Pid.pp this Fd.pp socket);
-    Low_level.close pool.io_scheduler.io_tbl socket
+    Gluon.close pool.io_scheduler.io_tbl socket
 
   let listen ?(opts = default_listen_opts) ~port () =
-    let pool = Scheduler.Pool.get_pool () in
     let { reuse_addr; reuse_port; backlog; addr } = opts in
     let addr = Addr.tcp addr port in
     Logger.trace (fun f -> f "Listening on 0.0.0.0:%d" port);
-    Low_level.listen pool.io_scheduler.io_tbl ~reuse_port ~reuse_addr ~backlog
-      addr
+    Gluon.Syscall.listen ~reuse_port ~reuse_addr ~backlog addr
 
   let rec connect addr =
-    let pool = Scheduler.Pool.get_pool () in
     Logger.trace (fun f -> f "Connecting to %a" Addr.pp addr);
-    match Low_level.connect pool.io_scheduler.io_tbl addr with
+    match Gluon.Syscall.connect addr with
     | `Connected fd -> connected addr fd
     | `In_progress fd -> in_progress addr fd
     | `Abort reason -> Error (`Unix_error reason)
@@ -107,7 +103,7 @@ module Socket = struct
     let rec accept_loop socket =
       Logger.trace (fun f ->
           f "Socket is Accepting client at fd=%a" Fd.pp socket);
-      match Low_level.accept socket with
+      match Gluon.Syscall.accept socket with
       | exception Fd.(Already_closed _) -> Error `Closed
       | `Abort reason -> Error (`Unix_error reason)
       | `Retry ->
@@ -128,48 +124,47 @@ module Socket = struct
 
   let controlling_process _socket ~new_owner:_ = Ok ()
 
-  let receive ?timeout ~buf socket =
-    let rec receive_loop ~buf socket =
+  let receive ?timeout ~bufs socket =
+    let rec receive_loop ~bufs socket =
       Logger.trace (fun f ->
-          f "receiving up to %d octets" (Io.Buffer.length buf));
-      match Low_level.readv socket [| Io.Buffer.as_cstruct buf |] with
+          f "receiving up to %d octets" (Io.Iovec.length bufs));
+      match Gluon.Syscall.readv socket bufs with
       | exception Fd.(Already_closed _) -> Error `Closed
       | `Abort reason -> Error (`Unix_error reason)
       | `Retry ->
           Logger.trace (fun f -> f "waiting on socket to receive");
-          syscall "receive" `r socket @@ receive_loop ~buf
+          syscall "receive" `r socket @@ receive_loop ~bufs
       | `Read 0 -> Error `Closed
       | `Read len ->
           Logger.trace (fun f -> f "received: %d octets" len);
-          Io.Buffer.set_filled buf ~filled:len;
           Ok len
     in
     match timeout with
-    | None -> receive_loop ~buf socket
+    | None -> receive_loop ~bufs socket
     | Some timeout ->
         Logger.trace (fun f -> f "receive with timeout %Ld" timeout);
-        let task = Task.async (fun () -> receive_loop ~buf socket) in
+        let task = Task.async (fun () -> receive_loop ~bufs socket) in
         let* result = Task.await ~timeout task in
         result
 
-  let send ?timeout ~data socket =
-    let rec send_loop ~data socket =
-      Logger.trace (fun f -> f "sending: %d octets" (Io.Buffer.length data));
-      match Low_level.writev socket [| Io.Buffer.as_cstruct data |] with
+  let send ?timeout ~bufs (socket : stream_socket) =
+    let rec send_loop ~bufs socket =
+      Logger.trace (fun f -> f "sending: %d octets" (Io.Iovec.length bufs));
+      match Gluon.Syscall.writev socket bufs with
       | exception Fd.(Already_closed _) -> Error `Closed
       | `Abort reason -> Error (`Unix_error reason)
       | `Retry ->
           Logger.trace (fun f -> f "retrying");
-          syscall "send" `w socket @@ send_loop ~data
+          syscall "send" `w socket @@ send_loop ~bufs
       | `Wrote bytes ->
-          Logger.trace (fun f -> f "sent: %d" (Io.Buffer.length data));
+          Logger.trace (fun f -> f "sent: %d" (Io.Iovec.length bufs));
           Ok bytes
     in
     match timeout with
-    | None -> send_loop ~data socket
+    | None -> send_loop ~bufs socket
     | Some timeout ->
         Logger.trace (fun f -> f "send with timeout %Ld" timeout);
-        let task = Task.async (fun () -> send_loop ~data socket) in
+        let task = Task.async (fun () -> send_loop ~bufs socket) in
         let* result = Task.await ~timeout task in
         result
 
@@ -182,19 +177,25 @@ module Socket = struct
         Format.fprintf fmt "Unix_error(%s)" (Unix.error_message err)
 
   let to_reader ?timeout t =
-    let module Read = Io.Reader.Make (struct
+    let module Read = struct
       type t = stream_socket
 
-      let read t ~buf = receive ?timeout ~buf t
-    end) in
+      let read t ~buf = receive ?timeout ~bufs:(Io.Iovec.of_bytes buf) t
+      let read_vectored t ~bufs = receive ?timeout ~bufs t
+    end in
     Io.Reader.of_read_src (module Read) t
 
   let to_writer ?timeout t =
-    let module Write = Io.Writer.Make (struct
+    let module Write = struct
       type t = stream_socket
 
-      let write t ~data = send ?timeout ~data t
+      let write_owned_vectored t ~bufs = send ?timeout ~bufs t
+
+      let write t ~buf =
+        let bufs = Io.Iovec.of_bytes buf in
+        write_owned_vectored t ~bufs
+
       let flush _t = Ok ()
-    end) in
+    end in
     Io.Writer.of_write_src (module Write) t
 end

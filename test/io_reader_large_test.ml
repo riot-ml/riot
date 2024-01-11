@@ -3,21 +3,19 @@ open Riot
 let test_with_buffer capacity =
   let file = File.open_read "./fixtures/ocaml_org.html" in
   let reader = File.to_reader file in
-  let buf = IO.Buffer.with_capacity 57946 in
+  let buf = IO.Bytes.with_capacity 57946 in
 
-  let op1 = IO.Reader.read reader ~buf in
-  let str1 = IO.Buffer.to_string buf in
-  Logger.debug (fun f -> f "read #1: %d bytes – %S" (Result.get_ok op1) str1);
+  let len = IO.read reader ~buf |> Result.get_ok in
+  let str1 = IO.Bytes.(sub buf ~pos:0 ~len |> to_string) in
+  Logger.debug (fun f -> f "read #1: %d bytes" len);
 
-  let buf = IO.Buffer.with_capacity 57946 in
-  let op2 = IO.Reader.read reader ~buf in
-  Logger.debug (fun f -> f "read #2: %d bytes" (Result.get_ok op2));
-  let str2 = IO.Buffer.to_string buf in
+  let len = IO.read reader ~buf |> Result.get_ok in
+  let str2 = IO.Bytes.(sub buf ~pos:0 ~len |> to_string) in
+  Logger.debug (fun f -> f "read #2: %d bytes" len);
 
-  let buf = IO.Buffer.with_capacity 57946 in
-  let op3 = IO.Reader.read reader ~buf in
-  Logger.debug (fun f -> f "read #3: %d bytes" (Result.get_ok op3));
-  let str3 = IO.Buffer.to_string buf in
+  let len = IO.read reader ~buf |> Result.get_ok in
+  let str3 = IO.Bytes.(sub buf ~pos:0 ~len |> to_string) in
+  Logger.debug (fun f -> f "read #3: %d bytes" len);
 
   File.close file;
   let final_str = str1 ^ str2 ^ str3 in

@@ -22,11 +22,11 @@ let level_to_color_string t =
   | Info -> ""
   | Trace -> ""
 
-let log_level = ref (Some Error)
-let set_log_level x = log_level := x
+let log_level = Atomic.make (Some Error)
+let set_log_level x = Atomic.set log_level x
 
 let should_log x =
-  match !log_level with
+  match Atomic.get log_level with
   | None -> false
   | Some log_level -> level_to_int x <= level_to_int log_level
 

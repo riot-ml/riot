@@ -18,16 +18,16 @@ let server port socket =
   let reader = Net.Socket.to_reader conn in
   let writer = Net.Socket.to_writer conn in
 
-  let buf = IO.Buffer.with_capacity 1024 in
+  let bufs = IO.Iovec.with_capacity 1024 in
   let rec echo () =
     Logger.debug (fun f ->
         f "Reading from client client %a (%a)" Net.Addr.pp addr Net.Socket.pp
           conn);
-    match IO.Reader.read reader ~buf with
+    match IO.read_vectored reader ~bufs with
     | Ok len -> (
         Logger.debug (fun f -> f "Server received %d bytes" len);
-        let data = IO.Buffer.sub ~off:0 ~len buf in
-        match IO.Writer.write ~data writer with
+        let bufs = IO.Iovec.sub ~len bufs in
+        match IO.write_owned_vectored ~bufs writer with
         | Ok bytes ->
             Logger.debug (fun f -> f "Server sent %d bytes" bytes);
             echo ()
@@ -52,34 +52,32 @@ let client server_port main =
   let reader = Net.Socket.to_reader conn in
   let writer = Net.Socket.to_writer conn in
 
-  let rec send_loop n data =
+  let rec send_loop n bufs =
     if n = 0 then Logger.error (fun f -> f "client retried too many times")
     else
-      match IO.Writer.write ~data writer with
+      match IO.write_owned_vectored ~bufs writer with
       | Ok bytes -> Logger.debug (fun f -> f "Client sent %d bytes" bytes)
       | Error (`Closed | `Timeout | `Process_down) ->
           Logger.debug (fun f -> f "connection closed")
-      | Error (`Unix_error (ENOTCONN | EPIPE)) -> send_loop n data
+      | Error (`Unix_error (ENOTCONN | EPIPE)) -> send_loop n bufs
       | Error (`Unix_error unix_err) ->
           Logger.error (fun f ->
               f "client unix error %s" (Unix.error_message unix_err));
-          send_loop (n - 1) data
+          send_loop (n - 1) bufs
   in
-  let data = IO.Buffer.of_string "hello " in
-  send_loop 10_000 data;
-  let data = IO.Buffer.of_string "world\r\n" in
-  send_loop 10_000 data;
+  let bufs = IO.Iovec.from_string "hello " in
+  send_loop 10_000 bufs;
+  let bufs = IO.Iovec.from_string "world\r\n" in
+  send_loop 10_000 bufs;
 
   let rec recv_loop data =
-    let buf = IO.Buffer.with_capacity 1024 in
-    match IO.Reader.read ~buf reader with
+    let buf = IO.Bytes.with_capacity 1024 in
+    match IO.read ~buf reader with
     | Ok bytes ->
-        IO.Buffer.set_filled buf ~filled:bytes;
         Logger.debug (fun f -> f "Client received %d bytes" bytes);
-        let next = IO.Buffer.sub ~len:bytes buf in
-        let data = IO.Buffer.to_string data ^ IO.Buffer.to_string next in
-        if String.ends_with ~suffix:"\r\n" data then IO.Buffer.of_string data
-        else recv_loop (IO.Buffer.of_string data)
+        let bytes = IO.Bytes.sub buf ~pos:0 ~len:bytes in
+        let data = data ^ IO.Bytes.to_string bytes in
+        if String.ends_with ~suffix:"\r\n" data then data else recv_loop data
     | Error (`Closed | `Timeout | `Process_down) ->
         Logger.error (fun f -> f "Server closed the connection");
         data
@@ -88,10 +86,10 @@ let client server_port main =
             f "client unix error %s" (Unix.error_message unix_err));
         data
   in
-  let data = recv_loop (IO.Buffer.with_capacity 13) in
+  let data = recv_loop "" in
 
-  if IO.Buffer.filled data = 0 then send main (Received "empty paylaod")
-  else send main (Received (IO.Buffer.to_string data))
+  if String.length data = 0 then send main (Received "empty paylaod")
+  else send main (Received data)
 
 let () =
   Riot.run @@ fun () ->

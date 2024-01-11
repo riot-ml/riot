@@ -22,18 +22,19 @@ let server port socket =
       let buf = IO.Buffer.with_capacity 4_096 in
       let _len =
         File.open_read "fixtures/tls.crt"
-        |> File.to_reader |> IO.Reader.read ~buf |> Result.get_ok
+        |> File.to_reader |> IO.read_to_end ~buf |> Result.get_ok
       in
-      X509.Certificate.decode_pem_multiple (IO.Buffer.as_cstruct buf)
-      |> Result.get_ok
+      let cs = Cstruct.of_bytes (IO.Buffer.to_bytes buf) in
+      X509.Certificate.decode_pem_multiple cs |> Result.get_ok
     in
     let pk =
       let buf = IO.Buffer.with_capacity 4_096 in
-      let _len =
-        File.open_read "fixtures/tls.key"
-        |> File.to_reader |> IO.Reader.read ~buf |> Result.get_ok
-      in
-      X509.Private_key.decode_pem (IO.Buffer.as_cstruct buf) |> Result.get_ok
+      let file = File.open_read "fixtures/tls.key" in
+      let reader = File.to_reader file in
+      assert (Result.is_ok (IO.read_to_end ~buf reader));
+      let data = IO.Buffer.to_bytes buf in
+      let cs = Cstruct.of_bytes data in
+      X509.Private_key.decode_pem cs |> Result.get_ok
     in
     `Single (crt, pk)
   in
@@ -41,17 +42,16 @@ let server port socket =
   let ssl = SSL.of_server_socket ~config conn in
   let reader, writer = SSL.(to_reader ssl, to_writer ssl) in
 
-  let buf = IO.Buffer.with_capacity 1024 in
-
+  let buf = IO.Bytes.with_capacity 1024 in
   let rec echo () =
     Logger.debug (fun f ->
         f "Reading from client client %a (%a)" Net.Addr.pp addr Net.Socket.pp
           conn);
-    match IO.Reader.read reader ~buf with
+    match IO.read reader ~buf with
     | Ok len -> (
         Logger.debug (fun f -> f "Server received %d bytes" len);
-        let data = IO.Buffer.sub ~off:0 ~len buf in
-        match IO.write_all ~data writer with
+        let bufs = IO.Iovec.(of_bytes buf |> sub ~len) in
+        match IO.write_owned_vectored ~bufs writer with
         | Ok bytes ->
             Logger.debug (fun f -> f "Server sent %d bytes" bytes);
             echo ()
@@ -83,11 +83,12 @@ let client server_port main =
   let ssl = SSL.of_client_socket ~host ~config conn in
   let reader, writer = SSL.(to_reader ssl, to_writer ssl) in
 
-  let data = IO.Buffer.of_string "hello world" in
+  let data = IO.Bytes.of_string "hello world" in
+  let bufs = IO.Iovec.of_bytes data in
   let rec send_loop n =
     if n = 0 then Logger.error (fun f -> f "client retried too many times")
     else
-      match IO.write_all ~data writer with
+      match IO.write_owned_vectored ~bufs writer with
       | Ok bytes -> Logger.debug (fun f -> f "Client sent %d bytes" bytes)
       | Error (`Timeout | `Process_down | `Closed) ->
           Logger.debug (fun f -> f "connection closed")
@@ -99,9 +100,9 @@ let client server_port main =
   in
   send_loop 10_000;
 
-  let buf = IO.Buffer.with_capacity 128 in
+  let buf = IO.Bytes.with_capacity 1024 in
   let recv_loop () =
-    match IO.Reader.read ~buf reader with
+    match IO.read ~buf reader with
     | Ok bytes ->
         Logger.debug (fun f -> f "Client received %d bytes" bytes);
         bytes
@@ -114,9 +115,10 @@ let client server_port main =
         0
   in
   let len = recv_loop () in
+  let buf = IO.Bytes.sub buf ~pos:0 ~len in
 
   if len = 0 then send main (Received "empty paylaod")
-  else send main (Received (IO.Buffer.to_string buf))
+  else send main (Received (IO.Bytes.to_string buf))
 
 let () =
   Riot.run @@ fun () ->
@@ -141,10 +143,7 @@ let () =
   monitor server;
   monitor client;
   match receive ~after:500_000L () with
-  | Received "hello world" ->
-      Logger.info (fun f -> f "ssl_test: OK");
-
-      shutdown ()
+  | Received "hello world" -> Logger.info (fun f -> f "ssl_test: OK")
   | Received other ->
       Logger.error (fun f -> f "ssl_test: bad payload: %S" other);
 

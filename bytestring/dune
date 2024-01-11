@@ -1,0 +1,55 @@
+(library
+ (public_name bytestring)
+ (modules bytestring)
+ (libraries cstruct uutf))
+
+(library
+ (package bytestring)
+ (name bytepattern)
+ (modules bytepattern)
+ (preprocess
+  (pps sedlex.ppx ppxlib.metaquot))
+ (libraries compiler-libs ppxlib sedlex bytestring spices))
+
+(library
+ (public_name bytestring.ppx)
+ (name bytestring_ppx)
+ (modules ppx_bytestring)
+ (kind ppx_rewriter)
+ (libraries compiler-libs ppxlib bytepattern bytestring)
+ (preprocess
+  (pps ppxlib.metaquot)))
+
+(library
+ (name naughty_strings)
+ (modules naughty_strings))
+
+(test
+ (package bytestring)
+ (name bytestring_test)
+ (modules bytestring_test)
+ (libraries naughty_strings bytestring qcheck spices))
+
+(test
+ (package bytestring)
+ (name bytestring_iter_test)
+ (modules bytestring_iter_test)
+ (libraries bytestring qcheck spices))
+
+(test
+ (package bytestring)
+ (name bytestring_transient_test)
+ (modules bytestring_transient_test)
+ (libraries bytestring qcheck spices))
+
+(test
+ (package bytestring)
+ (name bytepattern_test)
+ (modules bytepattern_test)
+ (preprocess
+  (pps ppxlib.metaquot))
+ (libraries bytepattern))
+
+(cram
+ (deps
+  (package bytestring)))

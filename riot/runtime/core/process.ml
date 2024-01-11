@@ -1,4 +1,4 @@
-open Util
+open Gluon.Sys
 
 module Exn = struct
   exception Receive_timeout

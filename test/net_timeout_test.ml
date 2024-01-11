@@ -17,8 +17,8 @@ let () =
   let addr = Net.Addr.(tcp loopback server_port) in
   let socket = Net.Socket.connect addr |> Result.get_ok in
 
-  let buf = IO.Buffer.with_capacity 10 in
-  (match Net.Socket.receive ~timeout:10L ~buf socket with
+  let bufs = IO.Iovec.create ~size:12 () in
+  (match Net.Socket.receive ~timeout:10L ~bufs socket with
   | Error `Timeout -> Logger.debug (fun f -> f "receive timeout works")
   | Ok _ ->
       Logger.error (fun f -> f "receive timeout received something?");
@@ -30,10 +30,13 @@ let () =
       sleep 0.2;
       Stdlib.exit 1);
 
-  (match Net.Socket.send ~timeout:10L ~data:buf socket with
+  (* NOTE(@leostera): sending small things is way faster than our minimum timer wheel ticks *)
+  let bytes = Bytes.make (1_024 * 1_024 * 1_024) 'a' in
+  let bufs = IO.Iovec.of_bytes bytes in
+  (match Net.Socket.send ~timeout:10L ~bufs socket with
   | Error `Timeout -> Logger.debug (fun f -> f "send timeout works")
-  | Ok _ ->
-      Logger.error (fun f -> f "send timeout sent something?");
+  | Ok len ->
+      Logger.error (fun f -> f "send timeout sent something?: %d bytes" len);
       sleep 0.2;
       Stdlib.exit 1
   | Error err ->
@@ -41,5 +44,4 @@ let () =
       sleep 0.2;
       Stdlib.exit 1);
 
-  Logger.info (fun f -> f "net_timeout_test: OK");
-  shutdown ()
+  Logger.info (fun f -> f "net_timeout_test: OK")

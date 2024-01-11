@@ -2,10 +2,13 @@
 
 open Riot
 
+exception Fail
+
 type Message.t += A | B
 
 let main () =
   let (Ok _) = Logger.start () in
+  Runtime.set_log_level (Some Info);
   let this = self () in
 
   let (Ok _) = Timer.send_after this A ~after:100L in
@@ -15,15 +18,12 @@ let main () =
   | A ->
       Logger.debug (fun f ->
           f "cancel_timer_test: timer successfully cancelled");
-      Logger.info (fun f -> f "cancel_timer_test: OK");
-      shutdown ()
+      Logger.info (fun f -> f "cancel_timer_test: OK")
   | B ->
       Logger.error (fun f -> f "timer not cancelled");
-      sleep 0.1;
-      assert false
+      raise Fail
   | _ ->
       Logger.error (fun f -> f "no message sent");
-      sleep 0.1;
-      assert false
+      raise Fail
 
 let () = Riot.run @@ main

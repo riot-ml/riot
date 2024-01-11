@@ -17,7 +17,7 @@ type t = {
 type io = {
   uid : Uid.t; [@warning "-69"]
   rnd : Random.State.t;
-  io_tbl : Io.t;
+  io_tbl : Process.t Gluon.t;
   idle_mutex : Mutex.t;
   idle_condition : Condition.t;
   mutable calls_accept : int;
@@ -106,7 +106,7 @@ module Scheduler = struct
       | Some timeout, _ ->
           let finished = Timer_wheel.is_finished sch.timers timeout in
           if finished then Timer_wheel.clear_timer sch.timers timeout;
-          Log.trace (fun f ->
+          Log.debug (fun f ->
               f "Process %a: process receive timeout? %b" Pid.pp
                 (Process.pid proc) finished);
           (finished, `receiving)
@@ -201,8 +201,8 @@ module Scheduler = struct
       Log.debug (fun f ->
           let mode = match mode with `r -> "r" | `w -> "w" | `rw -> "rw" in
           f "Registering %a for Syscall(%s,%s,%a)" Pid.pp proc.pid syscall mode
-            Fd.pp fd);
-      Io.register pool.io_scheduler.io_tbl proc mode fd;
+            Gluon.Sys.Fd.pp fd);
+      Gluon.register pool.io_scheduler.io_tbl proc mode fd;
       Process.mark_as_awaiting_io proc syscall mode fd;
       k Suspend)
 
@@ -238,7 +238,7 @@ module Scheduler = struct
 
   let handle_exit_proc pool (_sch : t) proc reason =
     Log.debug (fun f -> f "unregistering process %a" Pid.pp (Process.pid proc));
-    Io.unregister_process pool.io_scheduler.io_tbl proc;
+    Gluon.unregister pool.io_scheduler.io_tbl proc;
 
     Proc_registry.remove pool.registry (Process.pid proc);
 
@@ -359,8 +359,7 @@ module Scheduler = struct
          done;
 
          tick_timers pool sch;
-
-         if Proc_queue.is_empty sch.run_queue then Unix.sleepf 0.00005
+         if Proc_queue.is_empty sch.run_queue then Unix.sleepf 0.00001
        done
      with Exit -> ());
     Log.trace (fun f -> f "< exit worker loop")
@@ -375,7 +374,7 @@ module Io_scheduler = struct
     {
       uid;
       rnd = Random.State.copy rnd;
-      io_tbl = Io.create ();
+      io_tbl = Gluon.create ();
       idle_mutex = Mutex.create ();
       idle_condition = Condition.create ();
       calls_accept = 0;
@@ -385,9 +384,10 @@ module Io_scheduler = struct
     }
 
   let poll_io pool io =
-    Log.debug (fun f -> f "io_tbl(%a)" Io.pp io.io_tbl);
-    Io.poll io.io_tbl @@ fun (proc, mode) ->
-    Io.unregister_process io.io_tbl proc;
+    let open Gluon.Sys in
+    Log.debug (fun f -> f "io_tbl(%a)" Gluon.pp io.io_tbl);
+    Gluon.poll io.io_tbl @@ fun (proc, mode) ->
+    Gluon.unregister io.io_tbl proc;
     Log.debug (fun f -> f "io_poll(%a): %a" Fd.Mode.pp mode Process.pp proc);
     match Process.state proc with
     | Waiting_io { fd; syscall; _ } ->
@@ -406,7 +406,8 @@ module Io_scheduler = struct
     (try
        while true do
          if pool.stop then raise_notrace Exit;
-         if Io.can_poll io.io_tbl then poll_io pool io else Unix.sleepf 0.00001
+         if Gluon.can_poll io.io_tbl then poll_io pool io
+         else Unix.sleepf 0.00001
        done
      with Exit -> ());
     Log.trace (fun f -> f "< exit worker loop")

@@ -1,4 +1,4 @@
-open Util
+open Gluon.Sys
 
 module Exn : sig
   exception Receive_timeout

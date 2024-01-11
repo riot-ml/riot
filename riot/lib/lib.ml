@@ -1,7 +1,7 @@
 module Application = Application
 module File = File
 module Gen_server = Gen_server
-module IO = Io
+module IO = Lib_io
 module Logger = Logger_app
 module Message = Message
 module Net = Net
@@ -16,4 +16,5 @@ module Task = Task
 module Telemetry = Telemetry_app
 module Timeout = Timeout
 module Fd = Fd
+module Bytestring = Bytestring
 include Global

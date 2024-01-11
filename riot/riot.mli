@@ -467,112 +467,121 @@ module Fd : sig
 end
 
 module IO : sig
-  type unix_error = [ `Timeout | `Process_down | `Unix_error of Unix.error ]
-  type ('ok, 'err) result = ('ok, ([> unix_error ] as 'err)) Stdlib.result
+  type unix_error = [ `Process_down | `Timeout | `Unix_error of Unix.error ]
+
+  type ('ok, 'err) io_result = ('ok, 'err) result
+    constraint 'err = [> unix_error ]
 
   val pp_err :
     Format.formatter ->
-    [< unix_error | `Closed | `Timeout | `Process_down | `System_limit ] ->
+    [< `Closed
+    | `Process_down
+    | `System_limit
+    | `Timeout
+    | `Unix_error of Unix.error ] ->
     unit
 
-  module Buffer : sig
-    type t
+  module Iovec : sig
+    type iov = { ba : bytes; off : int; len : int }
+    type t = iov array
 
-    val empty : t
-    val concat : t -> t -> t
-    val split : ?max:int -> on:string -> t -> t list
-    val as_cstruct : t -> Cstruct.t
-    val consume : t -> int -> unit
-    val copy : src:t -> dst:t -> int
-    val discard : t -> unit
-    val filled : t -> int
-    val is_empty : t -> bool
-    val is_full : t -> bool
-    val length : t -> int
-    val of_cstruct : ?filled:int -> Cstruct.t -> t
-    val of_string : string -> t
-    val position : t -> int
-    val set_filled : t -> filled:int -> unit
-    val sub : ?off:int -> ?len:int -> t -> t
-    val to_string : t -> string
     val with_capacity : int -> t
+    val create : ?count:int -> size:int -> unit -> t
+    val sub : ?pos:int -> len:int -> t -> t
+    val length : t -> int
+    val iter : t -> (iov -> unit) -> unit
+    val of_bytes : bytes -> t
+    val from_cstruct : Cstruct.t -> t
+    val into_cstruct : t -> Cstruct.t
+    val from_string : string -> t
+    val from_buffer : Buffer.t -> t
+    val into_string : t -> string
   end
-
-  type read = [ `Abort of Unix.error | `Read of int | `Retry ]
-  type write = [ `Abort of Unix.error | `Retry | `Wrote of int ]
-
-  val read : Fd.t -> bytes -> int -> int -> read
-  val write : Fd.t -> bytes -> int -> int -> write
-  val await_readable : Fd.t -> (Fd.t -> 'a) -> 'a
-  val await_writeable : Fd.t -> (Fd.t -> 'a) -> 'a
-  val await : Fd.t -> Fd.Mode.t -> (Fd.t -> 'a) -> 'a
-  val single_read : Fd.t -> buf:Buffer.t -> (int, [> `Closed ]) result
-  val single_write : Fd.t -> data:Buffer.t -> (int, [> `Closed ]) result
 
   module type Write = sig
     type t
 
-    val write : t -> data:Buffer.t -> (int, [> `Closed ]) result
-    val flush : t -> (unit, [> `Closed ]) result
+    val write : t -> buf:bytes -> (int, [> `Closed ]) io_result
+
+    val write_owned_vectored :
+      t -> bufs:Iovec.t -> (int, [> `Closed ]) io_result
+
+    val flush : t -> (unit, [> `Closed ]) io_result
   end
 
   module Writer : sig
-    type 'src t
     type 'src write = (module Write with type t = 'src)
+    type 'src t = Writer of ('src write * 'src)
 
-    val of_write_src : 'src. 'src write -> 'src -> 'src t
-    val write : 'src t -> data:Buffer.t -> (int, [> `Closed ]) result
-
-    module Make (B : Write) : sig
-      type t = B.t
-
-      val write : t -> data:Buffer.t -> (int, [> `Closed ]) result
-      val flush : t -> (unit, [> `Closed ]) result
-    end
+    val of_write_src : 'a write -> 'a -> 'a t
   end
 
   module type Read = sig
     type t
 
-    val read : t -> buf:Buffer.t -> (int, [> `Closed ]) result
+    val read : t -> buf:bytes -> (int, [> `Closed ]) io_result
+    val read_vectored : t -> bufs:Iovec.t -> (int, [> `Closed ]) io_result
   end
 
   module Reader : sig
-    type 'src t
-    type 'src reader = 'src t
     type 'src read = (module Read with type t = 'src)
+    type 'src t = Reader of ('src read * 'src)
 
-    val of_read_src : 'src. 'src read -> 'src -> 'src t
-    val read : 'src reader -> buf:Buffer.t -> (int, [> `Closed ]) result
-
-    module Make (B : Read) : sig
-      type t = B.t
-
-      val read : t -> buf:Buffer.t -> (int, [> `Closed ]) result
-    end
-
-    module Buffered : sig
-      type 'src t
-
-      val of_reader : ?capacity:int -> 'src reader -> 'src t reader
-      val to_buffer : 'src t -> Buffer.t
-    end
-
-    val of_buffer : Buffer.t -> unit Buffered.t t
+    val of_read_src : 'a read -> 'a -> 'a t
+    val empty : unit t
   end
 
-  val write_all : 'dst Writer.t -> data:Buffer.t -> (int, [> `Closed ]) result
+  val read : 'a Reader.t -> buf:bytes -> (int, [> `Closed ]) io_result
 
-  val copy_buffered :
-    'src Reader.Buffered.t Reader.t ->
-    'dst Writer.t ->
-    (int, [> `Closed ]) result
+  val read_vectored :
+    'a Reader.t -> bufs:Iovec.t -> (int, [> `Closed ]) io_result
 
-  val copy :
-    ?buf:Buffer.t ->
-    'src Reader.t ->
-    'dst Writer.t ->
-    (int, [> `Closed ]) result
+  val read_to_end : 'a Reader.t -> buf:Buffer.t -> (int, [> `Closed ]) io_result
+  val write_all : 'a Writer.t -> buf:bytes -> (unit, [> `Closed ]) io_result
+
+  val write_owned_vectored :
+    'a Writer.t -> bufs:Iovec.t -> (int, [> `Closed ]) io_result
+
+  val flush : 'a Writer.t -> (unit, [> `Closed ]) io_result
+
+  module Cstruct : sig
+    type t = Cstruct.t
+
+    val to_writer : t -> t Writer.t
+  end
+
+  module Bytes : sig
+    type t = bytes
+
+    val empty : t
+    val with_capacity : int -> t
+    val length : t -> int
+    val sub : t -> pos:int -> len:int -> t
+    val of_string : string -> t
+    val to_string : t -> string
+    val split : ?max:int -> on:string -> t -> t list
+    val join : t -> t -> t
+
+    module Bytes_writer : sig
+      type t
+    end
+
+    val to_writer : t -> Bytes_writer.t Writer.t
+  end
+
+  module Buffer : sig
+    type t = Buffer.t
+
+    val with_capacity : int -> t
+    val length : t -> int
+    val contents : t -> string
+    val to_bytes : t -> bytes
+    val to_writer : t -> t Writer.t
+  end
+
+  val await_readable : Fd.t -> (Fd.t -> 'a) -> 'a
+  val await_writeable : Fd.t -> (Fd.t -> 'a) -> 'a
+  val await : Fd.t -> Fd.Mode.t -> (Fd.t -> 'a) -> 'a
 end
 
 module Net : sig
@@ -609,31 +618,33 @@ module Net : sig
       ?opts:listen_opts ->
       port:int ->
       unit ->
-      (listen_socket, [> `System_limit ]) IO.result
+      (listen_socket, [> `System_limit ]) IO.io_result
 
-    val connect : Addr.stream_addr -> (stream_socket, [> `Closed ]) IO.result
+    val connect : Addr.stream_addr -> (stream_socket, [> `Closed ]) IO.io_result
 
     val accept :
       ?timeout:int64 ->
       listen_socket ->
-      (stream_socket * Addr.stream_addr, [> `Closed | `Timeout ]) IO.result
+      (stream_socket * Addr.stream_addr, [> `Closed | `Timeout ]) IO.io_result
 
     val close : _ socket -> unit
 
     val controlling_process :
-      _ socket -> new_owner:Pid.t -> (unit, [> `Closed | `Not_owner ]) IO.result
+      _ socket ->
+      new_owner:Pid.t ->
+      (unit, [> `Closed | `Not_owner ]) IO.io_result
 
     val receive :
       ?timeout:int64 ->
-      buf:IO.Buffer.t ->
+      bufs:IO.Iovec.t ->
       stream_socket ->
-      (int, [> `Closed | `Timeout ]) IO.result
+      (int, [> `Closed | `Timeout ]) IO.io_result
 
     val send :
       ?timeout:int64 ->
-      data:IO.Buffer.t ->
+      bufs:IO.Iovec.t ->
       stream_socket ->
-      (int, [> `Closed ]) IO.result
+      (int, [> `Closed ]) IO.io_result
 
     val pp : Format.formatter -> _ socket -> unit
 
@@ -657,6 +668,7 @@ module File : sig
   val remove : string -> unit
   val to_reader : [ `r ] file -> [ `r ] file IO.Reader.t
   val to_writer : [ `w ] file -> [ `w ] file IO.Writer.t
+  val seek : _ file -> off:int -> int
   val stat : string -> Unix.stats
 
   val send :
@@ -664,7 +676,7 @@ module File : sig
     len:int ->
     [ `r ] file ->
     Net.Socket.stream_socket ->
-    (int, [> `Closed ]) IO.result
+    (int, [> `Closed ]) IO.io_result
 end
 
 module SSL : sig
@@ -706,6 +718,81 @@ module Timer : sig
     Pid.t -> Message.t -> every:int64 -> (timer, [> `Timer_error ]) result
 
   val cancel : timer -> unit
+end
+
+module Bytestring : sig
+  type t
+  (** an immutable efficient binary string *)
+
+  type view = { offset : int; length : int; data : string }
+  (** A valid sub-range with an associated string.
+
+      When used inside representations, it should always be a, non-empty, and a
+      strict sub-range of the associated string.
+   *)
+
+  val empty : t
+  val is_empty : t -> bool
+  val length : t -> int
+  val pp : Format.formatter -> t -> unit
+
+  exception No_match
+  exception Guard_mismatch
+  exception Malformed of string
+
+  val of_string : string -> t
+  val to_string : t -> string
+
+  exception View_out_of_bounds
+
+  val join : t -> t -> t
+  val ( ^ ) : t -> t -> t
+  val concat : t -> t list -> t
+  val sub : ?off:int -> len:int -> t -> t
+
+  module Iter : sig
+    type bytestring = t
+    type t
+
+    exception Invalid_position
+    exception Byte_not_found
+
+    val next_bit : t -> int
+    val next_bits : size:int -> t -> int
+    val next_byte : t -> bytestring
+    val next_bytes : size:int -> t -> bytestring
+    val next_utf8 : t -> bytestring
+    val next_utf8_seq : len:int -> t -> bytestring
+    val rest : t -> bytestring
+    val expect_empty : t -> unit
+    val expect_bits : t -> int -> unit
+    val expect_bytes : t -> bytestring -> unit
+    val expect_literal_int : t -> ?size:int -> int -> unit
+    val expect_literal_string : t -> ?size:int -> Stdlib.String.t -> unit
+  end
+
+  val to_iter : t -> Iter.t
+
+  module Transient : sig
+    type bytestring = t
+    type t
+
+    val create : unit -> t
+    val add_string : t -> ?size:int -> bytestring -> unit
+    val add_bits : t -> ?size:int -> int -> unit
+    val add_utf8 : t -> ?size:int -> bytestring -> unit
+    val add_literal_int : t -> ?size:int -> int -> unit
+    val add_literal_utf8 : t -> ?size:int -> Stdlib.String.t -> unit
+    val add_literal_string : t -> ?size:int -> Stdlib.String.t -> unit
+    val commit : t -> bytestring
+  end
+
+  val to_transient : t -> Transient.t
+
+  val with_buffer :
+    ?capacity:int ->
+    (Stdlib.Buffer.t -> (unit, 'error) result) ->
+    (t, 'error) result
 end
 
 module Queue : sig

@@ -165,6 +165,7 @@ let () =
         };
     ];
   test "2112::utf8" [ Expect { value = Number 2112; size = Utf8 } ];
+  test {|"rush"|} [ Expect { value = String "rush"; size = Rest } ];
   test {|"rush\r\n"::bytes|}
     [ Expect { value = String "rush\r\n"; size = Rest } ];
   test {|"rush"::utf8|} [ Expect { value = String "rush"; size = Utf8 } ];
@@ -406,6 +407,11 @@ let () =
       Bytestring.Transient.add_literal_int _trns ~size:(1234 * 8) 2112;
       Bytestring.Transient.commit _trns];
 
+  test {|"rush"|}
+    [%expr
+      let _trns = Bytestring.Transient.create () in
+      Bytestring.Transient.add_literal_string _trns "rush";
+      Bytestring.Transient.commit _trns];
   test {|"rush"::utf8|}
     [%expr
       let _trns = Bytestring.Transient.create () in

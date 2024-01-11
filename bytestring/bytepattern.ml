@@ -249,7 +249,7 @@ Trailing commas are supported, but a single comma is not a valid bytestring patt
         | `halt -> (expect value size, []))
     | STRING s :: rest ->
         (* log "expect %d with implied size of 1 byte" n; *)
-        (expect (String s) (Fixed_bits 8), rest)
+        (expect (String s) Rest, rest)
     | NUMBER n :: COLON_COLON :: rest -> (
         (* log "expect %n:: " n; *)
         let value = Number n in

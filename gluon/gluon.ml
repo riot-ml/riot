@@ -24,7 +24,7 @@ type sendfile = [ `Sent of int | op ]
 let create () =
   {
     poll = Poll.create ();
-    poll_timeout = Poll.Timeout.After 1000L;
+    poll_timeout = Poll.Timeout.after 1_000_000L;
     procs = Dashmap.create ();
     fds = Dashmap.create ();
   }

@@ -487,7 +487,7 @@ module IO : sig
 
     val with_capacity : int -> t
     val create : ?count:int -> size:int -> unit -> t
-    val sub : len:int -> t -> t
+    val sub : ?pos:int -> len:int -> t -> t
     val length : t -> int
     val iter : t -> (iov -> unit) -> unit
     val of_bytes : bytes -> t

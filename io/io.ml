@@ -25,20 +25,24 @@ module Iovec = struct
 
   let with_capacity size = create ~size ()
 
-  let sub ~len t =
+  let sub ?(pos = 0) ~len t =
     let curr = ref 0 in
-    Array.map
-      (fun iov ->
-        let next_curr = iov.len + !curr in
-        let diff = len - !curr in
-        if next_curr < len then (
-          curr := next_curr;
-          iov)
-        else if diff > 0 then (
-          curr := len;
-          { iov with len = diff })
-        else { iov with len = 0 })
-      t
+    t |> Array.to_list
+    |> List.filter_map (fun iov ->
+           if !curr + iov.len < pos then (
+             curr := !curr + iov.len;
+             None)
+           else
+             let next_curr = iov.len + !curr in
+             let diff = len - !curr in
+             if next_curr < len then (
+               curr := next_curr;
+               Some iov)
+             else if diff > 0 then (
+               curr := len;
+               Some { iov with len = diff })
+             else None)
+    |> Array.of_list
 
   let length t = Array.fold_left (fun acc iov -> acc + (iov.len - iov.off)) 0 t
   let iter (t : t) fn = Array.iter fn t

@@ -106,7 +106,7 @@ module Scheduler = struct
       | Some timeout, _ ->
           let finished = Timer_wheel.is_finished sch.timers timeout in
           if finished then Timer_wheel.clear_timer sch.timers timeout;
-          Log.trace (fun f ->
+          Log.debug (fun f ->
               f "Process %a: process receive timeout? %b" Pid.pp
                 (Process.pid proc) finished);
           (finished, `receiving)
@@ -359,8 +359,7 @@ module Scheduler = struct
          done;
 
          tick_timers pool sch;
-
-         if Proc_queue.is_empty sch.run_queue then Unix.sleepf 0.00005
+         if Proc_queue.is_empty sch.run_queue then Unix.sleepf 0.00001
        done
      with Exit -> ());
     Log.trace (fun f -> f "< exit worker loop")

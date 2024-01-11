@@ -63,6 +63,7 @@
     "Leandro Ostera <leandro@abstractmachines.dev>"
     "Felipe Oliveira Carvalho <felipekde@gmail.com>")
   (depends
+    (io (= :version))
     (ocaml (>= "5.1.1"))
     (ppxlib (>= 0.31.0))
     (qcheck (and :with-test (>= "0.21.3")))

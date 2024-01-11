@@ -19,6 +19,7 @@ exception Malformed of string
 
 val of_string : string -> t
 val to_string : t -> string
+val to_iovec : t -> Io.Iovec.t
 
 exception View_out_of_bounds
 

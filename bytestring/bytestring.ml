@@ -298,6 +298,35 @@ let to_string = function
       Rep.copy_chunked_string ~chunked ~suffix ~dst:buf ~dst_pos:prefix.length;
       Bytes.unsafe_to_string buf
 
+let to_iovec (t : Rep.t) =
+  let open Io in
+  let str_to_iovec s =
+    Iovec.{ ba = Bytes.unsafe_of_string s; off = 0; len = String.length s }
+  in
+  let view_to_iovec { offset = off; length = len; data = ba } =
+    Iovec.[ { ba = Bytes.unsafe_of_string ba; off; len } ]
+  in
+  let parts_to_iovec parts = List.map str_to_iovec parts in
+  let iov =
+    match t with
+    | Flat s -> [ str_to_iovec s ]
+    | View v -> view_to_iovec v
+    | Chunked ({ parts; _ }, suffix) ->
+        let suffix =
+          Option.map view_to_iovec suffix |> Option.value ~default:[]
+        in
+        let parts = parts_to_iovec parts in
+        parts @ suffix
+    | ChunkedWithOffset (prefix, { parts; _ }, suffix) ->
+        let prefix = view_to_iovec prefix in
+        let suffix =
+          Option.map view_to_iovec suffix |> Option.value ~default:[]
+        in
+        let parts = parts_to_iovec parts in
+        prefix @ parts @ suffix
+  in
+  Array.of_list iov
+
 let pp fmt t = Format.fprintf fmt "%s" (to_string t)
 
 let join t1 t2 =

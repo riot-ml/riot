@@ -13,6 +13,7 @@ license: "MIT"
 homepage: "https://github.com/leostera/riot"
 bug-reports: "https://github.com/leostera/riot/issues"
 depends: [
+  "io" {= version}
   "ocaml" {>= "5.1.1"}
   "ppxlib" {>= "0.31.0"}
   "qcheck" {with-test & >= "0.21.3"}

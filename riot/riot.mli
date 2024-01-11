@@ -742,6 +742,7 @@ module Bytestring : sig
 
   val of_string : string -> t
   val to_string : t -> string
+  val to_iovec : t -> IO.Iovec.t
 
   exception View_out_of_bounds
 

@@ -373,11 +373,6 @@ module Iter = struct
 
   (* Iterators on bytes *)
 
-  let expect_bytes _bytes _t = ()
-  let expect_literal_int _t ?size:_ _bit = ()
-  let expect_literal_string _t ?size:_ _str = ()
-  let expect_empty t = if t.length != 0 then raise Invalid_position
-
   let next_byte t =
     if t.length = 0 then raise Invalid_position;
     (* this is safe because we expect [t.length > 0] *)
@@ -414,6 +409,16 @@ module Iter = struct
     t.bytes <- Seq.empty;
     t.length <- 0;
     rest
+
+  let expect_bytes _bytes _t = ()
+  let expect_literal_int _t ?size:_ _bit = ()
+
+  let expect_literal_string t ?size str =
+    let size = Option.value size ~default:(String.length str) in
+    if not (String.equal str (to_string (next_bytes t ~size))) then
+      raise No_match
+
+  let expect_empty t = if t.length != 0 then raise Invalid_position
 
   let make string =
     let bytes = to_string string in

@@ -146,7 +146,7 @@ type 'rsc t = {
 let create () =
   {
     poll = Poll.create ();
-    poll_timeout = Poll.Timeout.after 1_000_000L;
+    poll_timeout = Poll.Timeout.after 1_000L;
     procs = Dashmap.create ();
     fds = Dashmap.create ();
   }

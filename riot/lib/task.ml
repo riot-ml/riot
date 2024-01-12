@@ -4,11 +4,11 @@ module Logger = Logger.Make (struct
   let namespace = [ "riot"; "task" ]
 end)
 
-type 'a t = { pid : Pid.t; ref : 'a Ref.t }
-type Message.t += Reply : 'a Ref.t * 'a -> Message.t
+type 'a t = { pid : Pid.t; ref : 'a Symbol.t }
+type Message.t += Reply : 'a Symbol.t * 'a -> Message.t
 
 let async fn =
-  let ref = Ref.make () in
+  let ref = Symbol.make () in
   let this = self () in
   let pid =
     spawn (fun () ->
@@ -36,9 +36,9 @@ let rec await :
   | exception Receive_timeout ->
       Logger.trace (fun f -> f "task %a timeout" Pid.pp t.pid);
       Error `Timeout
-  | Reply (ref', res) when Ref.equal t.ref ref' -> (
+  | Reply (ref', res) when Symbol.equal t.ref ref' -> (
       Process.demonitor t.pid;
-      match Ref.type_equal t.ref ref' with
+      match Symbol.type_equal t.ref ref' with
       | Some Type.Equal -> Ok res
       | None -> failwith "bad message")
   | Process.Messages.Monitor (Process_down pid) when Pid.equal pid t.pid ->

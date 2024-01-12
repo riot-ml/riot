@@ -3,7 +3,7 @@ open Util
 
 type _ Effect.t +=
   | Receive : {
-      ref : 'a Ref.t option;
+      ref : 'a Symbol.t option;
       timeout : Timeout.t;
     }
       -> Message.t Effect.t

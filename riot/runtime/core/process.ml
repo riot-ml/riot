@@ -54,7 +54,7 @@ type t = {
   links : Pid.t list Atomic.t;
   monitors : unit Pid.Map.t;
   ready_fds : Fd.t list Atomic.t;
-  recv_timeout : unit Ref.t option Atomic.t;
+  recv_timeout : unit Symbol.t option Atomic.t;
 }
 (** The process descriptor. *)
 

@@ -6,16 +6,16 @@ module Timeout : sig
   type t = [ `infinity | `after of int64 ]
 end
 
-module Ref : sig
+module Symbol : sig
   type 'a t
   (** A unique reference.
 
       A value of `'a t` won't be created twice (but can be shared/copied),
       which makes it ideal for coordination between processes.
 
-      Normally, you'd use a `'a Ref.t` to identify outgoing/incoming message
+      Normally, you'd use a `'a Symbol.t` to identify outgoing/incoming message
       pairs, but they can also be used for type-equalities. If two refs of type
-      `'a Ref.t` and `'b Ref.t` are equal, then you can use `Ref.type_equal`
+      `'a Symbol.t` and `'b Symbol.t` are equal, then you can use `Symbol.type_equal`
       to obtain a type-level witness that proves that `'a` and `'b` are equal.
   *)
 
@@ -245,7 +245,7 @@ val wait_pids : Pid.t list -> unit
 
 exception Receive_timeout
 
-val receive : ?after:int64 -> ?ref:unit Ref.t -> unit -> Message.t
+val receive : ?after:int64 -> ?ref:unit Symbol.t -> unit -> Message.t
 (** [receive ()] will return the first message in the process mailbox.
 
     This function will suspend a process that has an empty mailbox, and the
@@ -261,7 +261,7 @@ val receive : ?after:int64 -> ?ref:unit Ref.t -> unit -> Message.t
     ### Selective Receive
 
     If a `ref` was passed, then `[receive ~ref ()]` will skip all messages
-    created before the creation of this `Ref.t` value, and will only return
+    created before the creation of this `Symbol.t` value, and will only return
     newer messages.
 
     This is useful to skip the queue, but not remove any of the messages before
@@ -301,7 +301,7 @@ module Gen_server : sig
 
       When defining a new generic server you want to extend this with the your
       custom request types, including the response type in its type variable.
-      Like this: 
+      Like this:
 
       {@ocaml[
       open Riot

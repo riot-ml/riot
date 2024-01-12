@@ -3,8 +3,8 @@ open Global
 type 'res req = ..
 
 type Message.t +=
-  | Call : Pid.t * 'res Ref.t * 'res req -> Message.t
-  | Reply : 'res Ref.t * 'res -> Message.t
+  | Call : Pid.t * 'res Symbol.t * 'res req -> Message.t
+  | Reply : 'res Symbol.t * 'res -> Message.t
 
 type 'state init_result = Ok of 'state | Error | Ignore
 
@@ -22,11 +22,11 @@ type ('args, 'state) impl =
 
 let call : type res. Pid.t -> res req -> res =
  fun pid req ->
-  let ref = Ref.make () in
+  let ref = Symbol.make () in
   send pid (Call (self (), ref, req));
   match receive () with
   | Reply (ref', res) -> (
-      match Ref.type_equal ref ref' with
+      match Symbol.type_equal ref ref' with
       | Some Type.Equal -> res
       | None -> failwith "bad message")
   | _ -> failwith "unexpected message"

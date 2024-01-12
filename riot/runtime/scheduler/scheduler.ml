@@ -92,7 +92,7 @@ module Scheduler = struct
         if Scheduler_uid.equal sch.uid proc.sid then add_to_run_queue sch proc)
       pool.schedulers
 
-  let handle_receive k pool sch (proc : Process.t) (ref : 'a Ref.t option)
+  let handle_receive k pool sch (proc : Process.t) (ref : 'a Symbol.t option)
       timeout =
     let open Proc_state in
     (* When a timeout is specified, we want to create it in the timer
@@ -165,9 +165,9 @@ module Scheduler = struct
              Any skipped messages will go in the same order as received into
              the save queue, which will be read after the mailbox is depleted.
           *)
-          | Some ref, Some msg when Ref.is_newer ref msg.uid ->
+          | Some ref, Some msg when Symbol.is_newer ref msg.uid ->
               Log.trace (fun f ->
-                  f "Skipping msg ref=%a msg.uid=%a" Ref.pp ref Ref.pp msg.uid);
+                  f "Skipping msg ref=%a msg.uid=%a" Symbol.pp ref Symbol.pp msg.uid);
               Process.add_to_save_queue proc msg;
               go (fuel - 1)
           (* we are special casing the process monitors here. if we receive a process down

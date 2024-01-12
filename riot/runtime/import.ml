@@ -169,7 +169,7 @@ let rec wait_pids pids =
 
 module Timer = struct
   type timeout = Util.Timeout.t
-  type timer = unit Ref.t
+  type timer = unit Symbol.t
 
   let _set_timer pid msg time mode =
     let sch = _get_sch () in

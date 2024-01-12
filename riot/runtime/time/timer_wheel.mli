@@ -11,12 +11,12 @@ end
 type t
 
 val create : unit -> t
-val is_finished : t -> unit Ref.t -> bool
-val remove_timer : t -> unit Ref.t -> unit
+val is_finished : t -> unit Symbol.t -> bool
+val remove_timer : t -> unit Symbol.t -> unit
 
 val make_timer :
-  t -> int64 -> [ `interval | `one_off ] -> (unit -> unit) -> unit Ref.t
+  t -> int64 -> [ `interval | `one_off ] -> (unit -> unit) -> unit Symbol.t
 
-val clear_timer : t -> unit Ref.t -> unit
+val clear_timer : t -> unit Symbol.t -> unit
 val tick : t -> unit
 val can_tick : t -> bool

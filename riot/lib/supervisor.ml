@@ -49,8 +49,8 @@ let restart_child pid state =
     `continue { state with children })
 
 type Message.t +=
-  | List_children_req : { reply : Pid.t; ref : unit Ref.t } -> Message.t
-  | List_children_res : { children : Pid.t list; ref : unit Ref.t } -> Message.t
+  | List_children_req : { reply : Pid.t; ref : unit Symbol.t } -> Message.t
+  | List_children_res : { children : Pid.t list; ref : unit Symbol.t } -> Message.t
 
 let rec loop state =
   Log.debug (fun f -> f "supervisor loop");
@@ -105,11 +105,11 @@ let start_link ?(strategy = One_for_one) ?(restart_limit = 1)
   Ok sup_pid
 
 let children pid =
-  let ref = Ref.make () in
+  let ref = Symbol.make () in
   send pid (List_children_req { reply = self (); ref });
   let rec wait_response () =
     match receive ~ref () with
-    | List_children_res { children; ref = ref' } when Ref.equal ref ref' ->
+    | List_children_res { children; ref = ref' } when Symbol.equal ref ref' ->
         children
     | _ -> wait_response ()
   in

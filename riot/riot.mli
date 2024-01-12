@@ -143,6 +143,10 @@ module Process : sig
       [None] if no process was registered for that name.
   *)
 
+  val sid : t -> Core.Scheduler_uid.t
+  (** [sid t] returns the scheduler id for the scheduler in charge of the
+      process. *)
+
   val await_name : string -> Pid.t
   (** [await_name name] waits until [name] is registered to a pid.
 
@@ -216,6 +220,9 @@ val send_by_name : name:string -> Message.t -> unit
 
 val spawn : (unit -> unit) -> Pid.t
 (** Spawns a new process. *)
+
+val spawn_pinned : (unit -> unit) -> Pid.t
+(** Spawns a new process using the current scheduler. *)
 
 val spawn_link : (unit -> unit) -> Pid.t
 (** Spawns a new process and links it to the current process before returning. *)

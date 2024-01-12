@@ -3,6 +3,7 @@ type t = { processes : (Pid.t, Process.t) Hashtbl.t; lock : Mutex.t }
 let create () = { lock = Mutex.create (); processes = Hashtbl.create 16_000 }
 let get t pid = Hashtbl.find_opt t.processes pid
 let remove t pid = Hashtbl.remove t.processes pid
+let size t = Hashtbl.length t.processes
 
 exception Reregistering_process of Process.t
 

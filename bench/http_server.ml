@@ -22,8 +22,8 @@ let main () =
   let _ = Logger.start () |> Result.get_ok in
   Runtime.set_log_level (Some Info);
   Logger.set_log_level (Some Info);
-  Runtime.Stats.start ~every:2_000_000L ();
 
+  (* Runtime.Stats.start ~every:10_000_000L (); *)
   let port = 2113 in
   let socket = Net.Tcp_listener.bind ~port () |> Result.get_ok in
   Logger.debug (fun f -> f "Started server on %d" port);
@@ -43,7 +43,7 @@ let main () =
         Logger.error (fun f -> f "error: %a" IO.pp_err (Obj.magic err))
   in
 
-  let _ = List.init 0 (fun _ -> spawn_link acceptor) in
+  let _ = List.init 99 (fun _ -> spawn_link acceptor) in
   acceptor ()
 
-let () = Riot.run ~workers:0 @@ main
+let () = Riot.run @@ main

@@ -18,6 +18,32 @@ module Stats = struct
 
   let mb b = Int.to_float b /. 1024.0 /. 1024.0
 
+  let print_scheduler_stats () =
+    let pool = _get_pool () in
+    let total_processes = pool.proc_count in
+    let processes = processes () |> List.of_seq in
+    let live_process_count = processes |> List.length in
+    let total_schedulers = pool.schedulers |> List.length in
+    let breakdown =
+      pool.schedulers
+      |> List.map (fun (sch : Scheduler.t) ->
+             Format.asprintf "  sch #%a [live_procs=%d; timers=%d]"
+               Runtime.Core.Scheduler_uid.pp sch.uid
+               (Runtime.Core.Proc_queue.size sch.run_queue)
+               (Runtime.Time.Timer_wheel.size sch.timers))
+      |> String.concat "\n"
+    in
+    info (fun f ->
+        f
+          {|pool: 
+
+live_processes: %d
+total_processes: %d
+total_schedulers: %d
+%s
+|}
+          live_process_count total_processes total_schedulers breakdown)
+
   let print_gc_stats () =
     let stat = Gc.stat () in
     info (fun f ->
@@ -40,6 +66,7 @@ compactions=%d
           stat.fragments stat.compactions)
 
   let rec loop () =
+    print_scheduler_stats ();
     print_gc_stats ();
     receive () |> ignore;
     loop ()

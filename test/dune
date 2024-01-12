@@ -120,6 +120,12 @@
 
 (test
  (package riot)
+ (name process_stealing_test)
+ (modules process_stealing_test)
+ (libraries riot))
+
+(test
+ (package riot)
  (name process_priority_test)
  (modules process_priority_test)
  (libraries riot))

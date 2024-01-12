@@ -80,6 +80,7 @@ let create () =
   }
 
 let can_tick t = t.timer_count > 0
+let size t = t.timer_count
 
 let is_finished t tid =
   match Ref.Map.get t.ids tid with

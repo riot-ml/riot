@@ -90,7 +90,7 @@ let link pid =
       else raise (Link_no_process pid)
   | None -> ()
 
-let _spawn ?(do_link = false) ?(pool = _get_pool ())
+let _spawn ?priority ?(do_link = false) ?(pool = _get_pool ())
     ?(scheduler = Scheduler.get_random_scheduler pool) fn =
   let proc =
     Process.make scheduler.uid (fun () ->
@@ -108,6 +108,10 @@ let _spawn ?(do_link = false) ?(pool = _get_pool ())
             Exception exn)
   in
 
+  (match priority with
+  | Some p -> Process.set_flag proc (Priority p)
+  | None -> ());
+
   if do_link then (
     let this = self () in
     Log.debug (fun f -> f "linking %a <-> %a" Pid.pp this Pid.pp proc.pid);
@@ -119,6 +123,10 @@ let _spawn ?(do_link = false) ?(pool = _get_pool ())
   proc.pid
 
 let spawn fn = _spawn ~do_link:false fn
+
+let spawn_pinned fn =
+  _spawn ~do_link:false ~scheduler:(Scheduler.get_current_scheduler ()) fn
+
 let spawn_link fn = _spawn ~do_link:true fn
 
 let monitor pid =

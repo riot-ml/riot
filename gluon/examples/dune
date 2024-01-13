@@ -1,0 +1,6 @@
+(executable
+ (package gluon)
+ (public_name tcp_server)
+ (preprocess
+  (pps bytestring.ppx))
+ (libraries gluon bytestring))

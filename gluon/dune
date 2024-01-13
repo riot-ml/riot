@@ -1,8 +1,5 @@
 (library
  (public_name gluon)
- (foreign_stubs
-  (language c)
-  (names gluon_unix_stubs)
-  (flags
-   (:standard -O2)))
- (libraries poll io))
+ (preprocess
+  (pps bytestring.ppx))
+ (libraries bytestring io uri gluon_common gluon_sys libc))

@@ -9,8 +9,7 @@
 #include <sys/uio.h>
 #include <time.h>
 
-
-CAMLprim value caml_riot_posix_sendfile(value v_fd, value v_s, value v_offset, value v_len) {
+CAMLprim value gluon_unix_sendfile(value v_fd, value v_s, value v_offset, value v_len) {
   CAMLparam4(v_fd, v_s, v_offset, v_len);
   int fd = Int_val(v_fd);
   int s = Int_val(v_s);
@@ -52,12 +51,12 @@ static void fill_iov(struct iovec *iov, value v_bufs) {
     value v_ba = Field(v_cs, 0);
     value v_off = Field(v_cs, 1);
     value v_len = Field(v_cs, 2);
-    iov[i].iov_base = (uint8_t *)Caml_ba_data_val(v_ba) + Long_val(v_off);
+    iov[i].iov_base = Bytes_val(v_ba) + Long_val(v_off);
     iov[i].iov_len = Long_val(v_len);
   }
 }
 
-CAMLprim value caml_riot_posix_readv(value v_fd, value v_bufs) {
+CAMLprim value gluon_unix_readv(value v_fd, value v_bufs) {
   CAMLparam1(v_bufs);
   ssize_t r;
   int n_bufs = Wosize_val(v_bufs);
@@ -71,7 +70,7 @@ CAMLprim value caml_riot_posix_readv(value v_fd, value v_bufs) {
   CAMLreturn(Val_long(r));
 }
 
-CAMLprim value caml_riot_posix_writev(value v_fd, value v_bufs) {
+CAMLprim value gluon_unix_writev(value v_fd, value v_bufs) {
   CAMLparam1(v_bufs);
   ssize_t r;
   int n_bufs = Wosize_val(v_bufs);
@@ -83,50 +82,4 @@ CAMLprim value caml_riot_posix_writev(value v_fd, value v_bufs) {
   if (r < 0) uerror("writev", Nothing);
 
   CAMLreturn(Val_long(r));
-}
-
-/*
-
-This code taken from Jane Street's time_now, licensed as:
-
-The MIT License
-
-Copyright (c) 2019--2023 Jane Street Group, LLC opensource-contacts@janestreet.com
-
-Permission is hereby granted, free of charge, to any person obtaining a copy of
-this software and associated documentation files (the "Software"), to deal in
-the Software without restriction, including without limitation the rights to
-use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies
-of the Software, and to permit persons to whom the Software is furnished to do
-so, subject to the following conditions:
-
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-SOFTWARE.
-
-*/
-
-
-#define NANOS_PER_SECOND 1000000000
-
-CAMLprim value caml_riot_posix_gettimeofday() {
-  CAMLparam0();
-  CAMLlocal1(res);
-
-  struct timeval tp;
-  if (gettimeofday(&tp, NULL) == -1) {
-    res = caml_copy_int64(0);
-  } else {
-    res = caml_copy_int64(NANOS_PER_SECOND * (uint64_t)tp.tv_sec +
-                          (uint64_t)tp.tv_usec * 1000);
-  }
-
-  CAMLreturn(res);
 }

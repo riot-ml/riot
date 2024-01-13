@@ -1,8 +1,7 @@
 open Gluon
-open Gluon_events
-open Gluon_common
 
-(* let log = Format.printf *)
+let ( let* ) = Result.bind
+let log = Format.printf
 
 let handle_error r =
   match r with
@@ -61,7 +60,9 @@ let run () =
         let* () =
           if Bytestring.length data = 0 then Error `Connection_closed else Ok ()
         in
-        let* _written = Net.Tcp_stream.writev conn (Bytestring.to_iovec data) in
+        let* _written =
+          Net.Tcp_stream.write_vectored conn (Bytestring.to_iovec data)
+        in
         (* log "write %d bytes \n%!" written; *)
         let* () =
           Poll.reregister poll token Interest.(add readable writable) src

@@ -34,8 +34,7 @@ module Addr = struct
 
   let to_string t = t
 
-  let of_addr_info
-      Unix.{ ai_family; ai_addr; ai_socktype; ai_protocol; _ } =
+  let of_addr_info Unix.{ ai_family; ai_addr; ai_socktype; ai_protocol; _ } =
     match (ai_family, ai_socktype, ai_addr) with
     | ( (Unix.PF_INET | Unix.PF_INET6),
         (Unix.SOCK_DGRAM | Unix.SOCK_STREAM),
@@ -75,11 +74,15 @@ module Socket = struct
   type listen_socket = [ `listen ] socket
   type stream_socket = [ `stream ] socket
 
-  let pp fmt (socket : _ socket) = Fd.pp fmt socket
+  let pp fmt t = Fd.pp fmt t
+  let close t = syscall @@ fun () -> Unix.close t
 end
 
 module Tcp_listener = struct
   type t = Socket.listen_socket
+
+  let pp = Socket.pp
+  let close = Socket.close
 
   let socket sock_domain sock_type =
     let fd = Unix.socket ~cloexec:true sock_domain sock_type 0 in
@@ -126,6 +129,7 @@ module Tcp_stream = struct
   type t = Socket.stream_socket
 
   let pp = Socket.pp
+  let close = Socket.close
 
   let read fd ?(pos = 0) ?len buf =
     let len = Option.value len ~default:(Bytes.length buf - 1) in
@@ -137,12 +141,12 @@ module Tcp_stream = struct
 
   external gluon_readv : Unix.file_descr -> Iovec.t -> int = "gluon_unix_readv"
 
-  let readv fd iov = syscall @@ fun () -> gluon_readv fd iov
+  let read_vectored fd iov = syscall @@ fun () -> gluon_readv fd iov
 
   external gluon_writev : Unix.file_descr -> Iovec.t -> int
     = "gluon_unix_writev"
 
-  let writev fd iov = syscall @@ fun () -> gluon_writev fd iov
+  let write_vectored fd iov = syscall @@ fun () -> gluon_writev fd iov
 
   external gluon_sendfile :
     Unix.file_descr -> Unix.file_descr -> int -> int -> int

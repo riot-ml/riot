@@ -9,6 +9,8 @@ let handle_error r =
   | Ok x -> x
   | Error `Would_block -> Printf.sprintf "Would block\r\n%!" |> failwith
   | Error `No_info -> Printf.sprintf "No info\r\n%!" |> failwith
+  | Error `Connection_closed ->
+      Printf.sprintf "Connection closed\r\n%!" |> failwith
   | Error (`Exn exn) ->
       Printf.sprintf "Exn: %S\r\n%!" (Printexc.to_string exn) |> failwith
   | Error (`Unix_error err) ->
@@ -32,7 +34,7 @@ let run () =
 
   let accept () =
     log "accepting connection\n%!";
-    let* conn, adddr = Net.Tcp_listener.accept server in
+    let* conn, addr = Net.Tcp_listener.accept server in
     let token = Token.next () in
     log "accepted %a with %a\n%!" Net.Addr.pp addr Token.pp token;
     let* () =
@@ -46,12 +48,12 @@ let run () =
 
   let data = {%b| "Hello world!\n" |} in
 
-  let rec read_write conn event token =
+  let read_write conn event token =
     log "enter read_write\n";
     if Event.is_writable event then (
       log "event is writable \n";
       let write_result =
-        match Net.Tcp_stream.write conn data with
+        match Net.Tcp_stream.writev conn (Bytestring.to_iovec data) with
         | Ok _ ->
             Poll.reregister poll token Interest.readable
               (Net.Tcp_stream.to_source conn)

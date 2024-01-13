@@ -23,6 +23,7 @@
  (depends
   (bytestring (= :version))
   (castore (and :with-test (>= "0.0.2")))
+  (config (>= "0.0.1"))
   (gluon (= :version))
   (io (= :version))
   (mdx (and :with-test (>= "2.3.1")))
@@ -50,10 +51,11 @@
   (name gluon)
   (depends
     (io (= :version))
+    (libc (>= "0.0.1"))
+    (config (>= "0.0.1"))
     (ocaml (>= "5.1"))
-    (poll (>= "0.3.1"))
     dune)
-  (tags (async io multicore)))
+  (tags (async io tcp udp iocp multicore)))
 
 (package
   (name bytestring)

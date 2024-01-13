@@ -1,7 +1,6 @@
 open Gluon
-open Gluon_events
-open Gluon_common
 
+let ( let* ) = Result.bind
 let log = Format.printf
 
 let handle_error r =
@@ -53,7 +52,7 @@ let run () =
     if Event.is_writable event then (
       log "event is writable \n";
       let write_result =
-        match Net.Tcp_stream.writev conn (Bytestring.to_iovec data) with
+        match Net.Tcp_stream.write_vectored conn (Bytestring.to_iovec data) with
         | Ok _ ->
             Poll.reregister poll token Interest.readable
               (Net.Tcp_stream.to_source conn)

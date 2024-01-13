@@ -20,27 +20,32 @@ module Addr : sig
 end
 
 module Socket : sig
-  type 'kind socket
+  type 'kind socket = Fd.t
   type listen_socket = [ `listen ] socket
   type stream_socket = [ `stream ] socket
 
   val pp : Format.formatter -> _ socket -> unit
+  val close : _ socket -> unit io_result
 end
 
 module Tcp_stream : sig
-  type t
+  type t = Socket.stream_socket
 
+  val close : t -> unit io_result
   val pp : Format.formatter -> t -> unit
   val read : t -> ?pos:int -> ?len:int -> bytes -> int io_result
   val write : t -> ?pos:int -> ?len:int -> bytes -> int io_result
-  val readv : t -> Io.Iovec.t -> int io_result
-  val writev : t -> Io.Iovec.t -> int io_result
+  val read_vectored : t -> Io.Iovec.t -> int io_result
+  val write_vectored : t -> Io.Iovec.t -> int io_result
   val sendfile : t -> file:Fd.t -> off:int -> len:int -> int io_result
   val to_source : t -> Source.t
 end
 
 module Tcp_listener : sig
-  type t
+  type t = Socket.listen_socket
+
+  val close : t -> unit io_result
+  val pp : Format.formatter -> t -> unit
 
   val bind :
     ?reuse_addr:bool ->

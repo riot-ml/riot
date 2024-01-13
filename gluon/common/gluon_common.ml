@@ -26,6 +26,7 @@ module Fd = struct
 
   let make fd = fd
   let pp fmt t = Format.fprintf fmt "Fd(%d)" (Obj.magic t)
+  let close t = Unix.close t
 end
 
 module Non_zero_int = struct

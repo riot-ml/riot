@@ -1,9 +1,14 @@
 type io_error =
-  [ `Exn of exn | `Would_block | `Unix_error of Unix.error | `No_info ]
+  [ `Exn of exn
+  | `Would_block
+  | `Unix_error of Unix.error
+  | `No_info
+  | `Connection_closed ]
 
 type 'ok io_result = ('ok, [ | io_error ]) result
 
 let ( let* ) = Result.bind
+let log = Format.printf
 
 module Token = Token
 
@@ -12,6 +17,7 @@ let rec syscall fn =
   | ok -> Ok ok
   | exception Unix.(Unix_error (EINTR, _, _)) -> syscall fn
   | exception Unix.(Unix_error ((EAGAIN | EWOULDBLOCK), _, _)) ->
+      log "syscall is try again\n";
       Error `Would_block
   | exception Unix.(Unix_error (reason, _, _)) -> Error (`Unix_error reason)
 

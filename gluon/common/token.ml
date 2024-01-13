@@ -6,7 +6,5 @@ let equal = Int.equal
 let pp fmt t = Format.fprintf fmt "Token(%d)" t
 
 let next =
-  let current = Atomic.make 0 in
-  fun () ->
-    Format.printf "next token: %d\n%!" (Atomic.get current);
-    Atomic.fetch_and_add current 1
+  let current = Atomic.make 2112 in
+  fun () -> Atomic.fetch_and_add current 1

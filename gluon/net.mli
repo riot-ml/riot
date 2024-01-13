@@ -32,7 +32,7 @@ module Tcp_stream : sig
 
   val pp : Format.formatter -> t -> unit
   val read : t -> ?pos:int -> ?len:int -> bytes -> int io_result
-  val write : t -> Bytestring.t -> int io_result
+  val write : t -> ?pos:int -> ?len:int -> bytes -> int io_result
   val readv : t -> Io.Iovec.t -> int io_result
   val writev : t -> Io.Iovec.t -> int io_result
   val sendfile : t -> file:Fd.t -> off:int -> len:int -> int io_result

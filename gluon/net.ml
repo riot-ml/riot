@@ -128,15 +128,12 @@ module Tcp_stream = struct
   let pp = Socket.pp
 
   let read fd ?(pos = 0) ?len buf =
-    let len = Option.value len ~default:(Bytes.length buf) in
+    let len = Option.value len ~default:(Bytes.length buf - 1) in
     syscall @@ fun () -> UnixLabels.read fd ~buf ~pos ~len
 
-  let write fd data =
-    syscall @@ fun () ->
-    Bytestring.to_iovec data
-    |> Array.map (fun Io.Iovec.{ ba = buf; off = pos; len } ->
-           UnixLabels.write fd ~buf ~pos ~len)
-    |> Array.fold_left ( + ) 0
+  let write fd ?(pos = 0) ?len buf =
+    let len = Option.value len ~default:(Bytes.length buf - 1) in
+    syscall @@ fun () -> UnixLabels.write fd ~buf ~pos ~len
 
   external gluon_readv : Unix.file_descr -> Iovec.t -> int = "gluon_unix_readv"
 

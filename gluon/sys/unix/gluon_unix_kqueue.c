@@ -11,6 +11,7 @@
 #include <unistd.h>
 
 CAMLprim value gluon_unix_kevent(value max_events_val, value timeout_val, value fd_val) {
+    // fprintf(stderr, "waiting events\n");
     CAMLparam3(max_events_val, timeout_val, fd_val);
     CAMLlocal1(event_array);
 
@@ -26,10 +27,12 @@ CAMLprim value gluon_unix_kevent(value max_events_val, value timeout_val, value 
     int num_events = -1;
 
     if (timeout_ns < 0) {
+      // fprintf(stderr, "waiting events inifinitely\n");
       caml_enter_blocking_section();
       num_events = kevent(fd, NULL, 0, events, max_events, NULL);
       caml_leave_blocking_section();
     } else {
+      // fprintf(stderr, "waiting events with timeout\n");
       struct timespec timeout;
       timeout.tv_sec = timeout_ns / 1000000000;
       timeout.tv_nsec = timeout_ns % 1000000000;
@@ -39,13 +42,28 @@ CAMLprim value gluon_unix_kevent(value max_events_val, value timeout_val, value 
     }
 
     if (num_events == -1) {
+      // fprintf(stderr, "error %d\n", errno);
         free(events);
         uerror("kevent", Nothing);
     }
 
+    // fprintf(stderr, "creating event\n");
     event_array = caml_alloc(num_events, Abstract_tag);
     for (int i = 0; i < num_events; i++) {
-      Store_field(event_array, i, &events[i]);
+        // fprintf(stderr, "Event %d: ident=%lu, filter=%d, flags=%u, fflags=%u, data=%ld, udata=%d\n",
+        //     i,
+        //     events[i].ident,
+        //     events[i].filter,
+        //     events[i].flags,
+        //     events[i].fflags,
+        //     events[i].data,
+        //     events[i].udata);
+      value event = caml_alloc_tuple(4);
+      Store_field(event, 0, Val_int(events[i].ident));
+      Store_field(event, 1, Val_int(events[i].filter));
+      Store_field(event, 2, Val_int(events[i].flags));
+      Store_field(event, 3, Val_int((int)events[i].udata));
+      Store_field(event_array, i, event);
     }
 
     free(events);
@@ -87,8 +105,17 @@ CAMLprim value gluon_unix_kevent_register(value fd_val, value events_val, value 
 
     // Access events directly from OCaml array
     for (int i = 0; i < num_events; i++) {
-        value e = Field(events_val, i);
-        changes[i] = *(struct kevent *)Field(e, 0);
+        value field = Field(events_val, i);
+        struct kevent *kevent = malloc(sizeof(struct kevent));
+        if (kevent == NULL) {
+            caml_failwith("Memory allocation failed");
+        }
+        int fd = Int_val(Field(field, 0));
+        int filter = Int_val(Field(field, 1));
+        int flags = Int_val(Field(field, 2)); 
+        int token = Int_val(Field(field, 3));
+        // fprintf(stderr, "Record %d: ident=%lu, filter=%d, flags=%u, udata=%p\n", i, fd, filter, flags, token);
+        EV_SET(&changes[i], fd, filter, flags, 0, 0, (void *)(intptr_t)(token));
         // fprintf(stderr, "Event %d: ident=%lu, filter=%d, flags=%u, fflags=%u, data=%ld, udata=%p\n",
         //     i,
         //     changes[i].ident,
@@ -98,6 +125,7 @@ CAMLprim value gluon_unix_kevent_register(value fd_val, value events_val, value 
         //     changes[i].data,
         //     changes[i].udata);
     }
+    // fprintf(stderr, "events are ok\n");
 
     caml_enter_blocking_section();
     int result = kevent(fd, changes, num_events, NULL, 0, NULL);
@@ -105,6 +133,7 @@ CAMLprim value gluon_unix_kevent_register(value fd_val, value events_val, value 
     free(changes);
 
     if (result == -1) {
+        // fprintf(stderr, "errno=%d - %s\n", errno, strerror(errno));
         if (errno == EINTR) {
             // According to the manual page of FreeBSD: "When kevent() call fails
             // with EINTR error, all changes in the changelist have been applied",
@@ -122,62 +151,7 @@ CAMLprim value gluon_unix_kevent_register(value fd_val, value events_val, value 
         uerror("kevent_register", Nothing);
     }
 
+    // fprintf(stderr, "all good\n");
+
     CAMLreturn(Val_unit);
-}
-
-CAMLprim value gluon_unix_kevent_create(value fd_val, value filter_val, value flags_val, value token_val) {
-    CAMLparam4(fd_val, filter_val, flags_val, token_val);
-    CAMLlocal1(kevent_val);
-
-    struct kevent *kevent = malloc(sizeof(struct kevent));
-    if (kevent == NULL) {
-        caml_failwith("Memory allocation failed");
-    }
-
-    int fd = Int_val(fd_val);
-    int filter = Int_val(filter_val);
-    int flags = Int_val(flags_val); 
-    int token = Int_val(token_val);
-
-    EV_SET(kevent, fd, filter, flags, 0, 0, (void *)(intptr_t)(token));
-
-    // fprintf(stderr, "kevent: ident=%lu, filter=%d, flags=%u, fflags=%u, data=%ld, udata=%p\n",
-    //     kevent->ident,
-    //     kevent->filter,
-    //     kevent->flags,
-    //     kevent->fflags,
-    //     kevent->data,
-    //     kevent->udata);
-
-    kevent_val = caml_alloc(1, Abstract_tag);
-    Store_field(kevent_val, 0, (value)kevent);
-
-    CAMLreturn(kevent_val);
-}
-
-CAMLprim value gluon_unix_kevent_udata(value kevent_val) {
-    CAMLparam1(kevent_val);
-    struct kevent *kevent = Data_abstract_val(kevent_val);
-    // fprintf(stderr, "kevent: ident=%lu, filter=%d, flags=%u, fflags=%u, data=%ld, udata=%p\n",
-    //     kevent->ident,
-    //     kevent->filter,
-    //     kevent->flags,
-    //     kevent->fflags,
-    //     kevent->data,
-    //     kevent->udata);
-    intptr_t udata = (intptr_t)(kevent->udata);
-    CAMLreturn(Val_long(udata));
-}
-
-CAMLprim value gluon_unix_kevent_filter(value kevent_val) {
-    CAMLparam1(kevent_val);
-    struct kevent *kevent = Data_abstract_val(kevent_val);
-    intptr_t filter = (intptr_t)(kevent->filter);
-    CAMLreturn(Val_long(filter));
-}
-
-CAMLprim value gluon_unix_kevent_flags(value kevent_val) {
-    CAMLparam1(kevent_val);
-    struct kevent *kevent = Data_abstract_val(kevent_val);
-    CAMLreturn(Val_long(kevent->flags));
 }

@@ -1,0 +1,13 @@
+(library
+ (enabled_if
+  (= %{os_type} "Unix"))
+ (package gluon)
+ (name gluon_sys_unix)
+ (libraries gluon_common gluon_events unix kqueue libc)
+ (preprocess
+  (pps config.ppx))
+ (foreign_stubs
+  (language c)
+  (names gluon_unix_io gluon_unix_kqueue)
+  (flags
+   (:standard -O2))))

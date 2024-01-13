@@ -1,0 +1,18 @@
+(* -*- tuareg -*- *)
+open Jbuild_plugin
+
+let os = V1.ocamlc_config |> List.assoc "os_type"
+;;
+
+let libraries = match os with
+| "Win32" -> "gluon_sys_windows"
+| _ -> "gluon_sys_unix"
+;;
+                
+let stanza = "(library
+ (package gluon)
+ (name gluon_sys)
+ (libraries " ^ libraries ^ " gluon_common gluon_events))"
+;;
+
+V1.send stanza

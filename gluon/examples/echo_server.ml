@@ -34,7 +34,7 @@ let run () =
 
   let accept () =
     (* log "accepting connection\n%!"; *)
-    let* conn, adddr = Net.Tcp_listener.accept server in
+    let* conn, _adddr = Net.Tcp_listener.accept server in
     let token = Token.next () in
     (* log "accepted %a with %a\n%!" Net.Addr.pp addr Token.pp token; *)
     let* () =
@@ -46,7 +46,7 @@ let run () =
     Ok ()
   in
 
-  let rec read_write conn event token =
+  let read_write conn event token =
     if Event.is_readable event then
       (* log "event is readable \n%!"; *)
       let rec echo_loop src =
@@ -61,7 +61,7 @@ let run () =
         let* () =
           if Bytestring.length data = 0 then Error `Connection_closed else Ok ()
         in
-        let* written = Net.Tcp_stream.writev conn (Bytestring.to_iovec data) in
+        let* _written = Net.Tcp_stream.writev conn (Bytestring.to_iovec data) in
         (* log "write %d bytes \n%!" written; *)
         let* () =
           Poll.reregister poll token Interest.(add readable writable) src

@@ -35,7 +35,7 @@ module Addr = struct
   let to_string t = t
 
   let of_addr_info
-      Unix.{ ai_family; ai_addr; ai_socktype; ai_protocol; ai_canonname } =
+      Unix.{ ai_family; ai_addr; ai_socktype; ai_protocol; _ } =
     match (ai_family, ai_socktype, ai_addr) with
     | ( (Unix.PF_INET | Unix.PF_INET6),
         (Unix.SOCK_DGRAM | Unix.SOCK_STREAM),
@@ -47,7 +47,7 @@ module Addr = struct
         Printf.printf "skipping\n%!";
         None
 
-  let rec get_info host service =
+  let get_info host service =
     syscall @@ fun () ->
     let info = Unix.getaddrinfo host service [] in
     List.filter_map of_addr_info info

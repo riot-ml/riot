@@ -14,6 +14,7 @@ let handle_error r =
       Printf.sprintf "Exn: %S\r\n%!" (Printexc.to_string exn) |> failwith
   | Error (`Unix_error err) ->
       Printf.sprintf "Unix error: %S\r\n%!" (Unix.error_message err) |> failwith
+  | Error _ -> Printf.sprintf "other error" |> failwith
 
 let run () =
   let addr = Net.Addr.(tcp loopback 9001) in

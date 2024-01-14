@@ -19,6 +19,9 @@ module Ping = struct
 end
 
 let main () =
+  let _ = Logger.start () in
+  Logger.set_log_level (Some Info);
+  sleep 0.1;
   process_flag (Trap_exit true);
   let this = self () in
   let sup =
@@ -29,17 +32,17 @@ let main () =
   in
 
   let (Ping_me child_pid) = receive ~after:500_000L () in
-  Logger.debug (fun f -> f "received pid %a" Pid.pp child_pid);
+  Logger.debug (fun f -> f "#1 received pid %a" Pid.pp child_pid);
 
   exit child_pid Process.Exit_signal;
 
   let (Ping_me child_pid) = receive ~after:500_000L () in
-  Logger.debug (fun f -> f "received pid %a" Pid.pp child_pid);
+  Logger.debug (fun f -> f "#2 received pid %a" Pid.pp child_pid);
 
   exit child_pid Process.Exit_signal;
 
   let (Ping_me child_pid) = receive ~after:500_000L () in
-  Logger.debug (fun f -> f "received pid %a" Pid.pp child_pid);
+  Logger.debug (fun f -> f "#3 received pid %a" Pid.pp child_pid);
 
   exit child_pid Process.Exit_signal;
 
@@ -51,6 +54,4 @@ let main () =
       shutdown ()
   | _ -> failwith "supervisor_shutdown_test: expected supervisor failure"
 
-let () =
-  Logger.set_log_level (Some Info);
-  Riot.run @@ main
+let () = Riot.run @@ main

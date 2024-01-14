@@ -1,4 +1,4 @@
-open Gluon.Sys
+open Gluon
 open Util
 
 type _ Effect.t +=
@@ -14,8 +14,8 @@ type _ Effect.t += Yield : unit Effect.t [@@unboxed]
 type _ Effect.t +=
   | Syscall : {
       name : string;
-      mode : [ `r | `w | `rw ];
-      fd : Fd.t;
+      interest : Interest.t;
+      source : Source.t;
     }
       -> unit Effect.t
   [@@unboxed]

@@ -76,6 +76,11 @@ module Socket = struct
 
   let pp fmt t = Fd.pp fmt t
   let close t = syscall @@ fun () -> Unix.close t
+
+  let make sock_domain sock_type =
+    let fd = Unix.socket ~cloexec:true sock_domain sock_type 0 in
+    Unix.set_nonblock fd;
+    Fd.make fd
 end
 
 module Tcp_listener = struct
@@ -84,16 +89,11 @@ module Tcp_listener = struct
   let pp = Socket.pp
   let close = Socket.close
 
-  let socket sock_domain sock_type =
-    let fd = Unix.socket ~cloexec:true sock_domain sock_type 0 in
-    Unix.set_nonblock fd;
-    Fd.make fd
-
   let bind ?(reuse_addr = true) ?(reuse_port = true) ?(backlog = 128) addr =
     syscall @@ fun () ->
     let sock_domain = Addr.to_domain addr in
     let sock_type, sock_addr = Addr.to_unix addr in
-    let fd = socket sock_domain sock_type in
+    let fd = Socket.make sock_domain sock_type in
     Unix.setsockopt fd Unix.SO_REUSEADDR reuse_addr;
     Unix.setsockopt fd Unix.SO_REUSEPORT reuse_port;
     Unix.bind fd sock_addr;
@@ -130,6 +130,16 @@ module Tcp_stream = struct
 
   let pp = Socket.pp
   let close = Socket.close
+
+  let connect addr =
+    let sock_domain = Addr.to_domain addr in
+    let sock_type, sock_addr = Addr.to_unix addr in
+    let fd = Socket.make sock_domain sock_type in
+    syscall @@ fun () ->
+    try
+      Unix.connect fd sock_addr;
+      `Connected fd
+    with Unix.(Unix_error (EINPROGRESS, _, _)) -> `In_progress fd
 
   let read fd ?(pos = 0) ?len buf =
     let len = Option.value len ~default:(Bytes.length buf - 1) in

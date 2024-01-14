@@ -149,6 +149,13 @@ module Process : sig
       NOTE: this function will block the process indefinitely.
   *)
 
+  val monitor : Pid.t -> unit
+  (** [monitor pid] makes [self ()] a monitor of [pid].
+
+    When [pid] terminates, [self ()] will receive a
+    [Processes.Messages.Monitor(Process_down(pid))] message.
+*)
+
   val demonitor : Pid.t -> unit
   (* [demonitor pid] removes the monitor from ourselves to [pid].
 
@@ -269,7 +276,7 @@ val receive : ?after:int64 -> ?ref:unit Ref.t -> unit -> Message.t
     ()`.
 *)
 
-val shutdown : unit -> unit
+val shutdown : ?status:int -> unit -> unit
 (** Gracefully shuts down the runtime. Any non-yielding process will block this. *)
 
 val run : ?rnd:Random.State.t -> ?workers:int -> (unit -> unit) -> unit
@@ -443,43 +450,31 @@ module Logger : sig
 end
 
 module Fd : sig
-  module Mode : sig
-    type t = [ `r | `rw | `w ]
+  type t = Unix.file_descr
 
-    val equal : t -> t -> bool
-    val pp : Format.formatter -> t -> unit
-  end
-
-  type fd = Unix.file_descr
-  type t
-
-  exception Already_closed of string
-
-  val get : t -> fd option
   val to_int : t -> int
-  val make : fd -> t
-  val is_open : t -> bool
-  val is_closed : t -> bool
+  val make : Unix.file_descr -> t
   val close : t -> unit
-  val use : op_name:string -> t -> (fd -> 'a) -> 'a
   val equal : t -> t -> bool
   val pp : Format.formatter -> t -> unit
 end
 
 module IO : sig
-  type unix_error = [ `Process_down | `Timeout | `Unix_error of Unix.error ]
-
-  type ('ok, 'err) io_result = ('ok, 'err) result
-    constraint 'err = [> unix_error ]
-
-  val pp_err :
-    Format.formatter ->
-    [< `Closed
+  type io_error =
+    [ `Connection_closed
+    | `Exn of exn
+    | `No_info
+    | `Unix_error of Unix.error
+    | `Noop
+    | `Eof
+    | `Closed
     | `Process_down
-    | `System_limit
     | `Timeout
-    | `Unix_error of Unix.error ] ->
-    unit
+    | `Would_block ]
+
+  type ('ok, 'err) io_result = ('ok, ([> io_error ] as 'err)) Stdlib.result
+
+  val pp_err : Format.formatter -> [< io_error ] -> unit
 
   module Iovec : sig
     type iov = { ba : bytes; off : int; len : int }
@@ -578,27 +573,43 @@ module IO : sig
     val to_bytes : t -> bytes
     val to_writer : t -> t Writer.t
   end
+end
 
-  val await_readable : Fd.t -> (Fd.t -> 'a) -> 'a
-  val await_writeable : Fd.t -> (Fd.t -> 'a) -> 'a
-  val await : Fd.t -> Fd.Mode.t -> (Fd.t -> 'a) -> 'a
+module File : sig
+  type 'kind file
+  type read_file = [ `r ] file
+  type write_file = [ `w ] file
+  type rw_file = [ `r | `w ] file
+
+  val fd : _ file -> Unix.file_descr
+  val open_read : string -> read_file
+  val open_write : string -> write_file
+  val close : _ file -> unit
+  val remove : string -> unit
+  val seek : _ file -> off:int -> int
+  val stat : string -> Unix.stats
+  val to_reader : read_file -> read_file IO.Reader.t
+  val to_writer : write_file -> write_file IO.Writer.t
 end
 
 module Net : sig
   module Addr : sig
-    type tcp_addr
+    type 't raw_addr = string
+    type tcp_addr = [ `v4 | `v6 ] raw_addr
     type stream_addr
 
-    val to_string : tcp_addr -> string
-    val ip : stream_addr -> tcp_addr
-    val port : stream_addr -> int
-    val get_info : stream_addr -> stream_addr list
+    val get_info : stream_addr -> (stream_addr list, [> `Noop ]) IO.io_result
+    val ip : stream_addr -> string
     val loopback : tcp_addr
+    val of_addr_info : Unix.addr_info -> stream_addr option
     val of_unix : Unix.sockaddr -> stream_addr
-    val of_uri : Uri.t -> stream_addr option
+    val of_uri : Uri.t -> (stream_addr, [> `Noop ]) IO.io_result
+    val parse : string -> (stream_addr, [> `Noop ]) IO.io_result
+    val port : stream_addr -> int
     val pp : Format.formatter -> stream_addr -> unit
     val tcp : tcp_addr -> int -> stream_addr
     val to_domain : stream_addr -> Unix.socket_domain
+    val to_string : tcp_addr -> string
     val to_unix : stream_addr -> Unix.socket_type * Unix.sockaddr
   end
 
@@ -607,6 +618,45 @@ module Net : sig
     type listen_socket = [ `listen ] socket
     type stream_socket = [ `stream ] socket
 
+    val pp : Format.formatter -> _ socket -> unit
+    val close : _ socket -> unit
+  end
+
+  module Tcp_stream : sig
+    type t = Socket.stream_socket
+
+    val connect :
+      ?timeout:int64 -> Addr.stream_addr -> (t, [> `Noop ]) IO.io_result
+
+    val close : t -> unit
+    val pp : Format.formatter -> t -> unit
+
+    val read :
+      t -> ?pos:int -> ?len:int -> bytes -> (int, [> `Noop ]) IO.io_result
+
+    val read_vectored : t -> IO.Iovec.t -> (int, [> `Noop ]) IO.io_result
+
+    val sendfile :
+      t -> file:Fd.t -> off:int -> len:int -> (int, [> `Noop ]) IO.io_result
+
+    val write :
+      t -> ?pos:int -> ?len:int -> bytes -> (int, [> `Noop ]) IO.io_result
+
+    val write_vectored : t -> IO.Iovec.t -> (int, [> `Noop ]) IO.io_result
+
+    val receive :
+      ?timeout:int64 -> bufs:IO.Iovec.t -> t -> (int, [> `Noop ]) IO.io_result
+
+    val send :
+      ?timeout:int64 -> bufs:IO.Iovec.t -> t -> (int, [> `Noop ]) IO.io_result
+
+    val to_reader : ?timeout:int64 -> t -> t IO.Reader.t
+    val to_writer : ?timeout:int64 -> t -> t IO.Writer.t
+  end
+
+  module Tcp_listener : sig
+    type t = Socket.listen_socket
+
     type listen_opts = {
       reuse_addr : bool;
       reuse_port : bool;
@@ -614,69 +664,19 @@ module Net : sig
       addr : Addr.tcp_addr;
     }
 
-    val listen :
-      ?opts:listen_opts ->
-      port:int ->
-      unit ->
-      (listen_socket, [> `System_limit ]) IO.io_result
-
-    val connect : Addr.stream_addr -> (stream_socket, [> `Closed ]) IO.io_result
+    val default_listen_opts : listen_opts
 
     val accept :
       ?timeout:int64 ->
-      listen_socket ->
-      (stream_socket * Addr.stream_addr, [> `Closed | `Timeout ]) IO.io_result
+      t ->
+      (Tcp_stream.t * Addr.stream_addr, [> `Noop ]) IO.io_result
 
-    val close : _ socket -> unit
+    val bind :
+      ?opts:listen_opts -> port:int -> unit -> (t, [> `Noop ]) IO.io_result
 
-    val controlling_process :
-      _ socket ->
-      new_owner:Pid.t ->
-      (unit, [> `Closed | `Not_owner ]) IO.io_result
-
-    val receive :
-      ?timeout:int64 ->
-      bufs:IO.Iovec.t ->
-      stream_socket ->
-      (int, [> `Closed | `Timeout ]) IO.io_result
-
-    val send :
-      ?timeout:int64 ->
-      bufs:IO.Iovec.t ->
-      stream_socket ->
-      (int, [> `Closed ]) IO.io_result
-
-    val pp : Format.formatter -> _ socket -> unit
-
-    val pp_err :
-      Format.formatter ->
-      [ IO.unix_error | `Closed | `Timeout | `Process_down | `System_limit ] ->
-      unit
-
-    val to_reader : ?timeout:int64 -> stream_socket -> stream_socket IO.Reader.t
-    val to_writer : ?timeout:int64 -> stream_socket -> stream_socket IO.Writer.t
+    val close : t -> unit
+    val pp : Format.formatter -> t -> unit
   end
-end
-
-module File : sig
-  type 'kind file
-
-  val fd : _ file -> Fd.t
-  val open_read : string -> [ `r ] file
-  val open_write : string -> [ `w ] file
-  val close : _ file -> unit
-  val remove : string -> unit
-  val to_reader : [ `r ] file -> [ `r ] file IO.Reader.t
-  val to_writer : [ `w ] file -> [ `w ] file IO.Writer.t
-  val seek : _ file -> off:int -> int
-  val stat : string -> Unix.stats
-
-  val send :
-    ?off:int ->
-    len:int ->
-    [ `r ] file ->
-    Net.Socket.stream_socket ->
-    (int, [> `Closed ]) IO.io_result
 end
 
 module SSL : sig

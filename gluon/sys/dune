@@ -12,7 +12,7 @@ let libraries = match os with
 let stanza = "(library
  (package gluon)
  (name gluon_sys)
- (libraries " ^ libraries ^ " gluon_common gluon_events))"
+ (libraries " ^ libraries ^ " gluon_common gluon_events io))"
 ;;
 
 V1.send stanza

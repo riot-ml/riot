@@ -12,6 +12,7 @@ bug-reports: "https://github.com/leostera/riot/issues"
 depends: [
   "bytestring" {= version}
   "castore" {with-test & >= "0.0.2"}
+  "config" {>= "0.0.1"}
   "gluon" {= version}
   "io" {= version}
   "mdx" {with-test & >= "2.3.1"}

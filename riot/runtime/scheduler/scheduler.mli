@@ -3,7 +3,7 @@ module Tracer = Tracer
 module Uid = Scheduler_uid
 
 type t = {
-  uid : Uid.t;
+  uid : Uid.t; [@warning "-69"]
   rnd : Random.State.t;
   run_queue : Proc_queue.t;
   sleep_set : Proc_set.t;
@@ -15,7 +15,8 @@ type t = {
 type io = {
   uid : Uid.t; [@warning "-69"]
   rnd : Random.State.t;
-  io_tbl : Process.t Gluon.t;
+  poll : Gluon.Poll.t;
+  procs : (Gluon.Token.t, Process.t) Util.Dashmap.t;
   idle_mutex : Mutex.t;
   idle_condition : Condition.t;
   mutable calls_accept : int;
@@ -26,6 +27,7 @@ type io = {
 
 type pool = {
   mutable stop : bool;
+  mutable status : int;
   io_scheduler : io;
   schedulers : t list;
   processes : Proc_table.t;
@@ -50,7 +52,7 @@ val run : pool -> t -> unit -> unit
 module Pool : sig
   val get_pool : unit -> pool
   val set_pool : pool -> unit
-  val shutdown : pool -> unit
+  val shutdown : pool -> int -> unit
   val register_process : pool -> 'a -> Process.t -> unit
 
   val make :

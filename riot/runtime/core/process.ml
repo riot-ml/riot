@@ -1,5 +1,3 @@
-open Gluon.Sys
-
 module Exn = struct
   exception Receive_timeout
 end
@@ -19,7 +17,11 @@ end
 type state =
   | Runnable
   | Waiting_message
-  | Waiting_io of { syscall : string; mode : [ `r | `rw | `w ]; fd : Fd.t }
+  | Waiting_io of {
+      syscall : string;
+      token : Gluon.Token.t;
+      source : Gluon.Source.t;
+    }
   | Running
   | Exited of exit_reason
   | Finalized
@@ -53,7 +55,7 @@ type t = {
       (** the save queue is a temporary queue used for storing messages during a selective receive *)
   links : Pid.t list Atomic.t;
   monitors : unit Pid.Map.t;
-  ready_fds : Fd.t list Atomic.t;
+  gluon_token : (Gluon.Token.t * Gluon.Source.t) option Atomic.t;
   recv_timeout : unit Ref.t option Atomic.t;
 }
 (** The process descriptor. *)
@@ -74,7 +76,7 @@ let make sid fn =
       save_queue = Mailbox.create ();
       read_save_queue = false;
       flags = default_flags ();
-      ready_fds = Atomic.make [];
+      gluon_token = Atomic.make None;
       recv_timeout = Atomic.make None;
     }
   in
@@ -90,9 +92,8 @@ and pp_state ppf (state : state) =
   match state with
   | Runnable -> Format.fprintf ppf "Runnable"
   | Waiting_message -> Format.fprintf ppf "Waiting_message"
-  | Waiting_io { syscall; mode; fd } ->
-      let mode = match mode with `r -> "r" | `w -> "w" | `rw -> "rw" in
-      Format.fprintf ppf "Waiting_io(%s,%s,%a)" syscall mode Fd.pp fd
+  | Waiting_io { syscall; token; _ } ->
+      Format.fprintf ppf "Waiting_io(%s, %a)" syscall Gluon.Token.pp token
   | Running -> Format.fprintf ppf "Running"
   | Exited e -> Format.fprintf ppf "Exited(%a)" pp_reason e
   | Finalized -> Format.fprintf ppf "Finalized"
@@ -119,8 +120,8 @@ let receive_timeout t = Atomic.get t.recv_timeout
 
 let is_alive t =
   match Atomic.get t.state with
-  | Runnable | Waiting_message | Waiting_io _ | Running -> true
   | Finalized | Exited _ -> false
+  | Runnable | Waiting_message | Waiting_io _ | Running -> true
 
 let is_exited t =
   match Atomic.get t.state with Finalized | Exited _ -> true | _ -> false
@@ -141,12 +142,19 @@ let is_main t = Pid.equal (pid t) Pid.main
 let has_empty_mailbox t =
   Mailbox.is_empty t.save_queue && Mailbox.is_empty t.mailbox
 
-let has_ready_fds t = not (Atomic.get t.ready_fds = [])
+let get_gluon_token t = Atomic.get t.gluon_token
+let has_gluon_token t = Option.is_some (get_gluon_token t)
 
-let rec set_ready_fds t fds =
-  let last_fds = Atomic.get t.ready_fds in
-  if Atomic.compare_and_set t.ready_fds last_fds fds then ()
-  else set_ready_fds t fds
+let rec set_gluon_token t token source =
+  let last_token = Atomic.get t.gluon_token in
+  if Atomic.compare_and_set t.gluon_token last_token (Some (token, source)) then
+    ()
+  else set_gluon_token t token source
+
+let rec clear_gluon_token t =
+  let last_token = Atomic.get t.gluon_token in
+  if Atomic.compare_and_set t.gluon_token last_token None then ()
+  else clear_gluon_token t
 
 let has_messages t = not (has_empty_mailbox t)
 let message_count t = Mailbox.size t.mailbox + Mailbox.size t.save_queue
@@ -164,13 +172,15 @@ let rec clear_receive_timeout t =
 
 exception Process_reviving_is_forbidden of t
 
-let rec mark_as_awaiting_io t syscall mode fd =
+let rec mark_as_awaiting_io t syscall token source =
   if is_exited t then raise (Process_reviving_is_forbidden t);
   let old_state = Atomic.get t.state in
-  if Atomic.compare_and_set t.state old_state (Waiting_io { syscall; mode; fd })
+  if
+    Atomic.compare_and_set t.state old_state
+      (Waiting_io { syscall; token; source })
   then
     Log.trace (fun f -> f "Process %a: marked as waiting for io" Pid.pp t.pid)
-  else mark_as_awaiting_io t syscall mode fd
+  else mark_as_awaiting_io t syscall token source
 
 let rec mark_as_awaiting_message t =
   if is_exited t then raise (Process_reviving_is_forbidden t);

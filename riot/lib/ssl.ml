@@ -52,19 +52,10 @@ exception Tls_alert of Tls.Packet.alert_type
 exception Tls_failure of Tls.Engine.failure
 
 module Tls_unix = struct
-  type err =
-    [ `Process_down | `Timeout | `Closed | `Eof | `Unix_error of Unix.error ]
+  exception Read_error of Io.io_error
+  exception Write_error of Io.io_error
 
-  exception Read_error of err
-  exception Write_error of err
-
-  let err_to_str err =
-    match err with
-    | `Closed -> "closed"
-    | `Eof -> "eof"
-    | `Timeout -> "timeout"
-    | `Process_down -> "process down"
-    | `Unix_error err -> Unix.error_message err
+  let err_to_str err = Format.asprintf "%a" Io.pp_err err
 
   let read_t t cs =
     let buf = IO.Bytes.with_capacity (Cstruct.length cs) in
@@ -267,7 +258,7 @@ let to_writer = Tls_unix.to_writer
 let of_server_socket ?read_timeout ?send_timeout
     ?(config = Tls.Config.server ()) sock =
   let reader, writer =
-    Net.Socket.
+    Net.Tcp_stream.
       ( to_reader ?timeout:read_timeout sock,
         to_writer ?timeout:send_timeout sock )
   in
@@ -275,7 +266,7 @@ let of_server_socket ?read_timeout ?send_timeout
 
 let of_client_socket ?read_timeout ?send_timeout ?host ~config sock =
   let reader, writer =
-    Net.Socket.
+    Net.Tcp_stream.
       ( to_reader ?timeout:read_timeout sock,
         to_writer ?timeout:send_timeout sock )
   in

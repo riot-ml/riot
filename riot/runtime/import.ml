@@ -12,10 +12,9 @@ let _get_proc pid =
 
 let self () = Scheduler.get_current_process_pid ()
 
-let syscall name mode fd cb =
-  Effect.perform (Proc_effect.Syscall { name; mode; fd });
-  Process.set_ready_fds (_get_proc (self ())) [];
-  cb fd
+let syscall name interest source cb =
+  Effect.perform (Proc_effect.Syscall { name; interest; source });
+  cb ()
 
 let receive ?after ?ref () =
   let timeout =

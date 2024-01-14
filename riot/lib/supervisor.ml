@@ -1,5 +1,9 @@
 open Global
 
+open Logger.Make (struct
+  let namespace = [ "riot"; "supervisor" ]
+end)
+
 type child_spec =
   | Child : {
       initial_state : 'state;
@@ -25,7 +29,7 @@ type state = {
 let init_child spec =
   let (Child { start_link; initial_state }) = spec in
   let pid = start_link initial_state |> Result.get_ok in
-  Log.info (fun f ->
+  trace (fun f ->
       let this = self () in
       f "Supervisor %a started child %a" Pid.pp this Pid.pp pid);
   (pid, spec)
@@ -43,7 +47,7 @@ let restart_child pid state =
   let state = add_restart state in
   if max_restarts_reached state then `terminate
   else (
-    Log.info (fun f -> f "child %a is down" Pid.pp pid);
+    trace (fun f -> f "child %a is down" Pid.pp pid);
     let spec = List.assoc pid state.children in
     let children = init_child spec :: List.remove_assoc pid state.children in
     `continue { state with children })
@@ -53,18 +57,18 @@ type Message.t +=
   | List_children_res : { children : Pid.t list; ref : unit Ref.t } -> Message.t
 
 let rec loop state =
-  Log.debug (fun f -> f "supervisor loop");
+  trace (fun f -> f "entered supervision loop");
   match receive () with
   | Process.Messages.Exit (pid, Normal) when List.mem_assoc pid state.children
     ->
-      Log.info (fun f -> f "child %a stopped normally" Pid.pp pid);
+      trace (fun f -> f "child %a stopped normally" Pid.pp pid);
       let state =
         { state with children = List.remove_assoc pid state.children }
       in
       loop state
   | Process.Messages.Exit (pid, reason) when List.mem_assoc pid state.children
     ->
-      Log.info (fun f ->
+      trace (fun f ->
           f "child %a stopped: %a" Pid.pp pid Process.pp_reason reason);
       handle_child_exit pid reason state
   | List_children_req { reply; ref } ->
@@ -77,15 +81,15 @@ and handle_child_exit pid _reason state =
   match restart_child pid state with
   | `continue state -> loop state
   | `terminate ->
-      Log.info (fun f ->
+      trace (fun f ->
           f "Supervisor %a reached max restarts of %d" Pid.pp (self ())
             state.restart_limit)
 
 let start_supervisor state =
-  Log.info (fun f ->
+  trace (fun f ->
       f "Initializing supervisor %a with %d child specs" Pid.pp (self ())
         (List.length state.child_specs));
-  process_flag (Trap_exit true);
+  Process.flag (Trap_exit true);
   let state = { state with children = init_children state } in
   loop state
 

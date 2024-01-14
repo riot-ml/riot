@@ -17,7 +17,8 @@ type t = {
 type io = {
   uid : Uid.t; [@warning "-69"]
   rnd : Random.State.t;
-  io_tbl : Process.t Gluon.t;
+  poll : Gluon.Poll.t;
+  procs : (Gluon.Token.t, Process.t) Dashmap.t;
   idle_mutex : Mutex.t;
   idle_condition : Condition.t;
   mutable calls_accept : int;
@@ -28,13 +29,14 @@ type io = {
 
 type pool = {
   mutable stop : bool;
+  mutable status : int;
   io_scheduler : io;
   schedulers : t list;
   processes : Proc_table.t;
   registry : Proc_registry.t;
 }
 
-let shutdown pool =
+let shutdown pool status =
   let rec wake_up_scheduler (sch : t) =
     if Mutex.try_lock sch.idle_mutex then (
       Condition.signal sch.idle_condition;
@@ -42,6 +44,7 @@ let shutdown pool =
     else wake_up_scheduler sch
   in
   Log.trace (fun f -> f "shutdown called");
+  pool.status <- status;
   pool.stop <- true;
   List.iter wake_up_scheduler pool.schedulers
 
@@ -127,8 +130,9 @@ module Scheduler = struct
     in
 
     Log.trace (fun f ->
-        f "Process %a: receiving messages (timeout? %b)" Pid.pp
-          (Process.pid proc) should_timeout);
+        f "Process %a: receiving messages (timeout? %b | empty_mailbox? %b)"
+          Pid.pp (Process.pid proc) should_timeout
+          (Process.has_empty_mailbox proc));
 
     if should_timeout then (
       Log.trace (fun f -> f "Process %a: timed out" Pid.pp (Process.pid proc));
@@ -178,10 +182,13 @@ module Scheduler = struct
                   {
                     msg = Process.Messages.Monitor (Process_down mon_pid) as msg;
                     _;
-                  } ) ->
+                  } ) -> (
               Process.clear_receive_timeout proc;
-              if Process.is_monitoring_pid proc mon_pid then k (Continue msg)
-              else go (fuel - 1)
+              match Proc_table.get pool.processes mon_pid with
+              | Some mon_proc when Process.is_monitoring_pid mon_proc proc.pid
+                ->
+                  k (Continue msg)
+              | _ -> go (fuel - 1))
           (* lastly, if we have a ref and the mesasge is newer than the ref, and
              when we don't have a ref, we just pop the message and continue with it
           *)
@@ -191,20 +198,28 @@ module Scheduler = struct
       in
       go fuel
 
-  let handle_syscall k pool (_sch : t) (proc : Process.t) syscall mode fd =
+  let handle_syscall k pool (_sch : t) (proc : Process.t) name interest source =
     let open Proc_state in
-    Log.debug (fun f ->
-        f "handle_syscall with %a that has %d fds ready" Pid.pp proc.pid
-          (List.length (Atomic.get proc.ready_fds)));
-    if Process.has_ready_fds proc then k (Continue ())
-    else (
-      Log.debug (fun f ->
-          let mode = match mode with `r -> "r" | `w -> "w" | `rw -> "rw" in
-          f "Registering %a for Syscall(%s,%s,%a)" Pid.pp proc.pid syscall mode
-            Gluon.Sys.Fd.pp fd);
-      Gluon.register pool.io_scheduler.io_tbl proc mode fd;
-      Process.mark_as_awaiting_io proc syscall mode fd;
-      k Suspend)
+    Log.debug (fun f -> f "handle_syscall %s with %a" name Process.pp proc);
+
+    match Process.get_gluon_token proc with
+    | Some (token, source) ->
+        Log.debug (fun f ->
+            f "syscall(%s) %a -> %a is ready" name Pid.pp proc.pid
+              Gluon.Token.pp token);
+        Process.clear_gluon_token proc;
+        Gluon.Poll.deregister pool.io_scheduler.poll source |> Result.get_ok;
+        k (Continue ())
+    | None ->
+        let token = Gluon.Token.next () in
+        Log.debug (fun f ->
+            f "syscall(%s) %a -> registering %a" name Pid.pp proc.pid
+              Gluon.Token.pp token);
+        Dashmap.replace pool.io_scheduler.procs token proc;
+        Gluon.Poll.register pool.io_scheduler.poll token interest source
+        |> Result.get_ok;
+        Process.mark_as_awaiting_io proc name token source;
+        k Suspend
 
   let perform pool (sch : t) (proc : Process.t) =
     let open Proc_state in
@@ -212,8 +227,8 @@ module Scheduler = struct
     let perform : type a b. (a, b) step_callback =
      fun k eff ->
       match eff with
-      | Syscall { name; mode; fd } ->
-          handle_syscall k pool sch proc name mode fd
+      | Syscall { name; interest; source } ->
+          handle_syscall k pool sch proc name interest source
       | Receive { ref; timeout } -> handle_receive k pool sch proc ref timeout
       | Yield ->
           Log.trace (fun f ->
@@ -236,14 +251,20 @@ module Scheduler = struct
       Log.debug (fun f -> f "Hibernated process %a" Pid.pp proc.pid);
       Log.trace (fun f -> f "sleep_set: %d" (Proc_set.size sch.sleep_set)))
 
-  let handle_exit_proc pool (_sch : t) proc reason =
+  let handle_exit_proc pool (_sch : t) proc (reason : Process.exit_reason) =
     Log.debug (fun f -> f "unregistering process %a" Pid.pp (Process.pid proc));
-    Gluon.unregister pool.io_scheduler.io_tbl proc;
+
+    (match Process.get_gluon_token proc with
+    | Some (_token, source) ->
+        Gluon.Poll.deregister pool.io_scheduler.poll source |> Result.get_ok
+    | None -> ());
 
     Proc_registry.remove pool.registry (Process.pid proc);
 
     (* if it's main process we want to terminate the entire program *)
-    if Process.is_main proc then shutdown pool;
+    (if Process.is_main proc then
+       let status = if reason = Process.Normal then 0 else 1 in
+       shutdown pool status);
 
     (* send monitors a process-down message *)
     let monitoring_pids = Process.monitors proc |> List.of_seq in
@@ -374,7 +395,8 @@ module Io_scheduler = struct
     {
       uid;
       rnd = Random.State.copy rnd;
-      io_tbl = Gluon.create ();
+      poll = Gluon.Poll.make () |> Result.get_ok;
+      procs = Dashmap.create ();
       idle_mutex = Mutex.create ();
       idle_condition = Condition.create ();
       calls_accept = 0;
@@ -384,21 +406,26 @@ module Io_scheduler = struct
     }
 
   let poll_io pool io =
-    let open Gluon.Sys in
-    Log.debug (fun f -> f "io_tbl(%a)" Gluon.pp io.io_tbl);
-    Gluon.poll io.io_tbl @@ fun (proc, mode) ->
-    Gluon.unregister io.io_tbl proc;
-    Log.debug (fun f -> f "io_poll(%a): %a" Fd.Mode.pp mode Process.pp proc);
-    match Process.state proc with
-    | Waiting_io { fd; syscall; _ } ->
-        if syscall = "accept" then io.calls_accept <- io.calls_accept + 1;
-        if syscall = "connect" then io.calls_connect <- io.calls_connect + 1;
-        if syscall = "receive" then io.calls_receive <- io.calls_receive + 1;
-        if syscall = "send" then io.calls_send <- io.calls_send + 1;
-        Process.set_ready_fds proc [ fd ];
-        Process.mark_as_runnable proc;
-        awake_process pool proc
-    | _ -> ()
+    let events = Gluon.Poll.poll io.poll |> Result.get_ok in
+    List.iter
+      (fun event ->
+        let token = Gluon.Event.token event in
+        Log.debug (fun f -> f "polled %a" Gluon.Token.pp token);
+        let proc = Dashmap.get io.procs token |> Option.get in
+        match Process.state proc with
+        | Waiting_io { syscall; token = proc_token; source }
+          when Gluon.Token.equal token proc_token ->
+            Log.debug (fun f ->
+                f "awaking proc %a %a" Process.pp proc Gluon.Token.pp token);
+            if syscall = "accept" then io.calls_accept <- io.calls_accept + 1;
+            if syscall = "connect" then io.calls_connect <- io.calls_connect + 1;
+            if syscall = "receive" then io.calls_receive <- io.calls_receive + 1;
+            if syscall = "send" then io.calls_send <- io.calls_send + 1;
+            Process.set_gluon_token proc token source;
+            Process.mark_as_runnable proc;
+            awake_process pool proc
+        | _ -> ())
+      events
 
   let run pool io () =
     Log.trace (fun f -> f "> enter io loop");
@@ -406,8 +433,7 @@ module Io_scheduler = struct
     (try
        while true do
          if pool.stop then raise_notrace Exit;
-         if Gluon.can_poll io.io_tbl then poll_io pool io
-         else Unix.sleepf 0.00001
+         poll_io pool io
        done
      with Exit -> ());
     Log.trace (fun f -> f "< exit worker loop")
@@ -435,6 +461,7 @@ module Pool = struct
     let pool =
       {
         stop = false;
+        status = 0;
         io_scheduler;
         schedulers = [ main ] @ schedulers;
         processes = Proc_table.create ();
@@ -456,7 +483,7 @@ module Pool = struct
                   (Printexc.to_string exn)
                   (Printexc.raw_backtrace_to_string
                      (Printexc.get_raw_backtrace ())));
-            shutdown pool)
+            shutdown pool 1)
     in
     Log.debug (fun f -> f "Created %d schedulers" (List.length schedulers));
 
@@ -469,7 +496,7 @@ module Pool = struct
                   (Printexc.to_string exn)
                   (Printexc.raw_backtrace_to_string
                      (Printexc.get_raw_backtrace ())));
-            shutdown pool)
+            shutdown pool 2)
     in
 
     let scheduler_threads = List.map spawn schedulers in

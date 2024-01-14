@@ -35,12 +35,7 @@ module Event = struct
   let filter t = t.filter
   let flags t = t.flags
   let token t = Token.of_int t.token
-
-  let is_readable t =
-    let f = filter t in
-    log "is_readable? %d == %d\n" f Libc.evfilt_read;
-    filter t = Libc.evfilt_read
-
+  let is_readable t = filter t = Libc.evfilt_read
   let is_writable t = filter t = Libc.evfilt_write
   let is_error t = flags t land Libc.ev_error != 0
   let is_read_closed t = is_readable t && flags t land Libc.ev_eof != 0
@@ -58,7 +53,7 @@ module Selector = struct
     let* _ = FFI.(fcntl kq Libc.f_setfd Libc.f_dupfd_cloexec) in
     Ok { kq }
 
-  let select ?(timeout = 500_000_000L) ?(max_events = 100) t =
+  let select ?(timeout = 500_000_000L) ?(max_events = 1_000) t =
     let* events = FFI.kevent ~timeout ~max_events t.kq in
     let events = Array.to_list events in
     let events = List.map (Gluon_events.Event.make (module Event)) events in

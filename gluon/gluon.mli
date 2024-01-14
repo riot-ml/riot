@@ -131,6 +131,18 @@ module Source : sig
     t -> Sys.Selector.t -> Token.t -> Interest.t -> (unit, [> `Noop ]) io_result
 end
 
+module File : sig
+  type t = Unix.file_descr
+
+  val pp : Format.formatter -> t -> unit
+  val close : t -> unit
+  val read : t -> ?pos:int -> ?len:int -> bytes -> (int, [> `Noop ]) io_result
+  val write : t -> ?pos:int -> ?len:int -> bytes -> (int, [> `Noop ]) io_result
+  val read_vectored : t -> Io.Iovec.t -> (int, [> `Noop ]) io_result
+  val write_vectored : t -> Io.Iovec.t -> (int, [> `Noop ]) io_result
+  val to_source : t -> Source.t
+end
+
 module Net : sig
   module Addr : sig
     type 't raw_addr = string
@@ -158,7 +170,7 @@ module Net : sig
     type stream_socket = [ `stream ] socket
 
     val pp : Format.formatter -> _ socket -> unit
-    val close : _ socket -> (unit, [> `Noop ]) io_result
+    val close : _ socket -> unit
   end
 
   module Tcp_stream : sig
@@ -168,7 +180,7 @@ module Net : sig
       Addr.stream_addr ->
       ([ `Connected of t | `In_progress of t ], [> `Noop ]) io_result
 
-    val close : t -> (unit, [> `Noop ]) io_result
+    val close : t -> unit
     val pp : Format.formatter -> t -> unit
     val read : t -> ?pos:int -> ?len:int -> bytes -> (int, [> `Noop ]) io_result
     val read_vectored : t -> Iovec.t -> (int, [> `Noop ]) io_result
@@ -196,7 +208,7 @@ module Net : sig
       Addr.stream_addr ->
       (t, [> `Noop ]) io_result
 
-    val close : t -> (unit, [> `Noop ]) io_result
+    val close : t -> unit
     val pp : Format.formatter -> t -> unit
     val to_source : t -> Source.t
   end

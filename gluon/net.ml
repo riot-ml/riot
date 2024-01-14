@@ -75,7 +75,7 @@ module Socket = struct
   type stream_socket = [ `stream ] socket
 
   let pp fmt t = Fd.pp fmt t
-  let close t = syscall @@ fun () -> Unix.close t
+  let close t = Unix.close t
 
   let make sock_domain sock_type =
     let fd = Unix.socket ~cloexec:true sock_domain sock_type 0 in

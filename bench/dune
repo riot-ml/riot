@@ -1,4 +1,5 @@
-(executable
- (name spawn_many)
- (modules spawn_many)
+(executables
+ (names spawn_many http_server)
+ (preprocess
+  (pps config.ppx bytestring.ppx))
  (libraries riot))

@@ -164,6 +164,8 @@ module Process : sig
      If we call [demonitor pid] {i after} [pid] died and the message was queued,
      we will receive the monitoring message.
   *)
+
+  val flag : process_flag -> unit
 end
 
 (** A Riot `Application` can be used to encapsulate functionality that must

@@ -199,13 +199,11 @@ module Scheduler = struct
     let open Proc_state in
     Log.debug (fun f -> f "handle_syscall %s with %a" name Process.pp proc);
 
-    match Process.get_gluon_token proc with
-    | Some (token, source) ->
+    match Process.get_ready_token proc with
+    | Some (token, _source) ->
         Log.debug (fun f ->
             f "syscall(%s) %a -> %a is ready" name Pid.pp proc.pid
               Gluon.Token.pp token);
-        Process.clear_gluon_token proc;
-        Gluon.Poll.deregister pool.io_scheduler.poll source |> Result.get_ok;
         k (Continue ())
     | None ->
         let token = Gluon.Token.next () in
@@ -213,9 +211,10 @@ module Scheduler = struct
             f "syscall(%s) %a -> registering %a" name Pid.pp proc.pid
               Gluon.Token.pp token);
         Dashmap.replace pool.io_scheduler.procs token proc;
+        Process.add_wait_token proc token source;
+        Process.mark_as_awaiting_io proc name token source;
         Gluon.Poll.register pool.io_scheduler.poll token interest source
         |> Result.get_ok;
-        Process.mark_as_awaiting_io proc name token source;
         k Suspend
 
   let perform pool (sch : t) (proc : Process.t) =
@@ -251,10 +250,8 @@ module Scheduler = struct
   let handle_exit_proc pool (_sch : t) proc (reason : Process.exit_reason) =
     Log.debug (fun f -> f "unregistering process %a" Pid.pp (Process.pid proc));
 
-    (match Process.get_gluon_token proc with
-    | Some (_token, source) ->
-        Gluon.Poll.deregister pool.io_scheduler.poll source |> Result.get_ok
-    | None -> ());
+    Process.consume_ready_tokens proc (fun (_token, source) ->
+        Gluon.Poll.deregister pool.io_scheduler.poll source |> Result.get_ok);
 
     Proc_registry.remove pool.registry (Process.pid proc);
 
@@ -409,16 +406,13 @@ module Io_scheduler = struct
         let token = Gluon.Event.token event in
         Log.debug (fun f -> f "polled %a" Gluon.Token.pp token);
         let proc = Dashmap.get io.procs token |> Option.get in
-        match Process.state proc with
-        | Waiting_io { syscall; token = proc_token; source }
-          when Gluon.Token.equal token proc_token ->
+        match Process.is_waiting_on_token proc token with
+        | Some source when Process.is_alive proc ->
             Log.debug (fun f ->
                 f "awaking proc %a %a" Process.pp proc Gluon.Token.pp token);
-            if syscall = "accept" then io.calls_accept <- io.calls_accept + 1;
-            if syscall = "connect" then io.calls_connect <- io.calls_connect + 1;
-            if syscall = "receive" then io.calls_receive <- io.calls_receive + 1;
-            if syscall = "send" then io.calls_send <- io.calls_send + 1;
-            Process.set_gluon_token proc token source;
+            Gluon.Poll.deregister pool.io_scheduler.poll source |> Result.get_ok;
+            Process.add_ready_token proc token source;
+            Process.remove_wait_token proc token;
             Process.mark_as_runnable proc;
             awake_process pool proc
         | _ -> ())

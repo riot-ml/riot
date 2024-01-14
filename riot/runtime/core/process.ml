@@ -56,7 +56,8 @@ type t = {
   links : Pid.t list Atomic.t;
   monitors : unit Pid.Map.t;
   monitored_by : unit Pid.Map.t;
-  gluon_token : (Gluon.Token.t * Gluon.Source.t) option Atomic.t;
+  wait_tokens : (Gluon.Token.t, Gluon.Source.t) Util.Dashmap.t;
+  ready_tokens : (Gluon.Token.t * Gluon.Source.t) Util.Lf_queue.t;
   recv_timeout : unit Ref.t option Atomic.t;
 }
 (** The process descriptor. *)
@@ -78,7 +79,8 @@ let make sid fn =
       save_queue = Mailbox.create ();
       read_save_queue = false;
       flags = default_flags ();
-      gluon_token = Atomic.make None;
+      wait_tokens = Util.Dashmap.create ();
+      ready_tokens = Util.Lf_queue.create ();
       recv_timeout = Atomic.make None;
     }
   in
@@ -144,19 +146,23 @@ let is_main t = Pid.equal (pid t) Pid.main
 let has_empty_mailbox t =
   Mailbox.is_empty t.save_queue && Mailbox.is_empty t.mailbox
 
-let get_gluon_token t = Atomic.get t.gluon_token
-let has_gluon_token t = Option.is_some (get_gluon_token t)
+let is_waiting_on_token t token = Util.Dashmap.get t.wait_tokens token
+let remove_wait_token t token = Util.Dashmap.remove t.wait_tokens token
 
-let rec set_gluon_token t token source =
-  let last_token = Atomic.get t.gluon_token in
-  if Atomic.compare_and_set t.gluon_token last_token (Some (token, source)) then
-    ()
-  else set_gluon_token t token source
+let add_wait_token t token source =
+  Util.Dashmap.replace t.wait_tokens token source
 
-let rec clear_gluon_token t =
-  let last_token = Atomic.get t.gluon_token in
-  if Atomic.compare_and_set t.gluon_token last_token None then ()
-  else clear_gluon_token t
+let add_ready_token t token source =
+  Util.Lf_queue.push t.ready_tokens (token, source)
+
+let get_ready_token t = Util.Lf_queue.pop t.ready_tokens
+
+let rec consume_ready_tokens t fn =
+  match get_ready_token t with
+  | Some x ->
+      fn x;
+      consume_ready_tokens t fn
+  | None -> ()
 
 let has_messages t = not (has_empty_mailbox t)
 let message_count t = Mailbox.size t.mailbox + Mailbox.size t.save_queue

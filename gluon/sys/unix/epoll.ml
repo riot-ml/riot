@@ -1,3 +1,5 @@
+[@@@config any (target_os = "linux", target_os = "android")]
+
 open Gluon_common
 
 type epoll = Fd.t

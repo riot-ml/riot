@@ -9,14 +9,34 @@
 #include <sys/uio.h>
 #include <time.h>
 
+#if defined(__linux__) && !defined(__GLIBC__)
+
+#include <sys/sendfile.h>
+#include "syscall.h"
+
+#elif defined(__linux__) && defined(__GLIBC__)
+
+#include <sys/sendfile.h>
+#include <fcntl.h>
+
+#elif __APPLE__
+
+#endif
+
 CAMLprim value gluon_unix_sendfile(value v_fd, value v_s, value v_offset, value v_len) {
   CAMLparam4(v_fd, v_s, v_offset, v_len);
   int fd = Int_val(v_fd);
   int s = Int_val(v_s);
   off_t offset = Int_val(v_offset);
-  off_t len = Int_val(v_len);
 
-  int ret = sendfile(fd, s, offset, &len, NULL, 0);
+#ifdef __APPLE__
+   off_t len = Int_val(v_len);
+   int ret = sendfile(fd, s, offset, &len, NULL, 0);
+#else
+   size_t len = Int_val(v_len);
+   int ret = sendfile(fd, s, &offset, len);
+#endif
+
   if (ret == -1) uerror("sendfile", Nothing);
 
   CAMLreturn(Val_int(len));

@@ -1,11 +1,25 @@
 let ( let* ) = Result.bind
 let log = Format.printf
 
-module Token = Token
+module Token = struct
+  type t
+
+  let unsafe_to_value x = Obj.magic x
+  let unsafe_to_int t : int = unsafe_to_value t
+  let hash t = Int.hash (unsafe_to_int t)
+
+  let equal ?eq a b = 
+    match eq with
+    | Some f -> f (unsafe_to_value a) (unsafe_to_value b)
+    | None -> Int.equal (unsafe_to_int a) (unsafe_to_int b)
+
+  let pp fmt t = Format.fprintf fmt "Token(%d)" (unsafe_to_int t)
+  let make (x : 'whatever) : t = Obj.magic x
+end
 
 let rec syscall fn =
   match fn () with
-  | ok -> Ok ok
+  | ok -> ok
   | exception Unix.(Unix_error (EINTR, _, _)) -> syscall fn
   | exception Unix.(Unix_error ((EAGAIN | EWOULDBLOCK), _, _)) ->
       (* log "syscall is try again\n"; *)

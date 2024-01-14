@@ -49,7 +49,7 @@ module Addr = struct
   let get_info host service =
     syscall @@ fun () ->
     let info = Unix.getaddrinfo host service [] in
-    List.filter_map of_addr_info info
+    Ok (List.filter_map of_addr_info info)
 
   let of_uri uri =
     let port =
@@ -98,7 +98,7 @@ module Tcp_listener = struct
     Unix.setsockopt fd Unix.SO_REUSEPORT reuse_port;
     Unix.bind fd sock_addr;
     Unix.listen fd backlog;
-    fd
+    Ok fd
 
   let accept fd =
     syscall @@ fun () ->
@@ -106,7 +106,7 @@ module Tcp_listener = struct
     Unix.set_nonblock raw_fd;
     let addr = Addr.of_unix client_addr in
     let fd = Fd.make raw_fd in
-    (fd, addr)
+    Ok (fd, addr)
 
   let to_source t =
     let module Src = struct
@@ -138,32 +138,32 @@ module Tcp_stream = struct
     syscall @@ fun () ->
     try
       Unix.connect fd sock_addr;
-      `Connected fd
-    with Unix.(Unix_error (EINPROGRESS, _, _)) -> `In_progress fd
+      Ok (`Connected fd)
+    with Unix.(Unix_error (EINPROGRESS, _, _)) -> Ok (`In_progress fd)
 
   let read fd ?(pos = 0) ?len buf =
     let len = Option.value len ~default:(Bytes.length buf - 1) in
-    syscall @@ fun () -> UnixLabels.read fd ~buf ~pos ~len
+    syscall @@ fun () -> Ok (UnixLabels.read fd ~buf ~pos ~len)
 
   let write fd ?(pos = 0) ?len buf =
     let len = Option.value len ~default:(Bytes.length buf - 1) in
-    syscall @@ fun () -> UnixLabels.write fd ~buf ~pos ~len
+    syscall @@ fun () -> Ok (UnixLabels.write fd ~buf ~pos ~len)
 
   external gluon_readv : Unix.file_descr -> Iovec.t -> int = "gluon_unix_readv"
 
-  let read_vectored fd iov = syscall @@ fun () -> gluon_readv fd iov
+  let read_vectored fd iov = syscall @@ fun () -> Ok (gluon_readv fd iov)
 
   external gluon_writev : Unix.file_descr -> Iovec.t -> int
     = "gluon_unix_writev"
 
-  let write_vectored fd iov = syscall @@ fun () -> gluon_writev fd iov
+  let write_vectored fd iov = syscall @@ fun () -> Ok (gluon_writev fd iov)
 
   external gluon_sendfile :
     Unix.file_descr -> Unix.file_descr -> int -> int -> int
     = "gluon_unix_sendfile"
 
   let sendfile fd ~file ~off ~len =
-    syscall @@ fun () -> gluon_sendfile file fd off len
+    syscall @@ fun () -> Ok (gluon_sendfile file fd off len)
 
   let to_source t =
     let module Src = struct

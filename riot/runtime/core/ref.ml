@@ -1,4 +1,4 @@
-type 'a t = Ref : int64 -> 'a t [@@unboxed]
+type 'a t = Ref of int64 [@@unboxed]
 
 let __current__ = Atomic.make 0L
 let pp ppf (Ref pid) = Format.fprintf ppf "#Ref<%s>" (Int64.to_string pid)

@@ -1,5 +1,4 @@
 module Log = Log
-module Net = Net
 module Core = Core
 module Import = Import
 module Util = Util

@@ -3,7 +3,7 @@
   (= %{os_type} "Unix"))
  (package gluon)
  (name gluon_sys_unix)
- (libraries gluon_common gluon_events unix kqueue libc)
+ (libraries gluon_common gluon_events unix libc)
  (preprocess
   (pps config.ppx))
  (foreign_stubs

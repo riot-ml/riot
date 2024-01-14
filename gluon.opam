@@ -8,9 +8,11 @@ homepage: "https://github.com/leostera/riot"
 bug-reports: "https://github.com/leostera/riot/issues"
 depends: [
   "io" {= version}
+  "bytestring" {= version}
   "libc" {>= "0.0.1"}
   "config" {>= "0.0.1"}
   "ocaml" {>= "5.1"}
+  "uri" {>= "4.4.0"}
   "dune" {>= "3.11"}
   "odoc" {with-doc}
 ]

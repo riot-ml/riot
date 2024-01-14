@@ -51,9 +51,11 @@
   (name gluon)
   (depends
     (io (= :version))
+    (bytestring (= :version))
     (libc (>= "0.0.1"))
     (config (>= "0.0.1"))
     (ocaml (>= "5.1"))
+    (uri (>= "4.4.0"))
     dune)
   (tags (async io tcp udp iocp multicore)))
 

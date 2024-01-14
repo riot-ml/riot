@@ -99,8 +99,8 @@ let run () =
 
   let handle_event (event : Event.t) =
     let token = Event.token event in
-    log "handling event with token %d\n%!" (Token.to_int token);
-    log "(server_token=%d)\n%!" (Token.to_int server_token);
+    log "handling event with %a\n%!" Token.pp token;
+    log "(server_token=%a)\n%!" Token.pp server_token;
     if Token.equal token server_token then accept ()
     else handle_client event token
   in

@@ -1,5 +1,6 @@
 module Exn = struct
   exception Receive_timeout
+  exception Syscall_timeout
 end
 
 type exit_reason =
@@ -59,6 +60,7 @@ type t = {
   wait_tokens : (Gluon.Token.t, Gluon.Source.t) Util.Dashmap.t;
   ready_tokens : (Gluon.Token.t * Gluon.Source.t) Util.Lf_queue.t;
   recv_timeout : unit Ref.t option Atomic.t;
+  syscall_timeout : unit Ref.t option Atomic.t;
 }
 (** The process descriptor. *)
 
@@ -82,6 +84,7 @@ let make sid fn =
       wait_tokens = Util.Dashmap.create ();
       ready_tokens = Util.Lf_queue.create ();
       recv_timeout = Atomic.make None;
+      syscall_timeout = Atomic.make None;
     }
   in
   proc
@@ -121,6 +124,7 @@ let state t = Atomic.get t.state
 let monitors t = Pid.Map.keys t.monitors
 let links t = Atomic.get t.links
 let receive_timeout t = Atomic.get t.recv_timeout
+let syscall_timeout t = Atomic.get t.syscall_timeout
 
 let is_alive t =
   match Atomic.get t.state with
@@ -167,6 +171,19 @@ let rec consume_ready_tokens t fn =
 let has_messages t = not (has_empty_mailbox t)
 let message_count t = Mailbox.size t.mailbox + Mailbox.size t.save_queue
 let should_awake t = is_alive t && has_messages t
+
+let rec set_syscall_timeout t timeout =
+  let last_timeout = Atomic.get t.syscall_timeout in
+  if Option.is_some last_timeout then failwith "overriding timeout";
+  if Atomic.compare_and_set t.syscall_timeout last_timeout (Some timeout) then
+    ()
+  else set_syscall_timeout t timeout
+
+let rec clear_syscall_timeout t =
+  let last_timeout = Atomic.get t.syscall_timeout in
+  if Option.is_none last_timeout then failwith "clearing empty timeout";
+  if Atomic.compare_and_set t.syscall_timeout last_timeout None then ()
+  else clear_syscall_timeout t
 
 let rec set_receive_timeout t timeout =
   let last_timeout = Atomic.get t.recv_timeout in

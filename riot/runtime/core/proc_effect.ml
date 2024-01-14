@@ -16,6 +16,7 @@ type _ Effect.t +=
       name : string;
       interest : Interest.t;
       source : Source.t;
+      timeout : Timeout.t;
     }
       -> unit Effect.t
   [@@unboxed]

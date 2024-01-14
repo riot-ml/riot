@@ -127,14 +127,20 @@ let spawn_link fn =
 
 let monitor pid =
   let pool = _get_pool () in
+  let this = _get_proc (self ()) in
   match Proc_table.get pool.processes pid with
-  | Some proc -> Process.add_monitor proc (self ())
+  | Some proc ->
+      Process.add_monitor proc this.pid;
+      Process.add_monitored_by this proc.pid
   | None -> ()
 
 let demonitor pid =
   let pool = _get_pool () in
+  let this = _get_proc (self ()) in
   match Proc_table.get pool.processes pid with
-  | Some proc -> Process.remove_monitor proc (self ())
+  | Some proc ->
+      Process.remove_monitor proc this.pid;
+      Process.remove_monitored_by this proc.pid
   | None -> ()
 
 let register pid name =

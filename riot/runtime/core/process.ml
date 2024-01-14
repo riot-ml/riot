@@ -55,6 +55,7 @@ type t = {
       (** the save queue is a temporary queue used for storing messages during a selective receive *)
   links : Pid.t list Atomic.t;
   monitors : unit Pid.Map.t;
+  monitored_by : unit Pid.Map.t;
   gluon_token : (Gluon.Token.t * Gluon.Source.t) option Atomic.t;
   recv_timeout : unit Ref.t option Atomic.t;
 }
@@ -72,6 +73,7 @@ let make sid fn =
       state = Atomic.make Runnable;
       links = Atomic.make [];
       monitors = Pid.Map.create ();
+      monitored_by = Pid.Map.create ();
       mailbox = Mailbox.create ();
       save_queue = Mailbox.create ();
       read_save_queue = false;
@@ -245,6 +247,16 @@ let rec add_link t link =
     ())
   else add_link t link
 
+let add_monitored_by t monitor =
+  Log.trace (fun f ->
+      f "Process %a: is being monitored by %a" Pid.pp t.pid Pid.pp monitor);
+  Pid.Map.insert t.monitored_by monitor ()
+
+let remove_monitored_by t monitor =
+  Log.trace (fun f ->
+      f "Process %a: is being monitored by %a" Pid.pp t.pid Pid.pp monitor);
+  Pid.Map.remove t.monitored_by monitor
+
 let add_monitor t monitor =
   Log.trace (fun f ->
       f "Process %a: adding monitor to %a" Pid.pp t.pid Pid.pp monitor);
@@ -256,6 +268,7 @@ let remove_monitor t monitor =
   Pid.Map.remove t.monitors monitor
 
 let is_monitoring_pid t pid = Pid.Map.has_key t.monitors pid
+let is_monitored_by_pid t pid = Pid.Map.has_key t.monitored_by pid
 
 let next_message t =
   if t.read_save_queue then (

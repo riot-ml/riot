@@ -20,11 +20,12 @@ end
 module Token : sig
   type t
 
+  val hash : t -> int
   val equal : t -> t -> bool
   val next : unit -> t
-  val of_int : int -> t
+  val of_int : int64 -> t
   val pp : Format.formatter -> t -> unit
-  val to_int : t -> int
+  val to_int : t -> int64
 end
 
 module Interest : sig

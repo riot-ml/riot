@@ -182,13 +182,10 @@ module Scheduler = struct
                   {
                     msg = Process.Messages.Monitor (Process_down mon_pid) as msg;
                     _;
-                  } ) -> (
+                  } ) ->
               Process.clear_receive_timeout proc;
-              match Proc_table.get pool.processes mon_pid with
-              | Some mon_proc when Process.is_monitoring_pid mon_proc proc.pid
-                ->
-                  k (Continue msg)
-              | _ -> go (fuel - 1))
+              if Process.is_monitored_by_pid proc mon_pid then k (Continue msg)
+              else go (fuel - 1)
           (* lastly, if we have a ref and the mesasge is newer than the ref, and
              when we don't have a ref, we just pop the message and continue with it
           *)

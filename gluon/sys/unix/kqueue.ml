@@ -2,7 +2,7 @@ open Gluon_common
 
 type kevent
 type kqueue = Fd.t
-type event = { fd : Fd.t; filter : int; flags : int; token : int }
+type event = { fd : Fd.t; filter : int; flags : int; token : int64 }
 
 module FFI = struct
   external gluon_unix_kevent :
@@ -106,8 +106,8 @@ module Selector = struct
     let flags = Libc.(ev_delete lor ev_receipt) in
     let changes =
       [|
-        Event.make fd ~filter:Libc.evfilt_write ~flags ~token:0;
-        Event.make fd ~filter:Libc.evfilt_read ~flags ~token:0;
+        Event.make fd ~filter:Libc.evfilt_write ~flags ~token:0L;
+        Event.make fd ~filter:Libc.evfilt_read ~flags ~token:0L;
       |]
     in
     (* log "deregistering %a\r\n%!" Fd.pp fd; *)

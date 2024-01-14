@@ -10,6 +10,18 @@
 #include <sys/event.h>
 #include <unistd.h>
 
+
+value kqueue_event_to_record(struct kevent *kevent) {
+  CAMLparam0();
+  CAMLlocal1(event);
+  event = caml_alloc_tuple(4);
+  Store_field(event, 0, Val_int(kevent->ident));
+  Store_field(event, 1, Val_int(kevent->filter));
+  Store_field(event, 2, Val_int(kevent->flags));
+  Store_field(event, 3, caml_copy_int64((int64_t)kevent->udata));
+  CAMLreturn(event);
+}
+
 CAMLprim value gluon_unix_kevent(value max_events_val, value timeout_val, value fd_val) {
     // fprintf(stderr, "waiting events\n");
     CAMLparam3(max_events_val, timeout_val, fd_val);
@@ -48,23 +60,12 @@ CAMLprim value gluon_unix_kevent(value max_events_val, value timeout_val, value 
     }
 
     // fprintf(stderr, "creating event\n");
-    event_array = caml_alloc(num_events, Abstract_tag);
+    struct kevent **event_ptrs = malloc((num_events + 1) * sizeof(struct kevent *));
     for (int i = 0; i < num_events; i++) {
-        // fprintf(stderr, "Event %d: ident=%lu, filter=%d, flags=%u, fflags=%u, data=%ld, udata=%d\n",
-        //     i,
-        //     events[i].ident,
-        //     events[i].filter,
-        //     events[i].flags,
-        //     events[i].fflags,
-        //     events[i].data,
-        //     events[i].udata);
-      value event = caml_alloc_tuple(4);
-      Store_field(event, 0, Val_int(events[i].ident));
-      Store_field(event, 1, Val_int(events[i].filter));
-      Store_field(event, 2, Val_int(events[i].flags));
-      Store_field(event, 3, Val_int((int)events[i].udata));
-      Store_field(event_array, i, event);
+        event_ptrs[i] = &events[i];
     }
+    event_ptrs[num_events] = NULL;
+    event_array = caml_alloc_array(kqueue_event_to_record, event_ptrs);
 
     free(events);
     CAMLreturn(event_array);
@@ -113,9 +114,9 @@ CAMLprim value gluon_unix_kevent_register(value fd_val, value events_val, value 
         int fd = Int_val(Field(field, 0));
         int filter = Int_val(Field(field, 1));
         int flags = Int_val(Field(field, 2)); 
-        int token = Int_val(Field(field, 3));
+        int token = Int64_val(Field(field, 3));
         // fprintf(stderr, "Record %d: ident=%lu, filter=%d, flags=%u, udata=%p\n", i, fd, filter, flags, token);
-        EV_SET(&changes[i], fd, filter, flags, 0, 0, (void *)(intptr_t)(token));
+        EV_SET(&changes[i], fd, filter, flags, 0, 0, (void *)(int64_t)(token));
         // fprintf(stderr, "Event %d: ident=%lu, filter=%d, flags=%u, fflags=%u, data=%ld, udata=%p\n",
         //     i,
         //     changes[i].ident,

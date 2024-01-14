@@ -1,11 +1,13 @@
 open Riot
 
 let ( let* ) = Result.bind
-let data = {%b| "HTTP/1.1 200 OK\r\nContent-Length: 12\r\n\r\nhello world!" |}
+
+let data =
+  {%b| "HTTP/1.1 200 OK\r\nContent-Length: 12\r\n\r\nhello world!" |}
+  |> Bytestring.to_iovec
 
 let main () =
   let _ = Logger.start () |> Result.get_ok in
-  Runtime.set_log_level (Some Info);
   Logger.set_log_level (Some Info);
 
   let port = 2113 in
@@ -20,16 +22,11 @@ let main () =
 
     let _conn =
       spawn @@ fun () ->
+      let bufs = IO.Iovec.create ~size:(1024 * 50) () in
       let rec conn_loop () =
         let rec handle_request () =
-          let bufs = IO.Iovec.create ~size:(1024 * 50) () in
-          let* _req =
-            Net.Tcp_stream.receive ~timeout:5_000_000_000L conn ~bufs
-          in
-          let* _written =
-            Net.Tcp_stream.send ~timeout:5_000_000_000L conn
-              ~bufs:(Bytestring.to_iovec data)
-          in
+          let* _req = Net.Tcp_stream.receive ~timeout:5_000_000_000L conn ~bufs in
+          let* _written = Net.Tcp_stream.send conn ~timeout:5_000_000_000L ~bufs:data in
           handle_request ()
         in
         match handle_request () with
@@ -47,7 +44,7 @@ let main () =
         Logger.error (fun f -> f "error: %a" IO.pp_err (Obj.magic err))
   in
 
-  let _ = List.init 0 (fun _ -> spawn_link acceptor) in
+  let _ = List.init 99 (fun _ -> spawn_link acceptor) in
   acceptor ()
 
 let () = Riot.run @@ main

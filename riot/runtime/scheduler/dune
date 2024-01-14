@@ -1,4 +1,4 @@
 (library
  (package riot)
  (name scheduler)
- (libraries core util gluon io net time log))
+ (libraries core util gluon io time log))

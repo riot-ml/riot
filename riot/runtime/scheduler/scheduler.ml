@@ -18,7 +18,6 @@ type io = {
   uid : Uid.t; [@warning "-69"]
   rnd : Random.State.t;
   poll : Gluon.Poll.t;
-  procs : (Gluon.Token.t, Process.t) Dashmap.t;
   idle_mutex : Mutex.t;
   idle_condition : Condition.t;
   mutable calls_accept : int;
@@ -225,12 +224,10 @@ module Scheduler = struct
           | None -> ());
           k (Continue ())
       | None ->
-          let token = Gluon.Token.next () in
+          let token = Gluon.Token.make proc in
           Log.debug (fun f ->
               f "syscall(%s) %a -> registering %a" name Pid.pp proc.pid
                 Gluon.Token.pp token);
-          Dashmap.replace pool.io_scheduler.procs token proc;
-          Process.add_wait_token proc token source;
           Process.mark_as_awaiting_io proc name token source;
           Gluon.Poll.register pool.io_scheduler.poll token interest source
           |> Result.get_ok;
@@ -402,7 +399,7 @@ module Scheduler = struct
          done;
          Mutex.unlock sch.idle_mutex;
 
-         for _ = 0 to Int.min (Proc_queue.size sch.run_queue) 5_000 do
+         for _ = 0 to Int.min (Proc_queue.size sch.run_queue) 1_000 do
            match Proc_queue.next sch.run_queue with
            | Some proc ->
                set_current_process_pid proc.pid;
@@ -426,7 +423,6 @@ module Io_scheduler = struct
       uid;
       rnd = Random.State.copy rnd;
       poll = Gluon.Poll.make () |> Result.get_ok;
-      procs = Dashmap.create ();
       idle_mutex = Mutex.create ();
       idle_condition = Condition.create ();
       calls_accept = 0;
@@ -440,17 +436,18 @@ module Io_scheduler = struct
     List.iter
       (fun event ->
         let token = Gluon.Event.token event in
-        Log.debug (fun f -> f "polled %a" Gluon.Token.pp token);
-        let proc = Dashmap.get io.procs token |> Option.get in
-        match Process.is_waiting_on_token proc token with
-        | Some source when Process.is_alive proc ->
+        let proc : Process.t = Gluon.Token.unsafe_to_value token in
+        Log.debug (fun f ->
+            f "polled %a - %a" Gluon.Token.pp token Pid.pp proc.pid);
+        match Process.state proc with
+        | Waiting_io { source; _ } ->
             Log.debug (fun f ->
                 f "awaking proc %a %a" Process.pp proc Gluon.Token.pp token);
-            Gluon.Poll.deregister pool.io_scheduler.poll source |> Result.get_ok;
-            Process.add_ready_token proc token source;
-            Process.remove_wait_token proc token;
-            Process.mark_as_runnable proc;
-            awake_process pool proc
+            Gluon.Poll.deregister io.poll source |> Result.get_ok;
+            if Process.is_alive proc then (
+              Process.add_ready_token proc token source;
+              Process.mark_as_runnable proc;
+              awake_process pool proc)
         | _ -> ())
       events
 

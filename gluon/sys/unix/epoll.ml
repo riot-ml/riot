@@ -2,8 +2,8 @@
 
 open Gluon_common
 
-type epoll = Fd.t
-type event = { u64 : int64; events : int }
+type epoll
+type event = { u64 : int; events : int }
 
 module FFI = struct
   external epoll_create1 : flags:int -> epoll = "gluon_unix_epoll_create1"
@@ -17,14 +17,22 @@ module FFI = struct
   external epoll_ctl_null : epoll -> flags:int -> fd:Fd.t -> unit
     = "gluon_unix_epoll_ctl_null"
 
-  external epoll_event : events:int -> token:int64 -> event
-    = "gluon_unix_epoll_event"
+  let epoll_wait ~timeout ~max_events epoll =
+    syscall @@ fun () -> Ok (epoll_wait ~timeout ~max_events epoll)
+
+  let epoll_ctl_null epoll ~flags ~fd =
+    syscall @@ fun () -> Ok (epoll_ctl_null epoll ~flags ~fd)
+
+  let epoll_ctl epoll ~flags ~fd event =
+    syscall @@ fun () ->
+      try Ok (epoll_ctl epoll ~flags ~fd event)
+      with Unix.Unix_error (Unix.EEXIST, _, _) -> Ok ()
 end
 
 module Event = struct
   type t = event
 
-  let token t = Token.of_int t.u64
+  let token t = Token.make t.u64
 
   let is_readable t =
     t.events land Libc.epollin != 0 || t.events land Libc.epollpri != 0
@@ -51,7 +59,7 @@ module Selector = struct
 
   let make () = Ok { ep = FFI.epoll_create1 ~flags:Libc.epoll_cloexec }
 
-  let select ?(timeout = 500_000_000L) ?(max_events = 1_000) t =
+  let select ?(timeout = 1L) ?(max_events = 1_000) t =
     let* events = FFI.epoll_wait ~timeout ~max_events t.ep in
     let events = Array.to_list events in
     let events = List.map (Gluon_events.Event.make (module Event)) events in
@@ -70,14 +78,16 @@ module Selector = struct
     kind
 
   let register t ~fd ~token ~interest =
+    let u64 = Token.unsafe_to_int token in
     let events = interests_to_epoll interest in
-    let event = FFI.epoll_event ~events ~token in
-    FFI.epoll_ctl t.ep Libc.epoll_ctl_add fd event
+    let event = { u64; events } in
+    FFI.epoll_ctl t.ep ~flags:Libc.epoll_ctl_add ~fd event
 
   let reregister t ~fd ~token ~interest =
+    let u64 = Token.unsafe_to_int token in
     let events = interests_to_epoll interest in
-    let event = FFI.epoll_event ~events ~token in
-    FFI.epoll_ctl t.ep Libc.epoll_ctl_mod fd event
+    let event = { u64; events } in
+    FFI.epoll_ctl t.ep ~flags:Libc.epoll_ctl_mod ~fd event
 
-  let deregister t ~fd = FFI.epoll_ctl t.ep Libc.epoll_ctl_del fd
+  let deregister t ~fd = FFI.epoll_ctl_null t.ep ~flags:Libc.epoll_ctl_del ~fd
 end

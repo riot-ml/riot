@@ -22,7 +22,7 @@ let run () =
   let* poll = Poll.make () in
   let* server = Net.Tcp_listener.bind addr in
 
-  let server_token = Token.next () in
+  let server_token = Token.make 2112 in
   let* () =
     Poll.register poll server_token Interest.readable
       (Net.Tcp_listener.to_source server)
@@ -32,18 +32,24 @@ let run () =
     Hashtbl.create 1024
   in
 
+  let conn_id = Atomic.make 3000 in
   let accept () =
-    log "accepting connection\n%!";
-    let* conn, addr = Net.Tcp_listener.accept server in
-    let token = Token.next () in
-    log "accepted %a with %a\n%!" Net.Addr.pp addr Token.pp token;
-    let* () =
-      Poll.register poll token
-        Interest.(add readable writable)
-        (Net.Tcp_stream.to_source conn)
+    let do_accept () =
+      log "accepting connection\n%!";
+      let* conn, addr = Net.Tcp_listener.accept server in
+      let token = Token.make (Atomic.fetch_and_add conn_id 1) in
+      log "accepted %a with %a\n%!" Net.Addr.pp addr Token.pp token;
+      let* () =
+        Poll.register poll token
+          Interest.(add readable writable)
+          (Net.Tcp_stream.to_source conn)
+      in
+      Hashtbl.replace connections token conn;
+      Ok ()
     in
-    Hashtbl.replace connections token conn;
-    Ok ()
+    match do_accept () with
+    | Ok _ | Error `Would_block -> Ok ()
+    | Error err -> Error err
   in
 
   let data =
@@ -91,16 +97,17 @@ let run () =
     | Some conn ->
         (* log "found connection %a\n" Net.Tcp_stream.pp conn; *)
         if read_write conn event token = `finished then (
+          let* () = Poll.deregister poll (Net.Tcp_stream.to_source conn) in
           Net.Tcp_stream.close conn;
           Hashtbl.remove connections token;
-          Poll.deregister poll (Net.Tcp_stream.to_source conn))
+          Ok ())
         else Ok ()
   in
 
   let handle_event (event : Event.t) =
     let token = Event.token event in
-    (* log "handling event with token %d\n%!" (Token.to_int token); *)
-    (* log "(server_token=%d)\n%!" (Token.to_int server_token); *)
+    (* log "handling event with token %d\n%!" (Token.unsafe_to_value token); *)
+    (* log "(server_token=%d)\n%!" (Token.unsafe_to_value server_token); *)
     if Token.equal token server_token then accept ()
     else handle_client event token
   in

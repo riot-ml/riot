@@ -1,3 +1,5 @@
+#if defined(__APPLE__) || defined(__FreeBSD__) || defined(__OpenBSD__) || defined(__NetBSD__)
+
 #include <caml/alloc.h>
 #include <caml/callback.h>
 #include <caml/fail.h>
@@ -156,3 +158,5 @@ CAMLprim value gluon_unix_kevent_register(value fd_val, value events_val, value 
 
     CAMLreturn(Val_unit);
 }
+
+#endif

@@ -1,3 +1,5 @@
+module Impl = Kqueue [@@config any (target_os = "linux", target_os = "android")]
+
 module Impl = Kqueue
 [@@config
   any

@@ -2,17 +2,21 @@ open Riot
 
 exception Fail
 
+let fail () =
+  sleep 0.2;
+  raise Fail
+
 type Message.t += Received of string
 
 (* rudimentary tcp echo server *)
 let server port socket =
   Logger.debug (fun f -> f "Started server on %d" port);
   process_flag (Trap_exit true);
-  let conn, addr = Net.Socket.accept socket |> Result.get_ok in
+  let conn, addr = Net.Tcp_listener.accept socket |> Result.get_ok in
   Logger.debug (fun f ->
       f "Accepted client %a (%a)" Net.Addr.pp addr Net.Socket.pp conn);
   let close () =
-    Net.Socket.close conn;
+    Net.Tcp_stream.close conn;
     Logger.debug (fun f ->
         f "Closed client %a (%a)" Net.Addr.pp addr Net.Socket.pp conn)
   in
@@ -22,59 +26,55 @@ let server port socket =
     Logger.debug (fun f ->
         f "Reading from client client %a (%a)" Net.Addr.pp addr Net.Socket.pp
           conn);
-    match Net.Socket.receive conn ~bufs with
+    match Net.Tcp_stream.receive conn ~bufs with
     | Ok len -> (
         Logger.debug (fun f -> f "Server received %d bytes" len);
         let bufs = IO.Iovec.sub ~len bufs in
-        match Net.Socket.send conn ~bufs with
+        match Net.Tcp_stream.send conn ~bufs with
         | Ok bytes ->
             Logger.debug (fun f -> f "Server sent %d bytes" bytes);
             echo ()
         | Error (`Closed | `Process_down | `Timeout) -> close ()
-        | Error (`Unix_error unix_err) ->
-            Logger.error (fun f ->
-                f "send unix error %s" (Unix.error_message unix_err));
+        | Error err ->
+            Logger.error (fun f -> f "error %a" IO.pp_err err);
             close ())
     | Error (`Closed | `Timeout | `Process_down) -> close ()
-    | Error (`Unix_error unix_err) ->
-        Logger.error (fun f ->
-            f "recv unix error %s" (Unix.error_message unix_err));
+    | Error err ->
+        Logger.error (fun f -> f "error %a" IO.pp_err err);
         close ()
   in
   echo ()
 
 let client server_port main =
   let addr = Net.Addr.(tcp loopback server_port) in
-  let conn = Net.Socket.connect addr |> Result.get_ok in
+  let conn = Net.Tcp_stream.connect addr |> Result.get_ok in
   Logger.debug (fun f -> f "Connected to server on %d" server_port);
   let bufs = IO.Iovec.from_string "hello world" in
   let rec send_loop n =
     if n = 0 then Logger.error (fun f -> f "client retried too many times")
     else
-      match Net.Socket.send ~bufs conn with
+      match Net.Tcp_stream.send ~bufs conn with
       | Ok bytes -> Logger.debug (fun f -> f "Client sent %d bytes" bytes)
       | Error `Closed -> Logger.debug (fun f -> f "connection closed")
       | Error (`Process_down | `Timeout) -> Logger.debug (fun f -> f "timeout")
       | Error (`Unix_error (ENOTCONN | EPIPE)) -> send_loop n
-      | Error (`Unix_error unix_err) ->
-          Logger.error (fun f ->
-              f "client unix error %s" (Unix.error_message unix_err));
+      | Error err ->
+          Logger.error (fun f -> f "error %a" IO.pp_err err);
           send_loop (n - 1)
   in
   send_loop 10_000;
 
   let bufs = IO.Iovec.create ~size:1024 () in
   let recv_loop () =
-    match Net.Socket.receive ~bufs conn with
+    match Net.Tcp_stream.receive ~bufs conn with
     | Ok bytes ->
         Logger.debug (fun f -> f "Client received %d bytes" bytes);
         bytes
     | Error (`Closed | `Timeout | `Process_down) ->
         Logger.error (fun f -> f "Server closed the connection");
         0
-    | Error (`Unix_error unix_err) ->
-        Logger.error (fun f ->
-            f "client unix error %s" (Unix.error_message unix_err));
+    | Error err ->
+        Logger.error (fun f -> f "error %a" IO.pp_err err);
         0
   in
   let len = recv_loop () in
@@ -93,26 +93,22 @@ let () =
   let client = spawn (fun () -> client port main) in
   monitor server;
   monitor client;
-  match receive ~after:100_000L () with
+  match receive ~after:10_000_000L () with
   | exception Receive_timeout ->
       Logger.error (fun f -> f "net_test: test timed out");
-
-      Stdlib.exit 1
+      fail ()
   | Received "hello world" ->
       Logger.info (fun f -> f "net_test: OK");
       sleep 0.1
   | Received other ->
       Logger.error (fun f -> f "net_test: bad payload: %S" other);
-
-      sleep 0.1;
-      raise Fail
+      fail ()
   | Process.Messages.Monitor (Process_down pid) ->
       let who = if Pid.equal pid server then "server" else "client" in
       Logger.error (fun f ->
           f "net_test: %s(%a) died unexpectedly" who Pid.pp pid);
-
-      raise Fail
+      fail ()
   | _ ->
       Logger.error (fun f -> f "net_test: unexpected message");
 
-      raise Fail
+      fail ()

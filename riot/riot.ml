@@ -1,9 +1,13 @@
 include Lib
 
-let shutdown () =
-  Logger.debug (fun f -> f "RIOT IS SHUTTING DOWN!");
+open Logger.Make (struct
+  let namespace = [ "riot" ]
+end)
+
+let shutdown ?(status = 0) () =
+  debug (fun f -> f "RIOT IS SHUTTING DOWN!");
   let pool = _get_pool () in
-  Scheduler.Pool.shutdown pool
+  Scheduler.Pool.shutdown pool status
 
 let run ?(rnd = Random.State.make_self_init ()) ?workers main =
   let max_workers = Int.max 0 (Stdlib.Domain.recommended_domain_count () - 2) in
@@ -27,7 +31,8 @@ let run ?(rnd = Random.State.make_self_init ()) ?workers main =
 
   Log.debug (fun f -> f "Riot runtime shutting down...");
   List.iter Stdlib.Domain.join domains;
-  Log.debug (fun f -> f "Riot runtime shutdown")
+  Log.debug (fun f -> f "Riot runtime shutdown");
+  Stdlib.exit pool.status
 
 let start ?rnd ?workers ~apps () =
   run ?rnd ?workers @@ fun () ->

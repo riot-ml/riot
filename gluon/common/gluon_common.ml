@@ -1,12 +1,3 @@
-type io_error =
-  [ `Exn of exn
-  | `Would_block
-  | `Unix_error of Unix.error
-  | `No_info
-  | `Connection_closed ]
-
-type 'ok io_result = ('ok, [ | io_error ]) result
-
 let ( let* ) = Result.bind
 let log = Format.printf
 
@@ -17,16 +8,19 @@ let rec syscall fn =
   | ok -> Ok ok
   | exception Unix.(Unix_error (EINTR, _, _)) -> syscall fn
   | exception Unix.(Unix_error ((EAGAIN | EWOULDBLOCK), _, _)) ->
-      log "syscall is try again\n";
+      (* log "syscall is try again\n"; *)
       Error `Would_block
   | exception Unix.(Unix_error (reason, _, _)) -> Error (`Unix_error reason)
 
 module Fd = struct
   type t = Unix.file_descr
 
+  let to_int fd = Obj.magic fd
   let make fd = fd
   let pp fmt t = Format.fprintf fmt "Fd(%d)" (Obj.magic t)
   let close t = Unix.close t
+  let seek = Unix.lseek
+  let equal a b = Int.equal (to_int a) (to_int b)
 end
 
 module Non_zero_int = struct

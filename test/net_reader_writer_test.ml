@@ -6,17 +6,17 @@ type Message.t += Received of string
 let server port socket =
   Logger.debug (fun f -> f "Started server on %d" port);
   process_flag (Trap_exit true);
-  let conn, addr = Net.Socket.accept socket |> Result.get_ok in
+  let conn, addr = Net.Tcp_listener.accept socket |> Result.get_ok in
   Logger.debug (fun f ->
       f "Accepted client %a (%a)" Net.Addr.pp addr Net.Socket.pp conn);
   let close () =
-    Net.Socket.close conn;
+    Net.Tcp_stream.close conn;
     Logger.debug (fun f ->
         f "Closed client %a (%a)" Net.Addr.pp addr Net.Socket.pp conn)
   in
 
-  let reader = Net.Socket.to_reader conn in
-  let writer = Net.Socket.to_writer conn in
+  let reader = Net.Tcp_stream.to_reader conn in
+  let writer = Net.Tcp_stream.to_writer conn in
 
   let bufs = IO.Iovec.with_capacity 1024 in
   let rec echo () =
@@ -32,25 +32,23 @@ let server port socket =
             Logger.debug (fun f -> f "Server sent %d bytes" bytes);
             echo ()
         | Error (`Closed | `Timeout | `Process_down) -> close ()
-        | Error (`Unix_error unix_err) ->
-            Logger.error (fun f ->
-                f "send unix error %s" (Unix.error_message unix_err));
+        | Error err ->
+            Logger.error (fun f -> f "error: %a" IO.pp_err err);
             close ())
-    | Error (`Closed | `Timeout | `Process_down) -> close ()
-    | Error (`Unix_error unix_err) ->
-        Logger.error (fun f ->
-            f "recv unix error %s" (Unix.error_message unix_err));
+    | Error err ->
+        Logger.error (fun f -> f "error: %a" IO.pp_err err);
         close ()
   in
+
   echo ()
 
 let client server_port main =
   let addr = Net.Addr.(tcp loopback server_port) in
-  let conn = Net.Socket.connect addr |> Result.get_ok in
+  let conn = Net.Tcp_stream.connect addr |> Result.get_ok in
   Logger.debug (fun f -> f "Connected to server on %d" server_port);
 
-  let reader = Net.Socket.to_reader conn in
-  let writer = Net.Socket.to_writer conn in
+  let reader = Net.Tcp_stream.to_reader conn in
+  let writer = Net.Tcp_stream.to_writer conn in
 
   let rec send_loop n bufs =
     if n = 0 then Logger.error (fun f -> f "client retried too many times")
@@ -60,9 +58,8 @@ let client server_port main =
       | Error (`Closed | `Timeout | `Process_down) ->
           Logger.debug (fun f -> f "connection closed")
       | Error (`Unix_error (ENOTCONN | EPIPE)) -> send_loop n bufs
-      | Error (`Unix_error unix_err) ->
-          Logger.error (fun f ->
-              f "client unix error %s" (Unix.error_message unix_err));
+      | Error err ->
+          Logger.error (fun f -> f "error: %a" IO.pp_err err);
           send_loop (n - 1) bufs
   in
   let bufs = IO.Iovec.from_string "hello " in
@@ -81,9 +78,8 @@ let client server_port main =
     | Error (`Closed | `Timeout | `Process_down) ->
         Logger.error (fun f -> f "Server closed the connection");
         data
-    | Error (`Unix_error unix_err) ->
-        Logger.error (fun f ->
-            f "client unix error %s" (Unix.error_message unix_err));
+    | Error err ->
+        Logger.error (fun f -> f "error: %a" IO.pp_err err);
         data
   in
   let data = recv_loop "" in

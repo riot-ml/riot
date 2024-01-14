@@ -1,9 +1,18 @@
 open Runtime.Import
 module P = Runtime.Core.Process
 
+open Logger.Make (struct
+  let namespace = [ "riot"; "process" ]
+end)
+
 type t = P.t
 type priority = P.priority = High | Normal | Low
 type process_flag = P.process_flag = Trap_exit of bool | Priority of priority
+
+let pp_flag fmt t =
+  match t with
+  | Trap_exit b -> Format.fprintf fmt "trap_exit <- %b" b
+  | Priority p -> Format.fprintf fmt "priority <- %s" (P.priority_to_string p)
 
 type exit_reason = P.exit_reason =
   | Normal
@@ -26,5 +35,14 @@ let rec await_name name =
       yield ();
       await_name name
 
-let monitor = monitor
-let demonitor = demonitor
+let flag flag =
+  trace (fun f -> f "%a updated flag: %a" Pid.pp (self ()) pp_flag flag);
+  process_flag flag
+
+let monitor pid =
+  trace (fun f -> f "%a is now monitoring %a" Pid.pp (self ()) Pid.pp pid);
+  monitor pid
+
+let demonitor pid =
+  trace (fun f -> f "%a is no longer monitoring %a" Pid.pp (self ()) Pid.pp pid);
+  demonitor pid

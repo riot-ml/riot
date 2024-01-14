@@ -4,14 +4,7 @@ type kevent
 type kqueue = Fd.t
 type event = { fd : Fd.t; filter : int; flags : int; token : int }
 
-module FFI : sig
-  val fcntl : kqueue -> int -> int -> int io_result
-  val kevent_register : kqueue -> event array -> int array -> unit io_result
-  val kqueue : unit -> kqueue io_result
-
-  val kevent :
-    max_events:int -> timeout:int64 -> kqueue -> event array io_result
-end = struct
+module FFI = struct
   external gluon_unix_kevent :
     max_events:int -> timeout:int64 -> kqueue -> event array
     = "gluon_unix_kevent"

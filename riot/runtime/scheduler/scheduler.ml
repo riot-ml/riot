@@ -195,27 +195,64 @@ module Scheduler = struct
       in
       go fuel
 
-  let handle_syscall k pool (_sch : t) (proc : Process.t) name interest source =
+  let handle_syscall k pool (sch : t) (proc : Process.t) name interest source
+      timeout =
     let open Proc_state in
     Log.debug (fun f -> f "handle_syscall %s with %a" name Process.pp proc);
 
-    match Process.get_ready_token proc with
-    | Some (token, _source) ->
-        Log.debug (fun f ->
-            f "syscall(%s) %a -> %a is ready" name Pid.pp proc.pid
-              Gluon.Token.pp token);
-        k (Continue ())
-    | None ->
-        let token = Gluon.Token.next () in
-        Log.debug (fun f ->
-            f "syscall(%s) %a -> registering %a" name Pid.pp proc.pid
-              Gluon.Token.pp token);
-        Dashmap.replace pool.io_scheduler.procs token proc;
-        Process.add_wait_token proc token source;
-        Process.mark_as_awaiting_io proc name token source;
-        Gluon.Poll.register pool.io_scheduler.poll token interest source
-        |> Result.get_ok;
-        k Suspend
+    let should_timeout =
+      match Process.syscall_timeout proc with
+      | Some timeout -> Timer_wheel.is_finished sch.timers timeout
+      | None -> false
+    in
+
+    if should_timeout then (
+      Log.debug (fun f -> f "Process %a: timed out" Pid.pp (Process.pid proc));
+      Process.syscall_timeout proc
+      |> Option.iter (Timer_wheel.clear_timer sch.timers);
+      Process.clear_syscall_timeout proc;
+      k (Discontinue Process.Exn.Syscall_timeout))
+    else
+      match Process.get_ready_token proc with
+      | Some (token, _source) ->
+          Log.debug (fun f ->
+              f "syscall(%s) %a -> %a is ready" name Pid.pp proc.pid
+                Gluon.Token.pp token);
+          (match Process.syscall_timeout proc with
+          | Some timeout ->
+              Timer_wheel.clear_timer sch.timers timeout;
+              Process.clear_syscall_timeout proc
+          | None -> ());
+          k (Continue ())
+      | None ->
+          let token = Gluon.Token.next () in
+          Log.debug (fun f ->
+              f "syscall(%s) %a -> registering %a" name Pid.pp proc.pid
+                Gluon.Token.pp token);
+          Dashmap.replace pool.io_scheduler.procs token proc;
+          Process.add_wait_token proc token source;
+          Process.mark_as_awaiting_io proc name token source;
+          Gluon.Poll.register pool.io_scheduler.poll token interest source
+          |> Result.get_ok;
+
+          (* once we've set up the poll, we can set up a timeout *)
+          (match timeout with
+          | `infinity -> ()
+          | `after s ->
+              Log.debug (fun f ->
+                  f "Process %a: creating syscall timeout" Pid.pp
+                    (Process.pid proc));
+              let timeout =
+                Timer_wheel.make_timer sch.timers s `one_off (fun () ->
+                    Log.debug (fun f ->
+                        f "Process %a: TIMEOUT" Pid.pp (Process.pid proc));
+                    if Process.is_alive proc then (
+                      Process.mark_as_runnable proc;
+                      awake_process pool proc))
+              in
+              Process.set_syscall_timeout proc timeout);
+
+          k Suspend
 
   let perform pool (sch : t) (proc : Process.t) =
     let open Proc_state in
@@ -223,8 +260,8 @@ module Scheduler = struct
     let perform : type a b. (a, b) step_callback =
      fun k eff ->
       match eff with
-      | Syscall { name; interest; source } ->
-          handle_syscall k pool sch proc name interest source
+      | Syscall { name; interest; source; timeout } ->
+          handle_syscall k pool sch proc name interest source timeout
       | Receive { ref; timeout } -> handle_receive k pool sch proc ref timeout
       | Yield ->
           Log.trace (fun f ->
@@ -373,8 +410,7 @@ module Scheduler = struct
            | None -> ()
          done;
 
-         tick_timers pool sch;
-         if Proc_queue.is_empty sch.run_queue then Unix.sleepf 0.00001
+         tick_timers pool sch
        done
      with Exit -> ());
     Log.trace (fun f -> f "< exit worker loop")

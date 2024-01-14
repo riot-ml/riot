@@ -107,11 +107,11 @@ module Tcp_stream = struct
           Ok len
       | Error `Would_block ->
           trace (fun f -> f "waiting on %a to receive" Socket.pp t);
-          syscall "receive" Interest.readable (to_source t) @@ fun () ->
-          receive_loop ~bufs t
+          syscall ?timeout "receive" Interest.readable (to_source t)
+          @@ fun () -> receive_loop ~bufs t
       | Error err -> Error err
     in
-    with_timeout ?timeout @@ fun () -> receive_loop ~bufs t
+    receive_loop ~bufs t
 
   let send ?timeout ~bufs t =
     let rec send_loop ~bufs t =
@@ -122,11 +122,11 @@ module Tcp_stream = struct
           Ok bytes
       | Error `Would_block ->
           trace (fun f -> f "retrying");
-          syscall "send" Interest.writable (to_source t) @@ fun () ->
+          syscall ?timeout "send" Interest.writable (to_source t) @@ fun () ->
           send_loop ~bufs t
       | Error err -> Error err
     in
-    with_timeout ?timeout @@ fun () -> send_loop ~bufs t
+    send_loop ~bufs t
 
   let pp_err fmt = function
     | `Timeout -> Format.fprintf fmt "Timeout"

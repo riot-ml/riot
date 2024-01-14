@@ -12,8 +12,11 @@ let _get_proc pid =
 
 let self () = Scheduler.get_current_process_pid ()
 
-let syscall name interest source cb =
-  Effect.perform (Proc_effect.Syscall { name; interest; source });
+let syscall ?timeout name interest source cb =
+  let timeout =
+    match timeout with None -> `infinity | Some after -> `after after
+  in
+  Effect.perform (Proc_effect.Syscall { name; interest; source; timeout });
   cb ()
 
 let receive ?after ?ref () =

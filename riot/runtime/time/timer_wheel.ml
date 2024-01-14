@@ -66,6 +66,7 @@ module TimeHeap = Min_heap.Make (Timer)
 
 type t = {
   mutable timers : TimeHeap.t;
+  mutable timer_count : int;
   ids : Timer.t Ref.Map.t;
   mutable last_t : Mtime.t; [@warning "-69"]
 }
@@ -75,9 +76,10 @@ let create () =
     timers = TimeHeap.empty;
     ids = Ref.Map.create ();
     last_t = Mtime_clock.now ();
+    timer_count = 0;
   }
 
-let can_tick t = TimeHeap.size t.timers > 0
+let can_tick t = t.timer_count > 0
 
 let is_finished t tid =
   match Ref.Map.get t.ids tid with
@@ -87,16 +89,19 @@ let is_finished t tid =
 let remove_timer t timer =
   let timers = Ref.Map.get_all t.ids timer in
   List.iter Timer.mark_as_cancelled timers;
+  t.timer_count <- t.timer_count - 1;
   Ref.Map.remove_by t.ids (fun (k, _) -> Ref.equal k timer)
 
 let clear_timer t tid =
   let timer = Ref.Map.get t.ids tid in
   Option.iter Timer.mark_as_cancelled timer;
+  t.timer_count <- t.timer_count - 1;
   Ref.Map.remove t.ids tid
 
 let make_timer t time mode fn =
   let timer = Timer.make time mode fn in
   t.timers <- TimeHeap.insert timer t.timers;
+  t.timer_count <- t.timer_count + 1;
   Ref.Map.insert t.ids timer.id timer;
   Log.debug (fun f -> f "Created timer %a" Timer.pp timer);
   timer.id
@@ -132,20 +137,22 @@ let run_timer now timer =
       Log.debug (fun f -> f "no timeout yet, continuing");
       Some timer)
 
-let rec run_timers now timers =
+let rec run_timers t now timers =
   match TimeHeap.take timers with
   | None -> TimeHeap.empty
   | Some (_, timer) when Mtime.is_later timer.timeouts_at ~than:now -> timers
   | Some (timers', timer) -> (
       match run_timer now timer with
-      | None -> run_timers now timers'
+      | None ->
+          t.timer_count <- t.timer_count - 1;
+          run_timers t now timers'
       | Some timer ->
           let timers'' = TimeHeap.insert timer timers' in
-          run_timers now timers'')
+          run_timers t now timers'')
 
 let tick t =
   let now = Mtime_clock.now () in
   Log.trace (fun f -> f "Started Ticking timers %a" Mtime.pp now);
-  t.timers <- run_timers now t.timers;
+  t.timers <- run_timers t now t.timers;
   t.last_t <- now;
   Log.trace (fun f -> f "Done Ticking timers %a" Mtime.pp (Mtime_clock.now ()))

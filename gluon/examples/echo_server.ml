@@ -22,7 +22,7 @@ let run () =
   let* poll = Poll.make () in
   let* server = Net.Tcp_listener.bind addr in
 
-  let server_token = Token.next () in
+  let server_token = Token.make 2112 in
   let* () =
     Poll.register poll server_token Interest.readable
       (Net.Tcp_listener.to_source server)
@@ -32,10 +32,11 @@ let run () =
     Hashtbl.create 1024
   in
 
+  let conn_id = Atomic.make 3000 in
   let accept () =
-    (* log "accepting connection\n%!"; *)
-    let* conn, _adddr = Net.Tcp_listener.accept server in
-    let token = Token.next () in
+    log "accepting connection\n%!";
+    let* conn, _addr = Net.Tcp_listener.accept server in
+    let token = Token.make (Atomic.fetch_and_add conn_id 1) in
     (* log "accepted %a with %a\n%!" Net.Addr.pp addr Token.pp token; *)
     let* () =
       Poll.register poll token

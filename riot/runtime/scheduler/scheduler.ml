@@ -203,7 +203,9 @@ module Scheduler = struct
       | None -> false
     in
 
-    Log.debug (fun f -> f "handle_syscall %s with %a (timeout? %b)" name Process.pp proc should_timeout);
+    Log.debug (fun f ->
+        f "handle_syscall %s with %a (timeout? %b)" name Process.pp proc
+          should_timeout);
 
     if should_timeout then (
       Log.debug (fun f -> f "Process %a: timed out" Pid.pp (Process.pid proc));

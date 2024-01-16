@@ -11,7 +11,7 @@ open Gluon_common
 
 type kevent
 type kqueue = Fd.t
-type event = { fd : Fd.t; filter : int; flags : int; token : int64 }
+type event = { fd : Fd.t; filter : int; flags : int; token : int }
 
 module FFI = struct
   external gluon_unix_kevent :
@@ -19,22 +19,23 @@ module FFI = struct
     = "gluon_unix_kevent"
 
   let kevent ~max_events ~timeout kq =
-    syscall @@ fun () -> gluon_unix_kevent ~max_events ~timeout kq
+    syscall @@ fun () -> Ok (gluon_unix_kevent ~max_events ~timeout kq)
 
   external gluon_unix_kqueue : unit -> kqueue = "gluon_unix_kqueue"
 
-  let kqueue () = syscall @@ fun () -> gluon_unix_kqueue ()
+  let kqueue () = syscall @@ fun () -> Ok (gluon_unix_kqueue ())
 
   external gluon_unix_fcntl : Fd.t -> cmd:int -> arg:int -> int
     = "gluon_unix_fcntl"
 
-  let fcntl fd cmd arg = syscall @@ fun () -> gluon_unix_fcntl fd ~cmd ~arg
+  let fcntl fd cmd arg = syscall @@ fun () -> Ok (gluon_unix_fcntl fd ~cmd ~arg)
 
   external gluon_unix_kevent_register :
     kqueue -> event array -> int array -> unit = "gluon_unix_kevent_register"
 
   let kevent_register fd changes ignored_errors =
-    syscall @@ fun () -> gluon_unix_kevent_register fd changes ignored_errors
+    syscall @@ fun () ->
+    Ok (gluon_unix_kevent_register fd changes ignored_errors)
 end
 
 module Event = struct
@@ -43,7 +44,7 @@ module Event = struct
   let make fd ~filter ~flags ~token = { fd; filter; flags; token }
   let filter t = t.filter
   let flags t = t.flags
-  let token t = Token.of_int t.token
+  let token t = Token.make t.token
   let is_readable t = filter t = Libc.evfilt_read
   let is_writable t = filter t = Libc.evfilt_write
   let is_error t = flags t land Libc.ev_error != 0
@@ -69,7 +70,7 @@ module Selector = struct
     Ok events
 
   let register t ~fd ~token ~interest =
-    let token = Token.to_int token in
+    let token = Token.unsafe_to_int token in
     let flags = Libc.(ev_clear lor ev_receipt lor ev_add) in
     let changes = ref [] in
 
@@ -88,7 +89,7 @@ module Selector = struct
     FFI.kevent_register t.kq changes [| Libc.epipe |]
 
   let reregister t ~fd ~token ~interest =
-    let token = Token.to_int token in
+    let token = Token.unsafe_to_int token in
     let flags = Libc.(ev_clear lor ev_receipt) in
 
     let write_flags =
@@ -115,8 +116,8 @@ module Selector = struct
     let flags = Libc.(ev_delete lor ev_receipt) in
     let changes =
       [|
-        Event.make fd ~filter:Libc.evfilt_write ~flags ~token:0L;
-        Event.make fd ~filter:Libc.evfilt_read ~flags ~token:0L;
+        Event.make fd ~filter:Libc.evfilt_write ~flags ~token:0;
+        Event.make fd ~filter:Libc.evfilt_read ~flags ~token:0;
       |]
     in
     (* log "deregistering %a\r\n%!" Fd.pp fd; *)

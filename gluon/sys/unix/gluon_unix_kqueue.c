@@ -20,7 +20,9 @@ value kqueue_event_to_record(struct kevent *kevent) {
   Store_field(event, 0, Val_int(kevent->ident));
   Store_field(event, 1, Val_int(kevent->filter));
   Store_field(event, 2, Val_int(kevent->flags));
-  Store_field(event, 3, caml_copy_int64((int64_t)kevent->udata));
+
+  value *stored_value = (value *)(intptr_t)kevent->udata;
+  Store_field(event, 3, *stored_value);
   CAMLreturn(event);
 }
 
@@ -116,7 +118,11 @@ CAMLprim value gluon_unix_kevent_register(value fd_val, value events_val, value 
         int fd = Int_val(Field(field, 0));
         int filter = Int_val(Field(field, 1));
         int flags = Int_val(Field(field, 2)); 
-        int token = Int64_val(Field(field, 3));
+
+        value* token = malloc (sizeof (value*));
+        *token = Field(field, 3);
+        caml_register_generational_global_root(token);
+
         // fprintf(stderr, "Record %d: ident=%lu, filter=%d, flags=%u, udata=%p\n", i, fd, filter, flags, token);
         EV_SET(&changes[i], fd, filter, flags, 0, 0, (void *)(int64_t)(token));
         // fprintf(stderr, "Event %d: ident=%lu, filter=%d, flags=%u, fflags=%u, data=%ld, udata=%p\n",

@@ -8,7 +8,7 @@ module Token = struct
   let unsafe_to_int t : int = unsafe_to_value t
   let hash t = Int.hash (unsafe_to_int t)
 
-  let equal ?eq a b = 
+  let equal ?eq a b =
     match eq with
     | Some f -> f (unsafe_to_value a) (unsafe_to_value b)
     | None -> Int.equal (unsafe_to_int a) (unsafe_to_int b)

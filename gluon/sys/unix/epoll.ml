@@ -25,8 +25,8 @@ module FFI = struct
 
   let epoll_ctl epoll ~flags ~fd event =
     syscall @@ fun () ->
-      try Ok (epoll_ctl epoll ~flags ~fd event)
-      with Unix.Unix_error (Unix.EEXIST, _, _) -> Ok ()
+    try Ok (epoll_ctl epoll ~flags ~fd event)
+    with Unix.Unix_error (Unix.EEXIST, _, _) -> Ok ()
 end
 
 module Event = struct

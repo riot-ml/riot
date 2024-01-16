@@ -9,7 +9,7 @@ let close = Fd.close
 
 let read fd ?(pos = 0) ?len buf =
   let len = Option.value len ~default:(Bytes.length buf - 1) in
-  syscall @@ fun () -> Ok( UnixLabels.read fd ~buf ~pos ~len)
+  syscall @@ fun () -> Ok (UnixLabels.read fd ~buf ~pos ~len)
 
 let write fd ?(pos = 0) ?len buf =
   let len = Option.value len ~default:(Bytes.length buf - 1) in

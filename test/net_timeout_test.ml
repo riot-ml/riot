@@ -19,7 +19,7 @@ let () =
 
   let bufs = IO.Iovec.create ~size:12 () in
   (match Net.Tcp_stream.receive ~timeout:10L ~bufs socket with
-  | Error `Timeout -> Logger.debug (fun f -> f "receive timeout works")
+  | exception Syscall_timeout -> Logger.debug (fun f -> f "receive timeout works")
   | Ok _ ->
       Logger.error (fun f -> f "receive timeout received something?");
       sleep 0.2;
@@ -33,7 +33,7 @@ let () =
   let bytes = Bytes.make (1_024 * 1_024 * 1_024) 'a' in
   let bufs = IO.Iovec.of_bytes bytes in
   (match Net.Tcp_stream.send ~timeout:10L ~bufs socket with
-  | Error `Timeout -> Logger.debug (fun f -> f "send timeout works")
+  | exception Receive_timeout -> Logger.debug (fun f -> f "send timeout works")
   | Ok len ->
       Logger.error (fun f -> f "send timeout sent something?: %d bytes" len);
       sleep 0.2;

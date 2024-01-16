@@ -21,7 +21,7 @@ let () =
   let buf = IO.Bytes.with_capacity 10 in
   let reader = Net.Tcp_stream.to_reader ~timeout:10L socket in
   (match IO.read ~buf reader with
-  | Error `Timeout -> Logger.debug (fun f -> f "receive timeout works")
+  | exception Syscall_timeout-> Logger.debug (fun f -> f "receive timeout works")
   | Ok _ ->
       Logger.error (fun f -> f "receive timeout received something?");
       sleep 0.2;
@@ -34,7 +34,7 @@ let () =
   let bufs = IO.Iovec.with_capacity 1024 in
   let writer = Net.Tcp_stream.to_writer ~timeout:10L socket in
   (match IO.write_owned_vectored ~bufs writer with
-  | Error `Timeout -> Logger.debug (fun f -> f "send timeout works")
+  | exception Syscall_timeout -> Logger.debug (fun f -> f "send timeout works")
   | Ok _ ->
       Logger.error (fun f -> f "send timeout sent something?");
       sleep 0.2;

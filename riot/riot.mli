@@ -253,6 +253,7 @@ val wait_pids : Pid.t list -> unit
 (** Await all processes in the list to termimante. *)
 
 exception Receive_timeout
+exception Syscall_timeout
 
 val receive : ?after:int64 -> ?ref:unit Ref.t -> unit -> Message.t
 (** [receive ()] will return the first message in the process mailbox.

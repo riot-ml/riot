@@ -197,13 +197,13 @@ module Scheduler = struct
   let handle_syscall k pool (sch : t) (proc : Process.t) name interest source
       timeout =
     let open Proc_state in
-    Log.debug (fun f -> f "handle_syscall %s with %a" name Process.pp proc);
-
     let should_timeout =
       match Process.syscall_timeout proc with
       | Some timeout -> Timer_wheel.is_finished sch.timers timeout
       | None -> false
     in
+
+    Log.debug (fun f -> f "handle_syscall %s with %a (timeout? %b)" name Process.pp proc should_timeout);
 
     if should_timeout then (
       Log.debug (fun f -> f "Process %a: timed out" Pid.pp (Process.pid proc));

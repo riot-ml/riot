@@ -26,9 +26,11 @@ type state = {
 }
 [@@warning "-69"]
 
+let start_child (Child { start_link; initial_state }) =
+  start_link initial_state |> Result.get_ok
+
 let init_child spec =
-  let (Child { start_link; initial_state }) = spec in
-  let pid = start_link initial_state |> Result.get_ok in
+  let pid = start_child spec in
   trace (fun f ->
       let this = self () in
       f "Supervisor %a started child %a" Pid.pp this Pid.pp pid);

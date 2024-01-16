@@ -401,6 +401,8 @@ module Supervisor : sig
     ('state -> (Pid.t, [> `Exit of exn ]) result) -> 'state -> child_spec
   (** Create a new child specification to be used with [start_link] *)
 
+  val start_child : child_spec -> Pid.t
+
   val start_link :
     ?strategy:strategy ->
     ?restart_limit:int ->

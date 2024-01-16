@@ -413,6 +413,19 @@ module Supervisor : sig
   (** Describe and start a supervisor *)
 end
 
+module Dynamic_supervisor : sig
+val child_spec :
+  ?max_children:int ->
+  name:string ->
+  unit ->
+  Supervisor.child_spec
+
+val start_child :
+  Pid.t ->
+  Supervisor.child_spec ->
+  (Pid.t, [> `Max_children ]) result
+end
+
 (* Telemetry *)
 
 module Telemetry : sig

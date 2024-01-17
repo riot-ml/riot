@@ -23,6 +23,8 @@ value kqueue_event_to_record(struct kevent *kevent) {
 
   value *stored_value = (value *)(intptr_t)kevent->udata;
   Store_field(event, 3, *stored_value);
+  caml_remove_generational_global_root(stored_value);
+
   CAMLreturn(event);
 }
 

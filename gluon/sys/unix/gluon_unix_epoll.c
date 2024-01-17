@@ -32,6 +32,7 @@ CAMLprim value gluon_unix_epoll_wait(value v_timeout, value v_max_events, value 
     CAMLparam3(v_timeout, v_max_events, v_epoll);
     CAMLlocal1(event_array);
     int max_events = Int_val(v_max_events);
+
     struct epoll_event *events = malloc(sizeof(struct epoll_event) * max_events);
     if (events == NULL) caml_failwith("Memory allocation failed");
     
@@ -43,12 +44,17 @@ CAMLprim value gluon_unix_epoll_wait(value v_timeout, value v_max_events, value 
         uerror("epoll_wait", Nothing);
     }
 
-    struct epoll_event **event_ptrs = malloc((ready + 1) * sizeof(struct epoll_event *));
-    for (int i = 0; i < ready; i++) {
+    if (ready > 0) {
+      struct epoll_event **event_ptrs = malloc((ready + 1) * sizeof(struct epoll_event *));
+      for (int i = 0; i < ready; i++) {
         event_ptrs[i] = &events[i];
+      }
+      event_ptrs[ready] = NULL;
+      event_array = caml_alloc_array(epoll_event_to_record, event_ptrs);
+      free(event_ptrs);
+    } else {
+      event_array = Atom(0);
     }
-    event_ptrs[ready] = NULL;
-    event_array = caml_alloc_array(epoll_event_to_record, event_ptrs);
 
     free(events);
     CAMLreturn(event_array);

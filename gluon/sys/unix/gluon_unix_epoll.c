@@ -23,6 +23,8 @@ value epoll_event_to_record(struct epoll_event *eevent) {
   value *stored_value = (value *)(intptr_t)eevent->data.u64;
   Store_field(event, 0, *stored_value);
   Store_field(event, 1, Val_int(eevent->events));
+  caml_remove_generational_global_root(stored_value);
+  free(stored_value);
   CAMLreturn(event);
 }
 

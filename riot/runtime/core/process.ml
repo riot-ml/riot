@@ -57,7 +57,6 @@ type t = {
   links : Pid.t list Atomic.t;
   monitors : unit Pid.Map.t;
   monitored_by : unit Pid.Map.t;
-  wait_tokens : (Gluon.Token.t, Gluon.Source.t) Util.Dashmap.t;
   ready_tokens : (Gluon.Token.t * Gluon.Source.t) Util.Lf_queue.t;
   recv_timeout : unit Ref.t option Atomic.t;
   syscall_timeout : unit Ref.t option Atomic.t;
@@ -67,7 +66,6 @@ type t = {
 let make sid fn =
   let cont = Proc_state.make fn Proc_effect.Yield in
   let pid = Pid.next () in
-  Log.debug (fun f -> f "Making process with pid: %a" Pid.pp pid);
   let proc =
     {
       pid;
@@ -75,18 +73,20 @@ let make sid fn =
       cont;
       state = Atomic.make Runnable;
       links = Atomic.make [];
-      monitors = Pid.Map.create ();
-      monitored_by = Pid.Map.create ();
+      monitors = Pid.Map.create ~size:0 ();
+      monitored_by = Pid.Map.create ~size:0 ();
       mailbox = Mailbox.create ();
       save_queue = Mailbox.create ();
       read_save_queue = false;
       flags = default_flags ();
-      wait_tokens = Util.Dashmap.create ();
       ready_tokens = Util.Lf_queue.create ();
       recv_timeout = Atomic.make None;
       syscall_timeout = Atomic.make None;
     }
   in
+  Log.debug (fun f ->
+      f "Making process with pid=%a and size=%d" Pid.pp pid
+        (Obj.repr proc |> Obj.reachable_words));
   proc
 
 let rec pp ppf t =
@@ -149,12 +149,6 @@ let is_main t = Pid.equal (pid t) Pid.main
 
 let has_empty_mailbox t =
   Mailbox.is_empty t.save_queue && Mailbox.is_empty t.mailbox
-
-let is_waiting_on_token t token = Util.Dashmap.get t.wait_tokens token
-let remove_wait_token t token = Util.Dashmap.remove t.wait_tokens token
-
-let add_wait_token t token source =
-  Util.Dashmap.replace t.wait_tokens token source
 
 let add_ready_token t token source =
   Util.Lf_queue.push t.ready_tokens (token, source)

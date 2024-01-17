@@ -84,7 +84,9 @@ CAMLprim value gluon_unix_readv(value v_fd, value v_bufs) {
 
   fill_iov(iov, v_bufs);
 
+  caml_enter_blocking_section();
   r = readv(Int_val(v_fd), iov, n_bufs);
+  caml_leave_blocking_section();
   if (r < 0) uerror("readv", Nothing);
 
   CAMLreturn(Val_long(r));
@@ -98,7 +100,9 @@ CAMLprim value gluon_unix_writev(value v_fd, value v_bufs) {
 
   fill_iov(iov, v_bufs);
 
+  caml_enter_blocking_section();
   r = writev(Int_val(v_fd), iov, n_bufs);
+  caml_leave_blocking_section();
   if (r < 0) uerror("writev", Nothing);
 
   CAMLreturn(Val_long(r));

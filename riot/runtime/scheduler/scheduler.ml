@@ -377,9 +377,13 @@ module Scheduler = struct
         Log.trace (fun f -> f "Process %a finished" Pid.pp proc.pid);
         add_to_run_queue sch proc
 
+  let handle_init_proc pool sch proc =
+    Process.init proc;
+    handle_run_proc pool sch proc
+
   let step_process pool (sch : t) (proc : Process.t) =
-    !Tracer.tracer_proc_run (sch.uid |> Scheduler_uid.to_int) proc;
     match Process.state proc with
+    | Uninitialized -> handle_init_proc pool sch proc
     | Finalized -> failwith "finalized processes should never be stepped on"
     | Waiting_io _ -> ()
     | Waiting_message -> handle_wait_proc pool sch proc

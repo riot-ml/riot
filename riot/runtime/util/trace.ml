@@ -17,7 +17,9 @@ let span name event =
   let finish () = write span Type.End in
   (start, finish)
 
-let scheduler_loop_span = register "riot.scheduler.loop" Scheduler_loop Type.span
+let scheduler_loop_span =
+  register "riot.scheduler.loop" Scheduler_loop Type.span
+
 let scheduler_loop_begin () = write scheduler_loop_span Type.Begin
 let scheduler_loop_end () = write scheduler_loop_span Type.End
 

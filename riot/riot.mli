@@ -301,8 +301,6 @@ val start :
     are all terminated. Only then will the runtime shutdown.
 *)
 
-val trace_send : (Pid.t -> Process.t -> Message.t -> unit) -> unit
-val trace_proc_run : (int -> Process.t -> unit) -> unit
 
 (* Generic Servers *)
 

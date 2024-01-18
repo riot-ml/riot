@@ -96,6 +96,7 @@ module Scheduler = struct
 
   let handle_receive k pool sch (proc : Process.t) (ref : 'a Ref.t option)
       timeout =
+    Trace.handle_receive_span @@ fun () ->
     let open Proc_state in
     (* When a timeout is specified, we want to create it in the timer
        wheel, and save the timer reference in the process.
@@ -196,6 +197,7 @@ module Scheduler = struct
 
   let handle_syscall k pool (sch : t) (proc : Process.t) name interest source
       timeout =
+    Trace.handle_syscall_span @@ fun () ->
     let open Proc_state in
     let should_timeout =
       match Process.syscall_timeout proc with
@@ -274,6 +276,7 @@ module Scheduler = struct
     { perform }
 
   let handle_wait_proc _pool sch proc =
+    Trace.handle_wait_proc_span @@ fun () ->
     if Process.has_messages proc then (
       Process.mark_as_runnable proc;
       Log.debug (fun f -> f "Waking up process %a" Pid.pp proc.pid);
@@ -284,6 +287,7 @@ module Scheduler = struct
       Log.trace (fun f -> f "sleep_set: %d" (Proc_set.size sch.sleep_set)))
 
   let handle_exit_proc pool (_sch : t) proc (reason : Process.exit_reason) =
+    Trace.handle_exit_proc_span @@ fun () ->
     Log.debug (fun f -> f "unregistering process %a" Pid.pp (Process.pid proc));
 
     Process.consume_ready_tokens proc (fun (_token, source) ->
@@ -380,9 +384,35 @@ module Scheduler = struct
     | Waiting_io _ -> ()
     | Waiting_message -> handle_wait_proc pool sch proc
     | Exited reason -> handle_exit_proc pool sch proc reason
-    | Running | Runnable -> handle_run_proc pool sch proc
+    | Running | Runnable ->
+        Trace.handle_run_proc_start ();
+        handle_run_proc pool sch proc;
+        Trace.handle_run_proc_finish ()
 
   let tick_timers _pool (sch : t) = Timer_wheel.tick sch.timers
+
+  let run_loop pool (sch : t) =
+    Trace.scheduler_loop_begin ();
+    Mutex.lock sch.idle_mutex;
+    while
+      (not pool.stop)
+      && Proc_queue.is_empty sch.run_queue
+      && not (Timer_wheel.can_tick sch.timers)
+    do
+      Condition.wait sch.idle_condition sch.idle_mutex
+    done;
+    Mutex.unlock sch.idle_mutex;
+
+    for _ = 0 to Int.min (Proc_queue.size sch.run_queue) 1_000 do
+      match Proc_queue.next sch.run_queue with
+      | Some proc ->
+          set_current_process_pid proc.pid;
+          step_process pool sch proc
+      | None -> ()
+    done;
+
+    tick_timers pool sch;
+    Trace.scheduler_loop_end ()
 
   let run pool (sch : t) () =
     Log.trace (fun f -> f "> enter worker loop");
@@ -390,26 +420,7 @@ module Scheduler = struct
     (try
        while true do
          if pool.stop then raise_notrace Exit;
-
-         Mutex.lock sch.idle_mutex;
-         while
-           (not pool.stop)
-           && Proc_queue.is_empty sch.run_queue
-           && not (Timer_wheel.can_tick sch.timers)
-         do
-           Condition.wait sch.idle_condition sch.idle_mutex
-         done;
-         Mutex.unlock sch.idle_mutex;
-
-         for _ = 0 to Int.min (Proc_queue.size sch.run_queue) 1_000 do
-           match Proc_queue.next sch.run_queue with
-           | Some proc ->
-               set_current_process_pid proc.pid;
-               step_process pool sch proc
-           | None -> ()
-         done;
-
-         tick_timers pool sch
+         run_loop pool sch
        done
      with Exit -> ());
     Log.trace (fun f -> f "< exit worker loop")
@@ -434,6 +445,7 @@ module Io_scheduler = struct
     }
 
   let poll_io pool io =
+    Trace.poll_io_span @@ fun () ->
     let events = Gluon.Poll.poll io.poll |> Result.get_ok in
     List.iter
       (fun event ->

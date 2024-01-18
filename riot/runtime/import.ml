@@ -1,7 +1,5 @@
 open Core
 
-let trace_send = Scheduler.Tracer.trace_send
-let trace_proc_run = Scheduler.Tracer.trace_proc_run
 let _get_pool = Scheduler.Pool.get_pool
 let _get_sch = Scheduler.get_current_scheduler
 

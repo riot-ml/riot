@@ -286,7 +286,7 @@ module Scheduler = struct
       Log.debug (fun f -> f "Hibernated process %a" Pid.pp proc.pid);
       Log.trace (fun f -> f "sleep_set: %d" (Proc_set.size sch.sleep_set)))
 
-  let handle_exit_proc pool (_sch : t) proc (reason : Process.exit_reason) =
+  let handle_exit_proc pool (sch : t) proc (reason : Process.exit_reason) =
     Trace.handle_exit_proc_span @@ fun () ->
     Log.debug (fun f -> f "unregistering process %a" Pid.pp (Process.pid proc));
 
@@ -343,7 +343,12 @@ module Scheduler = struct
             Log.debug (fun f ->
                 f "marking linked %a as dead" Pid.pp linked_proc.pid);
             awake_process pool linked_proc)
-      linked_pids
+     linked_pids;
+
+    Proc_table.remove pool.processes proc.pid;
+    Proc_registry.remove pool.registry proc.pid;
+    Proc_queue.remove sch.run_queue proc;
+    Log.trace (fun f -> f "terminated %a" Pid.pp proc.pid)
 
   let handle_run_proc pool (sch : t) proc =
     Log.trace (fun f -> f "Running process %a" Process.pp proc);

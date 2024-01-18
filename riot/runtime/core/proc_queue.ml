@@ -44,3 +44,5 @@ let next t =
       Proc_set.remove t.alive proc;
       Some proc
   | None -> None
+
+let remove t proc = Proc_set.remove t.alive proc

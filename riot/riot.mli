@@ -166,7 +166,7 @@ module Process : sig
   *)
 
   val flag : process_flag -> unit
-  val is_alive : Pid.t -> unit
+  val is_alive : Pid.t -> bool
 end
 
 (** A Riot `Application` can be used to encapsulate functionality that must

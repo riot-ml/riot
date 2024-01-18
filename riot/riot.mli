@@ -166,6 +166,7 @@ module Process : sig
   *)
 
   val flag : process_flag -> unit
+  val is_alive : Pid.t -> unit
 end
 
 (** A Riot `Application` can be used to encapsulate functionality that must
@@ -414,16 +415,11 @@ module Supervisor : sig
 end
 
 module Dynamic_supervisor : sig
-val child_spec :
-  ?max_children:int ->
-  name:string ->
-  unit ->
-  Supervisor.child_spec
+  val child_spec :
+    ?max_children:int -> name:string -> unit -> Supervisor.child_spec
 
-val start_child :
-  Pid.t ->
-  Supervisor.child_spec ->
-  (Pid.t, [> `Max_children ]) result
+  val start_child :
+    Pid.t -> Supervisor.child_spec -> (Pid.t, [> `Max_children ]) result
 end
 
 (* Telemetry *)

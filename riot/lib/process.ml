@@ -46,3 +46,5 @@ let monitor pid =
 let demonitor pid =
   trace (fun f -> f "%a is no longer monitoring %a" Pid.pp (self ()) Pid.pp pid);
   demonitor pid
+
+let is_alive pid = is_process_alive pid

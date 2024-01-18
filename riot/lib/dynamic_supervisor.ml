@@ -51,4 +51,3 @@ let start_child pid spec =
   match[@warning "-8"] receive ~ref () with
   | Started_child pid -> Ok pid
   | Max_children -> Error `Max_children
-

@@ -1,9 +1,9 @@
 open Util
 
 type priority_queues = {
-  high : Process.t Lf_queue.t;
-  normal : Process.t Lf_queue.t;
-  low : Process.t Lf_queue.t;
+  high : Process.t Weak_ref.t Lf_queue.t;
+  normal : Process.t Weak_ref.t Lf_queue.t;
+  low : Process.t Weak_ref.t Lf_queue.t;
 }
 
 let make_priority_queues () =
@@ -23,10 +23,11 @@ let queue t proc =
   if Proc_set.contains t.alive proc then ()
   else (
     Proc_set.add t.alive proc;
+    let wref = Weak_ref.make proc in
     match Atomic.get proc.flags.priority with
-    | High -> Lf_queue.push t.queue.high proc
-    | Normal -> Lf_queue.push t.queue.normal proc
-    | Low -> Lf_queue.push t.queue.low proc)
+    | High -> Lf_queue.push t.queue.high wref
+    | Normal -> Lf_queue.push t.queue.normal wref
+    | Low -> Lf_queue.push t.queue.low wref)
 
 let next t =
   let queue =
@@ -40,7 +41,12 @@ let next t =
     | _, _, _ -> t.queue.low
   in
   match Lf_queue.pop queue with
-  | Some proc ->
-      Proc_set.remove t.alive proc;
-      Some proc
+  | Some proc -> (
+      match Weak_ref.get proc with
+      | None -> None
+      | Some proc ->
+          Proc_set.remove t.alive proc;
+          Some proc)
   | None -> None
+
+let remove t proc = Proc_set.remove t.alive proc

@@ -16,6 +16,7 @@ module Messages = struct
 end
 
 type state =
+  | Uninitialized
   | Runnable
   | Waiting_message
   | Waiting_io of {
@@ -49,7 +50,8 @@ type t = {
   sid : Scheduler_uid.t;
   flags : process_flags;
   state : state Atomic.t;
-  mutable cont : exit_reason Proc_state.t;
+  mutable cont : exit_reason Proc_state.t option;
+  mutable fn : (unit -> exit_reason) option;
   mailbox : Mailbox.t;
   save_queue : Mailbox.t;
   mutable read_save_queue : bool;
@@ -64,14 +66,14 @@ type t = {
 (** The process descriptor. *)
 
 let make sid fn =
-  let cont = Proc_state.make fn Proc_effect.Yield in
   let pid = Pid.next () in
   let proc =
     {
       pid;
       sid;
-      cont;
-      state = Atomic.make Runnable;
+      cont = None;
+      fn = Some fn;
+      state = Atomic.make Uninitialized;
       links = Atomic.make [];
       monitors = Pid.Map.create ~size:0 ();
       monitored_by = Pid.Map.create ~size:0 ();
@@ -89,6 +91,21 @@ let make sid fn =
         (Obj.repr proc |> Obj.reachable_words));
   proc
 
+let init t =
+  let fn = t.fn |> Option.get in
+  t.cont <- Some (Proc_state.make fn Proc_effect.Yield);
+  t.fn <- None;
+  Atomic.set t.state Runnable
+
+let free t =
+  Atomic.set t.state Finalized;
+  Atomic.set t.links [];
+  Atomic.set t.recv_timeout None;
+  Atomic.set t.syscall_timeout None;
+  t.cont <- None;
+  t.fn <- None;
+  ()
+
 let rec pp ppf t =
   Format.fprintf ppf "Process %a { state = %a; messages = %d; flags = %a }"
     Pid.pp t.pid pp_state (Atomic.get t.state)
@@ -104,6 +121,7 @@ and pp_state ppf (state : state) =
   | Running -> Format.fprintf ppf "Running"
   | Exited e -> Format.fprintf ppf "Exited(%a)" pp_reason e
   | Finalized -> Format.fprintf ppf "Finalized"
+  | Uninitialized -> Format.fprintf ppf "Uninitialized"
 
 and pp_reason ppf (t : exit_reason) =
   match t with
@@ -117,7 +135,7 @@ and pp_flags ppf (t : process_flags) =
   Format.fprintf ppf "{ trap_exits=%b; priority=%s }" (Atomic.get t.trap_exits)
     (priority_to_string @@ Atomic.get t.priority)
 
-let cont t = t.cont
+let cont t = t.cont |> Option.get
 let pid { pid; _ } = pid
 let sid { sid; _ } = sid
 let state t = Atomic.get t.state
@@ -129,7 +147,7 @@ let syscall_timeout t = Atomic.get t.syscall_timeout
 let is_alive t =
   match Atomic.get t.state with
   | Finalized | Exited _ -> false
-  | Runnable | Waiting_message | Waiting_io _ | Running -> true
+  | Uninitialized | Runnable | Waiting_message | Waiting_io _ | Running -> true
 
 let is_exited t =
   match Atomic.get t.state with Finalized | Exited _ -> true | _ -> false
@@ -253,7 +271,7 @@ let rec set_flag t flag =
       if Atomic.compare_and_set t.flags.priority old_flag p then ()
       else set_flag t flag
 
-let set_cont t c = t.cont <- c
+let set_cont t c = t.cont <- Some c
 
 let rec add_link t link =
   let old_links = Atomic.get t.links in

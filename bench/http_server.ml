@@ -53,7 +53,7 @@ let main () =
         Logger.error (fun f -> f "error: %a" IO.pp_err (Obj.magic err))
   in
 
-  let _ = List.init 99 (fun _ -> spawn_link acceptor) in
+  let _ = List.init 0 (fun _ -> spawn_link acceptor) in
   acceptor ()
 
 let () = Riot.run @@ main

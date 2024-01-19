@@ -301,9 +301,6 @@ val start :
     are all terminated. Only then will the runtime shutdown.
 *)
 
-val trace_send : (Pid.t -> Process.t -> Message.t -> unit) -> unit
-val trace_proc_run : (int -> Process.t -> unit) -> unit
-
 (* Generic Servers *)
 
 module Gen_server : sig
@@ -888,4 +885,8 @@ end
 module Runtime : sig
   val set_log_level : Logger.level option -> unit
   val syscalls : unit -> int * int * int * int
+
+  module Stats : sig
+    val start : ?every:int64 -> unit -> unit
+  end
 end

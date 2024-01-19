@@ -18,4 +18,5 @@ module Supervisor = Supervisor
 module Task = Task
 module Telemetry = Telemetry_app
 module Timeout = Timeout
+module Runtime = Runtime_lib
 include Global

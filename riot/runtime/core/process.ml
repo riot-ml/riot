@@ -97,6 +97,15 @@ let init t =
   t.fn <- None;
   Atomic.set t.state Runnable
 
+let free t =
+  Atomic.set t.state Finalized;
+  Atomic.set t.links [];
+  Atomic.set t.recv_timeout None;
+  Atomic.set t.syscall_timeout None;
+  t.cont <- None;
+  t.fn <- None;
+  ()
+
 let rec pp ppf t =
   Format.fprintf ppf "Process %a { state = %a; messages = %d; flags = %a }"
     Pid.pp t.pid pp_state (Atomic.get t.state)

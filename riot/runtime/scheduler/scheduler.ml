@@ -343,11 +343,13 @@ module Scheduler = struct
             Log.debug (fun f ->
                 f "marking linked %a as dead" Pid.pp linked_proc.pid);
             awake_process pool linked_proc)
-     linked_pids;
+      linked_pids;
 
+    Proc_set.remove sch.sleep_set proc;
     Proc_table.remove pool.processes proc.pid;
     Proc_registry.remove pool.registry proc.pid;
     Proc_queue.remove sch.run_queue proc;
+    Process.free proc;
     Log.trace (fun f -> f "terminated %a" Pid.pp proc.pid)
 
   let handle_run_proc pool (sch : t) proc =
@@ -412,7 +414,7 @@ module Scheduler = struct
     done;
     Mutex.unlock sch.idle_mutex;
 
-    for _ = 0 to Int.min (Proc_queue.size sch.run_queue) 1_000 do
+    for _ = 0 to Int.min (Proc_queue.size sch.run_queue) 500 do
       match Proc_queue.next sch.run_queue with
       | Some proc ->
           set_current_process_pid proc.pid;

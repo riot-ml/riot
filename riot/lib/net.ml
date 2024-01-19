@@ -96,37 +96,30 @@ module Tcp_stream = struct
     in
     with_timeout ?timeout @@ fun () -> connect_loop addr
 
-  let receive ?timeout ~bufs t =
-    let rec receive_loop ~bufs t =
-      trace (fun f ->
-          f "receiving up to %d octets from %a" (Io.Iovec.length bufs) Socket.pp
-            t);
-      match read_vectored t bufs with
-      | Ok len ->
-          trace (fun f -> f "received: %d octets from %a" len Socket.pp t);
-          Ok len
-      | Error `Would_block ->
-          trace (fun f -> f "waiting on %a to receive" Socket.pp t);
-          syscall ?timeout "receive" Interest.readable (to_source t)
-          @@ fun () -> receive_loop ~bufs t
-      | Error err -> Error err
-    in
-    receive_loop ~bufs t
+  let rec receive ?timeout ~bufs t =
+    trace (fun f ->
+        f "receiving up to %d octets from %a" (Io.Iovec.length bufs) Socket.pp t);
+    match read_vectored t bufs with
+    | Ok len ->
+        trace (fun f -> f "received: %d octets from %a" len Socket.pp t);
+        Ok len
+    | Error `Would_block ->
+        trace (fun f -> f "waiting on %a to receive" Socket.pp t);
+        syscall ?timeout "receive" Interest.readable (to_source t) @@ fun () ->
+        receive ?timeout ~bufs t
+    | Error err -> Error err
 
-  let send ?timeout ~bufs t =
-    let rec send_loop ~bufs t =
-      trace (fun f -> f "sending: %d octets" (Io.Iovec.length bufs));
-      match write_vectored t bufs with
-      | Ok bytes ->
-          trace (fun f -> f "sent: %d" (Io.Iovec.length bufs));
-          Ok bytes
-      | Error `Would_block ->
-          trace (fun f -> f "retrying");
-          syscall ?timeout "send" Interest.writable (to_source t) @@ fun () ->
-          send_loop ~bufs t
-      | Error err -> Error err
-    in
-    send_loop ~bufs t
+  let rec send ?timeout ~bufs t =
+    trace (fun f -> f "sending: %d octets" (Io.Iovec.length bufs));
+    match write_vectored t bufs with
+    | Ok bytes ->
+        trace (fun f -> f "sent: %d" (Io.Iovec.length bufs));
+        Ok bytes
+    | Error `Would_block ->
+        trace (fun f -> f "retrying");
+        syscall ?timeout "send" Interest.writable (to_source t) @@ fun () ->
+        send ?timeout ~bufs t
+    | Error err -> Error err
 
   let pp_err fmt = function
     | `Timeout -> Format.fprintf fmt "Timeout"

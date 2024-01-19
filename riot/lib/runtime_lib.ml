@@ -10,9 +10,9 @@ let syscalls () =
     pool.io_scheduler.calls_connect )
 
 module Stats = struct
-open Logger.Make(struct
-  let namespace = ["riot"; "runtime"; "stats"]
-end)
+  open Logger.Make (struct
+    let namespace = [ "riot"; "runtime"; "stats" ]
+  end)
 
   type Message.t += Print_stats
 
@@ -26,6 +26,7 @@ end)
 live_bytes=%f mb in %d blocks
 free_bytes=%f mb in %d blocks
 heap_bytes=%f mb in %d chunks
+max_heap_size=%f mb
 fragments=%d
 compactions=%d
 |}
@@ -34,7 +35,9 @@ compactions=%d
           (stat.free_words * 8 |> mb)
           stat.free_blocks
           (stat.heap_words * 8 |> mb)
-          stat.heap_chunks stat.fragments stat.compactions)
+          stat.heap_chunks
+          (stat.top_heap_words * 8 |> mb)
+          stat.fragments stat.compactions)
 
   let rec loop () =
     print_gc_stats ();

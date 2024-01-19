@@ -885,4 +885,8 @@ end
 module Runtime : sig
   val set_log_level : Logger.level option -> unit
   val syscalls : unit -> int * int * int * int
+
+  module Stats : sig
+    val start : ?every:int64 -> unit -> unit
+  end
 end

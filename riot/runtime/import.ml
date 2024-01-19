@@ -90,8 +90,8 @@ let link pid =
       else raise (Link_no_process pid)
   | None -> ()
 
-let _spawn ?(do_link = false) (pool : Scheduler.pool) (scheduler : Scheduler.t)
-    fn =
+let _spawn ?(do_link = false) ?(pool = _get_pool ())
+    ?(scheduler = Scheduler.get_random_scheduler pool) fn =
   let proc =
     Process.make scheduler.uid (fun () ->
         try
@@ -112,19 +112,12 @@ let _spawn ?(do_link = false) (pool : Scheduler.pool) (scheduler : Scheduler.t)
     let this_proc = _get_proc this in
     _link this_proc proc);
 
-  Scheduler.Pool.register_process pool scheduler proc;
+  Scheduler.Pool.register_process pool proc;
   Scheduler.awake_process pool proc;
   proc.pid
 
-let spawn fn =
-  let pool = _get_pool () in
-  let scheduler = Scheduler.get_random_scheduler pool in
-  _spawn pool scheduler fn
-
-let spawn_link fn =
-  let pool = _get_pool () in
-  let scheduler = Scheduler.get_random_scheduler pool in
-  _spawn ~do_link:true pool scheduler fn
+let spawn fn = _spawn ~do_link:false fn
+let spawn_link fn = _spawn ~do_link:true fn
 
 let monitor pid =
   let pool = _get_pool () in

@@ -492,7 +492,7 @@ module Pool = struct
   let get_pool, set_pool = Thread_local.make ~name:"POOL"
   let shutdown = shutdown
 
-  let register_process pool _scheduler proc =
+  let register_process pool proc =
     Proc_table.register_process pool.processes proc
 
   let setup () =

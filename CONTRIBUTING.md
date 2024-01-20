@@ -11,6 +11,31 @@ welcomed! This includes:
 * Links to projects using Riot that can serve as large examples
 * Links to libraries that can be used with Riot
 
+### Installing from Sources
+
+To install Riot from sources, make sure to include all its dependencies:
+
+```sh
+; opam pin config.0.0.1 git+https://github.com/leostera/config.ml
+; opam pin libc.0.0.1 git+https://github.com/leostera/libc.ml
+; opam pin io.0.0.8 git+https://github.com/leostera/riot
+; opam pin bytestring.0.0.8 git+https://github.com/leostera/riot
+; opam pin gluon.0.0.8 git+https://github.com/leostera/riot
+; opam pin riot.0.0.8 git+https://github.com/leostera/riot
+```
+
+You can run builds with:
+
+```sh
+; dune build
+```
+
+You can run all tests with
+
+```sh
+; dune test
+```
+
 ### Adding tests
 
 If you want to add a test, you can do so by creating a new OCaml file in the

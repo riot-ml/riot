@@ -20,3 +20,4 @@ val make_timer :
 val clear_timer : t -> unit Ref.t -> unit
 val tick : t -> unit
 val can_tick : t -> bool
+val size : t -> int

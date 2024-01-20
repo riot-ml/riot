@@ -27,6 +27,7 @@ module Messages = P.Messages
 
 let pp = P.pp
 let where_is = where_is
+let sid = P.sid
 
 let rec await_name name =
   match where_is name with

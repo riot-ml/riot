@@ -8,10 +8,10 @@ type t = {
   uid : Uid.t; [@warning "-69"]
   rnd : Random.State.t;
   run_queue : Proc_queue.t;
-  sleep_set : Proc_set.t;
   timers : Timer_wheel.t;
   idle_mutex : Mutex.t;
   idle_condition : Condition.t;
+  currently_stealing : Mutex.t;
 }
 
 type io = {
@@ -32,6 +32,7 @@ type pool = {
   io_scheduler : io;
   schedulers : t list;
   processes : Proc_table.t;
+  mutable proc_count : int;
   registry : Proc_registry.t;
 }
 
@@ -55,10 +56,10 @@ module Scheduler = struct
       uid;
       rnd = Random.State.copy rnd;
       run_queue = Proc_queue.create ();
-      sleep_set = Proc_set.create ();
       timers = Timer_wheel.create ();
       idle_mutex = Mutex.create ();
       idle_condition = Condition.create ();
+      currently_stealing = Mutex.create ();
     }
 
   let get_current_scheduler, (set_current_scheduler : t -> unit) =
@@ -80,7 +81,6 @@ module Scheduler = struct
 
   let add_to_run_queue (sch : t) (proc : Process.t) =
     Mutex.protect sch.idle_mutex @@ fun () ->
-    Proc_set.remove sch.sleep_set proc;
     Proc_queue.queue sch.run_queue proc;
     Condition.signal sch.idle_condition;
     Log.trace (fun f ->
@@ -91,7 +91,8 @@ module Scheduler = struct
   let awake_process pool (proc : Process.t) =
     List.iter
       (fun (sch : t) ->
-        if Scheduler_uid.equal sch.uid proc.sid then add_to_run_queue sch proc)
+        if Scheduler_uid.equal sch.uid (Atomic.get proc.sid) then
+          add_to_run_queue sch proc)
       pool.schedulers
 
   let handle_receive k pool sch (proc : Process.t) (ref : 'a Ref.t option)
@@ -281,10 +282,7 @@ module Scheduler = struct
       Process.mark_as_runnable proc;
       Log.debug (fun f -> f "Waking up process %a" Pid.pp proc.pid);
       add_to_run_queue sch proc)
-    else (
-      Proc_set.add sch.sleep_set proc;
-      Log.debug (fun f -> f "Hibernated process %a" Pid.pp proc.pid);
-      Log.trace (fun f -> f "sleep_set: %d" (Proc_set.size sch.sleep_set)))
+    else Log.debug (fun f -> f "Hibernated process %a" Pid.pp proc.pid)
 
   let handle_exit_proc pool (sch : t) proc (reason : Process.exit_reason) =
     Trace.handle_exit_proc_span @@ fun () ->
@@ -345,11 +343,10 @@ module Scheduler = struct
             awake_process pool linked_proc)
       linked_pids;
 
-    Process.free proc;
-    Proc_set.remove sch.sleep_set proc;
+    Proc_queue.remove sch.run_queue proc;
     Proc_table.remove pool.processes proc.pid;
     Proc_registry.remove pool.registry proc.pid;
-    Proc_queue.remove sch.run_queue proc;
+    Process.free proc;
     Log.debug (fun f -> f "terminated %a" Pid.pp proc.pid)
 
   let handle_run_proc pool (sch : t) proc =
@@ -358,6 +355,7 @@ module Scheduler = struct
     try
       Process.mark_as_running proc;
       let perform = perform pool sch proc in
+      Log.debug (fun f -> f "Running process %a" Process.pp proc);
       let cont =
         Proc_state.run ~reductions:1000 ~perform (Process.cont proc)
         |> Option.get
@@ -380,12 +378,10 @@ module Scheduler = struct
               f "Process %a suspended (will resume): %a" Pid.pp proc.pid
                 Process.pp proc);
           add_to_run_queue sch proc
-    with
-    | Process.Process_reviving_is_forbidden _ -> add_to_run_queue sch proc
-    | Terminated_while_running reason ->
-        Process.mark_as_exited proc reason;
-        Log.trace (fun f -> f "Process %a finished" Pid.pp proc.pid);
-        add_to_run_queue sch proc
+    with Terminated_while_running reason ->
+      Process.mark_as_exited proc reason;
+      Log.trace (fun f -> f "Process %a finished" Pid.pp proc.pid);
+      add_to_run_queue sch proc
 
   let handle_init_proc pool sch proc =
     Process.init proc;
@@ -405,17 +401,24 @@ module Scheduler = struct
 
   let tick_timers _pool (sch : t) = Timer_wheel.tick sch.timers
 
+  let steal_processes pool (us : t) =
+    List.iter
+      (fun (them : t) ->
+        (* NOTE(@leostera): avoid stealing from ourselves :) *)
+        if Scheduler_uid.equal us.uid them.uid then ()
+        else
+          match Proc_queue.next them.run_queue with
+          | None -> ()
+          | Some proc ->
+              Log.trace (fun f ->
+                  f "scheduler %a stole %a from %a" Scheduler_uid.pp them.uid
+                    Pid.pp proc.pid Scheduler_uid.pp us.uid);
+              Process.set_sid proc them.uid;
+              Proc_queue.queue them.run_queue proc)
+      pool.schedulers
+
   let run_loop pool (sch : t) =
     Trace.scheduler_loop_begin ();
-    Mutex.lock sch.idle_mutex;
-    while
-      (not pool.stop)
-      && Proc_queue.is_empty sch.run_queue
-      && not (Timer_wheel.can_tick sch.timers)
-    do
-      Condition.wait sch.idle_condition sch.idle_mutex
-    done;
-    Mutex.unlock sch.idle_mutex;
 
     for _ = 0 to Int.min (Proc_queue.size sch.run_queue) 500 do
       match Proc_queue.next sch.run_queue with
@@ -426,6 +429,7 @@ module Scheduler = struct
     done;
 
     tick_timers pool sch;
+    if Proc_queue.is_empty sch.run_queue then steal_processes pool sch;
     Trace.scheduler_loop_end ()
 
   let run pool (sch : t) () =
@@ -434,6 +438,17 @@ module Scheduler = struct
     (try
        while true do
          if pool.stop then raise_notrace Exit;
+
+         Mutex.lock sch.idle_mutex;
+         while
+           (not pool.stop)
+           && Proc_queue.is_empty sch.run_queue
+           && not (Timer_wheel.can_tick sch.timers)
+         do
+           Condition.wait sch.idle_condition sch.idle_mutex
+         done;
+         Mutex.unlock sch.idle_mutex;
+
          run_loop pool sch
        done
      with Exit -> ());
@@ -496,6 +511,7 @@ module Pool = struct
   let shutdown = shutdown
 
   let register_process pool proc =
+    pool.proc_count <- pool.proc_count + 1;
     Proc_table.register_process pool.processes proc
 
   let setup () =
@@ -514,6 +530,7 @@ module Pool = struct
       {
         stop = false;
         status = 0;
+        proc_count = 0;
         io_scheduler;
         schedulers = [ main ] @ schedulers;
         processes = Proc_table.create ();
@@ -522,6 +539,7 @@ module Pool = struct
     in
     let spawn (scheduler : t) =
       Stdlib.Domain.spawn (fun () ->
+          setup ();
           set_pool pool;
           Scheduler.set_current_scheduler scheduler;
           try

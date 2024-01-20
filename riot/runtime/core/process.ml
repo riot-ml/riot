@@ -47,7 +47,7 @@ let default_flags () =
 
 type t = {
   pid : Pid.t;
-  sid : Scheduler_uid.t;
+  sid : Scheduler_uid.t Atomic.t;
   flags : process_flags;
   state : state Atomic.t;
   mutable cont : exit_reason Proc_state.t option;
@@ -70,7 +70,7 @@ let make sid fn =
   let proc =
     {
       pid;
-      sid;
+      sid = Atomic.make sid;
       cont = None;
       fn = Some fn;
       state = Atomic.make Uninitialized;
@@ -110,8 +110,9 @@ let free t =
       t.cont <- None
 
 let rec pp ppf t =
-  Format.fprintf ppf "Process %a { state = %a; messages = %d; flags = %a }"
-    Pid.pp t.pid pp_state (Atomic.get t.state)
+  Format.fprintf ppf
+    "Process %a { sid = %a; state = %a; messages = %d; flags = %a }" Pid.pp
+    t.pid Scheduler_uid.pp (Atomic.get t.sid) pp_state (Atomic.get t.state)
     (Mailbox.size t.save_queue + Mailbox.size t.mailbox)
     pp_flags t.flags
 
@@ -140,7 +141,7 @@ and pp_flags ppf (t : process_flags) =
 
 let cont t = t.cont |> Option.get
 let pid { pid; _ } = pid
-let sid { sid; _ } = sid
+let sid t = Atomic.get t.sid
 let state t = Atomic.get t.state
 let monitors t = Pid.Map.keys t.monitors
 let links t = Atomic.get t.links
@@ -275,6 +276,7 @@ let rec set_flag t flag =
       else set_flag t flag
 
 let set_cont t c = t.cont <- Some c
+let set_sid t sid = Atomic.set t.sid sid
 
 let rec add_link t link =
   let old_links = Atomic.get t.links in

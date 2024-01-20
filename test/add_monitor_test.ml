@@ -4,7 +4,7 @@ exception Fail
 
 let main () =
   let _ = Logger.start () |> Result.get_ok in
-  Logger.set_log_level (Some Trace);
+  Logger.set_log_level (Some Info);
   let pid = spawn (fun () -> ()) in
   Process.monitor pid;
 

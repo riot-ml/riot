@@ -38,13 +38,12 @@ let main () =
   | [ B; A; C; D; E ] ->
       Logger.debug (fun f ->
           f "send_after_test: messages respected send_after time");
-      Logger.info (fun f -> f "send_after_test: OK");
-      shutdown ()
+      Logger.info (fun f -> f "send_after_test: OK")
   | _ ->
       let messages = messages |> List.map msg_to_str |> String.concat "," in
       Log.error (fun f -> f "bad message sequence: %s" messages);
       sleep 0.1;
-      Stdlib.exit 1
+      shutdown ~status:1 ()
 
 let () =
   Logger.set_log_level (Some Info);

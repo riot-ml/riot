@@ -19,5 +19,6 @@ let main () =
   shutdown ()
 
 let () =
+  (* Runtime.set_log_level (Some Trace); *)
   Logger.set_log_level (Some Info);
   Riot.run @@ main

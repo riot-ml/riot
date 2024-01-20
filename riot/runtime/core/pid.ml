@@ -1,6 +1,7 @@
 type t = { _id : int64 } [@@unboxed]
 
 let pp ppf pid = Format.fprintf ppf "<0.%s.0>" (Int64.to_string pid._id)
+let to_string t = Format.asprintf "%a" pp t
 let make _id = { _id }
 let zero : t = make 0L
 let main : t = make 1L

@@ -1,9 +1,13 @@
+exception Unwind
+
 type ('a, 'b) continuation = ('a, 'b) Effect.Shallow.continuation
 
 type 'a t =
   | Finished of ('a, exn) result
   | Suspended : ('a, 'b) continuation * 'a Effect.t -> 'b t
   | Unhandled : ('a, 'b) continuation * 'a -> 'b t
+
+let is_finished x = match x with Finished _ -> true | _ -> false
 
 type 'a step =
   | Continue of 'a
@@ -12,6 +16,7 @@ type 'a step =
   | Delay : 'a step
   | Suspend : 'a step
   | Yield : unit step
+  | Terminate : 'a step
 
 type ('a, 'b) step_callback = ('a step -> 'b t) -> 'a Effect.t -> 'b t
 type perform = { perform : 'a 'b. ('a, 'b) step_callback } [@@unboxed]
@@ -46,9 +51,10 @@ let make fn eff =
   let k = Effect.Shallow.fiber fn in
   Suspended (k, eff)
 
-let run : type a. reductions:int -> perform:perform -> a t -> a t =
+let run : type a. reductions:int -> perform:perform -> a t -> a t option =
  fun ~reductions ~perform t ->
   let exception Yield of a t in
+  let exception Unwind in
   let reductions = ref reductions in
   let t = ref t in
   try
@@ -68,8 +74,35 @@ let run : type a. reductions:int -> perform:perform -> a t -> a t =
             | Reperform eff -> unhandled_with fn (Effect.perform eff)
             | Yield -> raise_notrace (Yield (continue_with fn ()))
             | Suspend -> raise_notrace (Yield suspended)
+            | Terminate ->
+                ignore (discontinue_with fn Unwind);
+                raise Unwind
           in
           t := perform.perform (k fn) e
     done;
-    !t
-  with Yield t -> t
+    Some !t
+  with
+  | Yield t -> Some t
+  | Unwind -> None
+
+let drop k exn id =
+  let retc _signal =
+    Log.error (fun f -> f "dropping continuation return: %s" id);
+    ()
+  in
+  let exnc _exn =
+    Log.error (fun f -> f "dropping continuation exception: %s" id);
+    ()
+  in
+  let effc _eff =
+    Log.error (fun f -> f "dropping continuation effect: %s" id);
+    None
+  in
+  let handler = Effect.Shallow.{ retc; exnc; effc } in
+  Effect.Shallow.discontinue_with k exn handler
+
+let unwind ~id (t : 'a t) =
+  match t with
+  | Finished result -> ignore result
+  | Suspended (k, _) -> ignore (drop k Unwind id)
+  | Unhandled (k, _) -> ignore (drop k Unwind id)

@@ -29,24 +29,22 @@ let queue t proc =
     | Normal -> Lf_queue.push t.queue.normal wref
     | Low -> Lf_queue.push t.queue.low wref)
 
-let next t =
-  let queue =
-    match
-      ( Lf_queue.is_empty t.queue.high,
-        Lf_queue.is_empty t.queue.normal,
-        Lf_queue.is_empty t.queue.low )
-    with
-    | false, _, _ -> t.queue.high
-    | _, false, _ -> t.queue.normal
-    | _, _, _ -> t.queue.low
-  in
-  match Lf_queue.pop queue with
+let pop t q =
+  match Lf_queue.pop q with
   | Some proc -> (
       match Weak_ref.get proc with
-      | None -> None
-      | Some proc ->
+      | Some proc when Proc_set.contains t.alive proc ->
           Proc_set.remove t.alive proc;
-          Some proc)
+          Some proc
+      | _ -> None)
   | None -> None
+
+let next t =
+  match pop t t.queue.high with
+  | Some proc -> Some proc
+  | None -> (
+      match pop t t.queue.normal with
+      | Some proc -> Some proc
+      | None -> pop t t.queue.low)
 
 let remove t proc = Proc_set.remove t.alive proc

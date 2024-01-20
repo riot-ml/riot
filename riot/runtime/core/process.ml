@@ -102,9 +102,12 @@ let free t =
   Atomic.set t.links [];
   Atomic.set t.recv_timeout None;
   Atomic.set t.syscall_timeout None;
-  t.cont <- None;
   t.fn <- None;
-  ()
+  match t.cont with
+  | None -> ()
+  | Some cont ->
+      Proc_state.unwind ~id:(Pid.to_string t.pid) cont;
+      t.cont <- None
 
 let rec pp ppf t =
   Format.fprintf ppf "Process %a { state = %a; messages = %d; flags = %a }"

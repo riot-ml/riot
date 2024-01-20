@@ -97,13 +97,15 @@ let _spawn ?(do_link = false) ?(pool = _get_pool ())
         try
           fn ();
           Normal
-        with exn ->
-          Log.error (fun f ->
-              f "Process %a died with unhandled exception %s:\n%s" Pid.pp
-                (self ()) (Printexc.to_string exn)
-                (Printexc.get_backtrace ()));
+        with
+        | Proc_state.Unwind -> Normal
+        | exn ->
+            Log.error (fun f ->
+                f "Process %a died with unhandled exception %s:\n%s" Pid.pp
+                  (self ()) (Printexc.to_string exn)
+                  (Printexc.get_backtrace ()));
 
-          Exception exn)
+            Exception exn)
   in
 
   if do_link then (

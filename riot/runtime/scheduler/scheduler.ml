@@ -288,7 +288,7 @@ module Scheduler = struct
 
   let handle_exit_proc pool (sch : t) proc (reason : Process.exit_reason) =
     Trace.handle_exit_proc_span @@ fun () ->
-    Log.debug (fun f -> f "unregistering process %a" Pid.pp (Process.pid proc));
+    Log.debug (fun f -> f "exiting process %a" Pid.pp (Process.pid proc));
 
     Process.consume_ready_tokens proc (fun (_token, source) ->
         Gluon.Poll.deregister pool.io_scheduler.poll source |> Result.get_ok);
@@ -345,12 +345,12 @@ module Scheduler = struct
             awake_process pool linked_proc)
       linked_pids;
 
+    Process.free proc;
     Proc_set.remove sch.sleep_set proc;
     Proc_table.remove pool.processes proc.pid;
     Proc_registry.remove pool.registry proc.pid;
     Proc_queue.remove sch.run_queue proc;
-    Process.free proc;
-    Log.trace (fun f -> f "terminated %a" Pid.pp proc.pid)
+    Log.debug (fun f -> f "terminated %a" Pid.pp proc.pid)
 
   let handle_run_proc pool (sch : t) proc =
     Log.trace (fun f -> f "Running process %a" Process.pp proc);
@@ -358,7 +358,10 @@ module Scheduler = struct
     try
       Process.mark_as_running proc;
       let perform = perform pool sch proc in
-      let cont = Proc_state.run ~reductions:1000 ~perform (Process.cont proc) in
+      let cont =
+        Proc_state.run ~reductions:1000 ~perform (Process.cont proc)
+        |> Option.get
+      in
       Log.trace (fun f ->
           f "Process %a state: %a" Pid.pp proc.pid Proc_state.pp cont);
       Process.set_cont proc cont;

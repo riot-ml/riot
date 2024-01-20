@@ -87,15 +87,15 @@ let run : type a. reductions:int -> perform:perform -> a t -> a t option =
 
 let drop k exn id =
   let retc _signal =
-    Log.error (fun f -> f "dropping continuation return: %s" id);
+    Log.debug (fun f -> f "dropping continuation return: %s" id);
     ()
   in
   let exnc _exn =
-    Log.error (fun f -> f "dropping continuation exception: %s" id);
+    Log.debug (fun f -> f "dropping continuation exception: %s" id);
     ()
   in
   let effc _eff =
-    Log.error (fun f -> f "dropping continuation effect: %s" id);
+    Log.debug (fun f -> f "dropping continuation effect: %s" id);
     None
   in
   let handler = Effect.Shallow.{ retc; exnc; effc } in

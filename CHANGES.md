@@ -1,17 +1,55 @@
 # Changes
 
-## Unreleased
+## 0.0.8
+
+This is the largest Riot release yet, and we are splitting the package into 4 sub-packages:
+
+* the Riot runtime+library
+* Bytestring – efficient and ergonomic bytestring manipulation
+* Gluon – a low-level, efficient async I/O engine 
+* IO – composable I/O streams for vectored operations 
+
+### Riot Runtime
+
+* Improved performance and memory usage by creating 95% smaller processes,
+  ensuring fibers are always properly discontinued to release their resources,
+  and moving to Weak references for processes to ensure they get garbage
+  collected timely.
+
+* Introduce Process Priorities and Process Stealing – the scheduler has been
+  improved to support processes with different priorities (High, Normal, and
+  Low), and stealing work from other schedulers (following the priorities) so
+  that eventually the workloads will be balanced, regardless of how they are
+  spawned. Thanks @LeedsJohn for the contribution! 👏
+
+* Introduce `receive` Timeouts – you can now call `receive ~after:10L ()` and
+  if there are messages fetched in 10 microseconds `receive` will raise a
+  `Receive_timeout` exception that you can match on.
+
+* Introduce `syscall` Timeouts – any syscall being made now can specify a
+  timeout for an answer. If the syscall isn't ready to retry within the timeout
+  period, a `Syscall_timeout` exception will be raised.
+
+* Improve `Timer_wheel` with support for clearing timers, iterating timers
+  in the order in which they were created, and a MinHeap backend.
+
+### Riot Lib
+
+* New `Dynamic_supervisor` to dynamically allocate pools of processes up to a
+  maximum.
+
+* New `Runtime.Stats` server can be started to periodically print out
+  statistics about the runtime and the garbage collector.
+
+* The `Net.Socket` module is now split into a `Tcp_listener` and a
+  `Tcp_stream`, with their corresponding functions for listening, connecting,
+  sending, and receiving. These also include support for timeouts.
+
+* New File and File Descriptor operations for seeking. Thanks to @diogomqbm! 👏
 
 * Introduce SSL module to turn sockets into SSL-backed Reader/Writer streams.
   This includes making a `Net.Socket.stream_socket` into a client or a server
   SSL-backed stream pair.
-
-* Introduce monotomic timers with nanosecond precision. Thansk to the `mtime`
-  library this was a breeze!
-
-* Introduce timeouts in `receive` – you can now call `receive ~after:10L ()`
-  and if there are messages fetched in 10 microseconds `receive` will raise a
-  `Receive_timeout` exception that you can match on.
 
 * Introduce `Task` to quickly spin up processes that we can await. This is the
   closest we have to a future. A `Task` is typed, executes a single function, 
@@ -19,8 +57,37 @@
 
 * Introduce specialized Dashmap's with the `Dashmap.Make` functor.
 
-* Improve `Timer_wheel` with support for clearing timers, iterating timers
-  in the order in which they were created, and a MinHeap backend.
+* Introduce new named pid functions `Process.where_is` and `Porcess.await_name`
+  to make it easier to find pids by name, and await a name to be registered.
+
+* New `Process.is_alive` predicate to check if a process is alive
+
+* Improve logging on most modules with namespaces
+
+### Bytestring
+
+* First implementation of efficient immutable byte strings with cheap view and
+  concat operations. Thanks to @felipecrv for contributing! 👏
+
+* Iterators and Transient builders.
+
+* Preliminary Bytestrings syntax support (via a ppx) for constructions and
+  efficient pattern matching using the `%b` sigil.
+
+### Gluon
+
+* First implementation of an efficient, low-level async I/O engine inspired by
+  Rust's Mio. Gluon uses an opaque Token based approach that lets you directly
+  reference an OCaml value as part of the polled events from the underlying
+  async engine. Thanks to @diogomqbm and @emilpriver for contributing! 👏
+
+* Preliminary support for epoll on Linux and kqueue on macOS with conditional
+  compilation via the `config` package.
+
+### IO
+
+* First implementation of composable I/O streams via a Read/Write interface
+  inspired by Rust's Read/Write traits.
 
 ## 0.0.7
 

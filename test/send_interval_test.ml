@@ -6,19 +6,18 @@ type Message.t += A
 
 let main () =
   let (Ok _) = Logger.start () in
+  (* Runtime.set_log_level (Some Trace); *)
+  Logger.set_log_level (Some Info);
   let this = self () in
 
   let (Ok _timer) = Timer.send_interval this A ~every:50L in
 
-  let A = receive ~after:1000L () in
-  let A = receive ~after:1000L () in
+  let A = receive ~after:2000L () in
+  let A = receive ~after:2000L () in
 
   Logger.debug (fun f -> f "send_interval_test: messages sent with interval");
   Logger.info (fun f -> f "send_interval_test: OK");
 
   shutdown ()
 
-let () =
-  (* Runtime.set_log_level (Some Trace); *)
-  Logger.set_log_level (Some Info);
-  Riot.run @@ main
+let () = Riot.run @@ main

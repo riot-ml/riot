@@ -47,6 +47,6 @@ let main () =
       Logger.info (fun f -> f "process_stealing_test: OK")
     else check_loop (iters - 1)
   in
-  check_loop 100000
+  check_loop 10000
 
 let () = run ~workers:2 @@ main

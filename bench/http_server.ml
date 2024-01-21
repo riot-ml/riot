@@ -10,8 +10,8 @@ let bufs = IO.Iovec.create ~size:1024 ()
 
 let rec conn_loop conn () =
   let rec handle_request () =
-    let* _req = Net.Tcp_stream.receive conn ~bufs in
-    let* _written = Net.Tcp_stream.send conn ~bufs:data in
+    let* _req = Net.Tcp_stream.receive ~timeout:1_000_000L conn ~bufs in
+    let* _written = Net.Tcp_stream.send ~timeout:1_000_000L conn ~bufs:data in
     handle_request ()
   in
   match handle_request () with

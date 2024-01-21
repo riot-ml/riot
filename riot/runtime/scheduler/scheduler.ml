@@ -410,10 +410,20 @@ module Scheduler = struct
           match Proc_queue.next them.run_queue with
           | None -> ()
           | Some proc ->
-              Log.trace (fun f ->
+              Log.debug (fun f ->
                   f "scheduler %a stole %a from %a" Scheduler_uid.pp them.uid
                     Pid.pp proc.pid Scheduler_uid.pp us.uid);
               Process.set_sid proc them.uid;
+              let timers =
+                (match Process.receive_timeout proc with
+                | Some t -> [ t ]
+                | None -> [])
+                @
+                match Process.syscall_timeout proc with
+                | Some t -> [ t ]
+                | None -> []
+              in
+              Timer_wheel.move_timers us.timers them.timers timers;
               Proc_queue.queue them.run_queue proc)
       pool.schedulers
 

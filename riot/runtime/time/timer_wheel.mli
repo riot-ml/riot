@@ -21,3 +21,4 @@ val clear_timer : t -> unit Ref.t -> unit
 val tick : t -> unit
 val can_tick : t -> bool
 val size : t -> int
+val move_timers : t -> t -> unit Ref.t list -> unit

@@ -1,5 +1,7 @@
 open Riot
 
+exception Fail
+
 let rec count_to x n =
   if x = n then n
   else (
@@ -20,9 +22,7 @@ let () =
       shutdown ()
   | Error `Timeout ->
       Logger.error (fun f -> f "task_test: timeout");
-      sleep 0.1;
-      Stdlib.exit 1
+      raise Fail
   | _ ->
       Logger.error (fun f -> f "net_test: unexpected message");
-      sleep 0.1;
-      Stdlib.exit 1
+      raise Fail

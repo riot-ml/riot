@@ -176,16 +176,15 @@ let do_move_timers src dst tids =
           Ref.Map.insert dst.ids tid timer;
           src.timers <- TimeHeap.delete_all Timer.equal timer src.timers;
           dst.timers <- TimeHeap.insert timer dst.timers;
-          Log.debug(fun f -> f "moved timer %a" Timer.pp timer)
-      )
+          Log.debug (fun f -> f "moved timer %a" Timer.pp timer))
     tids
 
 let rec move_timers src dst tids =
-  Log.debug( fun f -> f "trying to move timers");
+  Log.debug (fun f -> f "trying to move timers");
   if Mutex.try_lock src.lock then (
-    Log.debug( fun f -> f "locked source timers");
+    Log.debug (fun f -> f "locked source timers");
     if Mutex.try_lock dst.lock then (
-      Log.debug( fun f -> f "locked destination timers");
+      Log.debug (fun f -> f "locked destination timers");
       do_move_timers src dst tids;
       Mutex.unlock dst.lock;
       Mutex.unlock src.lock)

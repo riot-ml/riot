@@ -107,7 +107,7 @@ let make_timer t time mode fn =
   Mutex.protect t.lock @@ fun () ->
   let timer = Timer.make time mode fn in
   t.timers <- TimeHeap.insert timer t.timers;
-  Atomic.decr t.timer_count;
+  Atomic.incr t.timer_count;
   Ref.Map.insert t.ids timer.id timer;
   Log.debug (fun f -> f "Created timer %a" Timer.pp timer);
   timer.id
@@ -159,10 +159,13 @@ let rec run_timers t now timers =
 let tick t =
   Mutex.protect t.lock @@ fun () ->
   let now = Mtime_clock.now () in
-  Log.trace (fun f -> f "Started Ticking timers %a" Mtime.pp now);
+  Log.trace (fun f ->
+      f "Started Ticking %d timers %a" (Atomic.get t.timer_count) Mtime.pp now);
   t.timers <- run_timers t now t.timers;
   t.last_t <- now;
-  Log.trace (fun f -> f "Done Ticking timers %a" Mtime.pp (Mtime_clock.now ()))
+  Log.trace (fun f ->
+      f "Done Ticking (%d timers left) %a" (Atomic.get t.timer_count) Mtime.pp
+        (Mtime_clock.now ()))
 
 let do_move_timers src dst tids =
   List.iter
@@ -171,11 +174,11 @@ let do_move_timers src dst tids =
       | None -> ()
       | Some timer ->
           Atomic.decr src.timer_count;
-          Atomic.incr dst.timer_count;
           Ref.Map.remove src.ids tid;
-          Ref.Map.insert dst.ids tid timer;
           src.timers <- TimeHeap.delete_all Timer.equal timer src.timers;
           dst.timers <- TimeHeap.insert timer dst.timers;
+          Ref.Map.insert dst.ids tid timer;
+          Atomic.incr dst.timer_count;
           Log.debug (fun f -> f "moved timer %a" Timer.pp timer))
     tids
 

@@ -14,7 +14,7 @@ let msg_to_str = function
 
 let main () =
   let (Ok _) = Logger.start () in
-  (* Runtime.set_log_level (Some Debug); *)
+  Runtime.set_log_level (Some Trace);
   Logger.set_log_level (Some Info);
   let this = self () in
 
@@ -47,4 +47,4 @@ let main () =
       sleep 0.1;
       shutdown ~status:1 ()
 
-let () = Riot.run @@ main
+let () = Riot.run ~workers:0 @@ main

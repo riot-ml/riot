@@ -190,7 +190,6 @@ let should_awake t = is_alive t && has_messages t
 
 let rec set_syscall_timeout t timeout =
   let last_timeout = Atomic.get t.syscall_timeout in
-  if Option.is_some last_timeout then failwith "overriding timeout";
   if Atomic.compare_and_set t.syscall_timeout last_timeout (Some timeout) then
     ()
   else set_syscall_timeout t timeout

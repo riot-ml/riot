@@ -24,12 +24,18 @@ let call : type res. Pid.t -> res req -> res =
  fun pid req ->
   let ref = Ref.make () in
   send pid (Call (self (), ref, req));
-  match receive () with
-  | Reply (ref', res) -> (
-      match Ref.type_equal ref ref' with
-      | Some Type.Equal -> res
-      | None -> failwith "bad message")
-  | _ -> failwith "unexpected message"
+  let rec do_receive : unit -> res =
+   fun () ->
+    match receive () with
+    | Reply (ref', res) -> (
+        match Ref.type_equal ref ref' with
+        | Some Type.Equal -> res
+        | None -> failwith "bad message")
+    | msg ->
+        send pid msg;
+        do_receive ()
+  in
+  do_receive ()
 
 let rec loop : type args state. (args, state) impl -> state -> unit =
  fun impl state ->

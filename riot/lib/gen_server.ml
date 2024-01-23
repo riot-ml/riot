@@ -13,7 +13,7 @@ module type Impl = sig
   type state
 
   val init : args -> state init_result
-  val handle_call : 'res. 'res req -> Pid.t -> state -> 'res
+  val handle_call : 'res. 'res req -> Pid.t -> state -> 'res * state
   val handle_info : Message.t -> state -> unit
 end
 
@@ -36,7 +36,7 @@ let rec loop : type args state. (args, state) impl -> state -> unit =
   let (module I : Impl with type args = args and type state = state) = impl in
   match receive () with
   | Call (pid, ref, req) ->
-      let res = I.handle_call req pid state in
+      let res, state = I.handle_call req pid state in
       send pid (Reply (ref, res));
       loop impl state
   | msg ->
@@ -44,7 +44,8 @@ let rec loop : type args state. (args, state) impl -> state -> unit =
       loop impl state
 
 let start_link :
-    type args state. (args, state) impl -> args -> (Pid.t, exn) result =
+    type args state.
+    (args, state) impl -> args -> (Pid.t, [> `Exn of exn ]) result =
  fun impl args ->
   let pid =
     spawn_link (fun () ->
@@ -56,3 +57,9 @@ let start_link :
         | Error | Ignore -> ())
   in
   Ok pid
+
+module Default = struct
+  let init _args = Ignore
+  let handle_call _req _from _state = failwith "unimplemented"
+  let handle_info _msg _state = failwith "unimplemented"
+end

@@ -1,4 +1,4 @@
 (library
  (package riot)
  (name lib)
- (libraries global logger runtime tls bytestring telemetry))
+ (libraries global logger runtime tls bytestring telemetry hmap))

@@ -30,12 +30,14 @@ module Twitch = struct
 
     let init _args = Gen_server.Ok { status = 1 }
 
-    let handle_call : type res. res Gen_server.req -> Pid.t -> state -> res =
-     fun req _from _state ->
+    let handle_call :
+        type res. res Gen_server.req -> Pid.t -> state -> res * state =
+     fun req _from state ->
       match req with
-      | Is_connected -> true
+      | Is_connected -> (true, state)
       | Profile _ ->
-          Ok { name = "Jonathan Archer"; email = "archer4eva@starfl.it" }
+          ( Ok { name = "Jonathan Archer"; email = "archer4eva@starfl.it" },
+            state )
 
     let handle_info _msg _state = ()
   end

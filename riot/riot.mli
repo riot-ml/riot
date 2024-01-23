@@ -354,7 +354,7 @@ module Gen_server : sig
     type state
 
     val init : args -> state init_result
-    val handle_call : 'res. 'res req -> Pid.t -> state -> 'res
+    val handle_call : 'res. 'res req -> Pid.t -> state -> 'res * state
     val handle_info : Message.t -> state -> unit
   end
 
@@ -370,7 +370,8 @@ module Gen_server : sig
       TODO(leostera): add ?timeout param
     *)
 
-  val start_link : ('args, 'state) impl -> 'args -> (Pid.t, exn) result
+  val start_link :
+    ('args, 'state) impl -> 'args -> (Pid.t, [> `Exn of exn ]) result
   (** [start_link (module S) args] will spawn and link a new process that will
       act as a generic server over the server implementation of [S],
       initialized with [args] arguments.
@@ -887,6 +888,25 @@ module Task : sig
 
   val await :
     ?timeout:int64 -> 'a t -> ('a, [> `Process_down | `Timeout ]) result
+end
+
+module Store : sig
+  module type Base = sig
+    type key
+    type value
+  end
+
+  module type Intf = sig
+    type key
+    type value
+
+    val start_link : unit -> (Pid.t, [> `Exn of exn ]) result
+    val get : Pid.t -> key -> value option
+    val put : Pid.t -> key -> value -> unit
+    val child_spec : Supervisor.child_spec
+  end
+
+  module Make (B : Base) : Intf with type key = B.key and type value = B.value
 end
 
 module Runtime : sig

@@ -32,7 +32,7 @@
 
   *******************************************************************************************)
 
-module Logger = Logger.Make (struct
+open Logger.Make (struct
   let namespace = [ "riot"; "net"; "ssl" ]
 end)
 
@@ -61,14 +61,14 @@ module Tls_unix = struct
     let buf = IO.Bytes.with_capacity (Cstruct.length cs) in
     match IO.read t.reader ~buf with
     | Ok len ->
-        Logger.debug (fun f -> f "read_t: %d/%d" len (Cstruct.length cs));
+        trace (fun f -> f "read_t: %d/%d" len (Cstruct.length cs));
         Cstruct.blit_from_bytes buf 0 cs 0 len;
         len
     | Error (`Closed | `Eof) ->
-        Logger.debug (fun f -> f "read_t: 0/%d" (Cstruct.length cs));
+        trace (fun f -> f "read_t: 0/%d" (Cstruct.length cs));
         raise End_of_file
     | Error err ->
-        Logger.debug (fun f -> f "read_t: error: %s" (err_to_str err));
+        trace (fun f -> f "read_t: error: %s" (err_to_str err));
         let exn = Read_error err in
         (match t.state with
         | `Error _ | `Eof -> ()
@@ -78,10 +78,9 @@ module Tls_unix = struct
   let write_t t cs =
     let bufs = IO.Iovec.from_cstruct cs in
     match IO.write_owned_vectored t.writer ~bufs with
-    | Ok bytes ->
-        Logger.debug (fun f -> f "write_t: %d/%d" bytes (Cstruct.length cs))
+    | Ok bytes -> trace (fun f -> f "write_t: %d/%d" bytes (Cstruct.length cs))
     | Error err ->
-        Logger.debug (fun f -> f "write_t: error: %s" (err_to_str err));
+        trace (fun f -> f "write_t: error: %s" (err_to_str err));
         let exn = Write_error err in
         (match t.state with
         | `Error _ | `Eof -> ()
@@ -89,27 +88,27 @@ module Tls_unix = struct
         raise exn
 
   let try_write_t t cs =
-    try write_t t cs with _ -> Logger.debug (fun f -> f "try_write_t failed")
+    try write_t t cs with _ -> trace (fun f -> f "try_write_t failed")
 
   let rec read_react t =
-    Logger.debug (fun f -> f "tls.read_react");
+    trace (fun f -> f "tls.read_react");
     let handle tls cs =
       match Tls.Engine.handle_tls tls cs with
       | Ok (state', `Response resp, `Data data) ->
-          Logger.debug (fun f -> f "tls.read_react->ok");
+          trace (fun f -> f "tls.read_react->ok");
           let state' =
             match state' with
             | `Ok tls -> `Active tls
             | `Eof -> `Eof
             | `Alert a ->
-                Logger.debug (fun f -> f "tls.read_react->alert");
+                trace (fun f -> f "tls.read_react->alert");
                 `Error (Tls_alert a)
           in
           t.state <- state';
           Option.iter (try_write_t t) resp;
           data
       | Error (alert, `Response resp) ->
-          Logger.debug (fun f -> f "tls.read_react->error");
+          trace (fun f -> f "tls.read_react->error");
           t.state <- `Error (Tls_failure alert);
           write_t t resp;
           read_react t
@@ -147,7 +146,7 @@ module Tls_unix = struct
   let writev t css =
     match t.state with
     | `Error err ->
-        Logger.debug (fun f -> f "writev: failed");
+        trace (fun f -> f "writev: failed");
         raise err
     | `Eof -> raise Tls_socket_closed
     | `Active tls -> (

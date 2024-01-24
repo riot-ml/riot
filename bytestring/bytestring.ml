@@ -444,8 +444,11 @@ module Iter = struct
 
   let expect_literal_string t ?size str =
     let size = Option.value size ~default:(String.length str) in
-    if not (String.equal str (to_string (next_bytes t ~size))) then
-      raise No_match
+    let last_bytes = t.bytes in
+    let bytes = next_bytes t ~size in
+    if not (String.equal str (to_string bytes)) then (
+      t.bytes <- last_bytes;
+      raise No_match)
 
   let expect_empty t = if t.length != 0 then raise Invalid_position
 

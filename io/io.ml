@@ -260,6 +260,12 @@ module Bytes = struct
       let iov = Iovec.sub bufs ~len:(length t) in
       let pos = ref 0 in
       Iovec.iter bufs (fun iov ->
+          if iov.len < 0 then failwith "iov.len < 0";
+          if iov.off < 0 then failwith "iov.off < 0";
+          if !pos < 0 then failwith "!pos < 0";
+          if iov.off > length iov.ba - iov.len then
+            failwith "iov.off > length iov.ba - iov.len";
+          if !pos > length t - iov.len then failwith "!pos > length t - iov.len";
           blit ~src:iov.ba ~src_pos:iov.off ~len:iov.len ~dst:t ~dst_pos:!pos;
           pos := !pos + iov.len);
       Ok (Iovec.length iov)

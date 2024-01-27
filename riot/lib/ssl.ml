@@ -224,8 +224,12 @@ module Tls_unix = struct
           match single_read t cs with exception End_of_file -> 0 | len -> len
         in
         let bufs = IO.Iovec.from_cstruct cs in
-        let writer = IO.Bytes.to_writer buf in
-        let* _ = IO.write_owned_vectored writer ~bufs in
+        let* _ =
+          if IO.Iovec.length bufs > 0 then
+            let writer = IO.Bytes.to_writer buf in
+            IO.write_owned_vectored writer ~bufs
+          else Ok 0
+        in
         Ok len
 
       let read_vectored _t ~bufs:_ = Ok 0

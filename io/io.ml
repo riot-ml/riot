@@ -68,7 +68,7 @@ module Iovec = struct
 
   let from_cstruct cs =
     let ba = Cstruct.to_bytes cs in
-    [| Cstruct.{ ba; off = cs.off; len = cs.len } |]
+    [| Cstruct.{ ba; off = 0; len = cs.len } |]
 
   let into_cstruct t =
     let cs = Cstruct.create (length t) in

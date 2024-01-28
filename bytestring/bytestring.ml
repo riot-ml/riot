@@ -403,7 +403,7 @@ module Iter = struct
   (* Iterators on bytes *)
 
   let next_byte t =
-    if t.length = 0 then raise Invalid_position;
+    if t.length = 0 then raise No_match;
     (* this is safe because we expect [t.length > 0] *)
     let byte, bytes = Seq.uncons t.bytes |> Option.get in
     t.length <- t.length - 1;
@@ -411,7 +411,7 @@ module Iter = struct
     String.make 1 (Char.chr byte) |> of_string
 
   let next_bytes ~size t =
-    if t.length = 0 || size > t.length then raise Invalid_position;
+    if t.length = 0 || size > t.length then raise No_match;
     let rec read bytes acc =
       if List.length acc = size then
         let read =
@@ -450,7 +450,7 @@ module Iter = struct
       t.bytes <- last_bytes;
       raise No_match)
 
-  let expect_empty t = if t.length != 0 then raise Invalid_position
+  let expect_empty t = if t.length != 0 then raise No_match
 
   let make string =
     let bytes = to_string string in

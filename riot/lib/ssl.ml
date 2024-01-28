@@ -219,7 +219,7 @@ module Tls_unix = struct
       type nonrec t = src t
 
       let read t ~buf =
-        let cs = Cstruct.create 1024 in
+        let cs = Cstruct.create (Bytes.length buf) in
         let len =
           match single_read t cs with exception End_of_file -> 0 | len -> len
         in

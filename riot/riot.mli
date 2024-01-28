@@ -884,6 +884,18 @@ module Hashmap : sig
   module Make (B : Base) : Intf with type key = B.key
 end
 
+module Stream : sig
+  type 'v t = 'v Seq.t
+
+  val next : 'v t -> ('v * 'v t) option
+  val unfold : ('src -> ('v * 'src) option) -> 'src -> 'v t
+
+  type 'acc control_flow = [ `continue of 'acc | `halt of 'acc ]
+
+  val reduce_while :
+    'acc -> ('item -> 'acc -> 'acc control_flow) -> 'item t -> 'acc
+end
+
 module Task : sig
   type 'a t
 

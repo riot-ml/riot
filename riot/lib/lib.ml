@@ -13,11 +13,12 @@ module Pid = Pid
 module Process = Process
 module Queue = Queue
 module Ref = Ref
+module Runtime = Runtime_lib
 module SSL = Ssl
+module Store = Key_value_store
+module Stream = Stream
 module Supervisor = Supervisor
 module Task = Task
 module Telemetry = Telemetry_app
 module Timeout = Timeout
-module Runtime = Runtime_lib
-module Store = Key_value_store
 include Global

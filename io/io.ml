@@ -68,7 +68,7 @@ module Iovec = struct
 
   let from_cstruct cs =
     let ba = Cstruct.to_bytes cs in
-    [| Cstruct.{ ba; off = 0; len = cs.len } |]
+    of_bytes ba
 
   let into_cstruct t =
     let cs = Cstruct.create (length t) in
@@ -265,7 +265,10 @@ module Bytes = struct
           if !pos < 0 then failwith "!pos < 0";
           if iov.off > length iov.ba - iov.len then
             failwith "iov.off > length iov.ba - iov.len";
-          if !pos > length t - iov.len then failwith "!pos > length t - iov.len";
+          if !pos > length t - iov.len then
+            failwith
+              (Format.sprintf "!pos (%d) > length t (%d) - iov.len (%d)" !pos
+                 (length t) iov.len);
           blit ~src:iov.ba ~src_pos:iov.off ~len:iov.len ~dst:t ~dst_pos:!pos;
           pos := !pos + iov.len);
       Ok (Iovec.length iov)

@@ -121,6 +121,19 @@ module Writer = struct
       else Ok ()
     in
     write_loop buf total
+
+  let write_all_vectored :
+      type src. src t -> bufs:Iovec.t -> (unit, [> `Closed ]) io_result =
+   fun (Writer ((module W), dst)) ~bufs ->
+    let total = Iovec.length bufs in
+    let rec write_loop bufs len =
+      if Iovec.length bufs > 0 then
+        let* n = W.write_owned_vectored dst ~bufs in
+        let rest = len - n in
+        write_loop (Iovec.sub bufs ~pos:n ~len:(len - n)) rest
+      else Ok ()
+    in
+    write_loop bufs total
 end
 
 module type Read = sig
@@ -173,6 +186,7 @@ let read = Reader.read
 let read_to_end = Reader.read_to_end
 let read_vectored = Reader.read_vectored
 let write_all = Writer.write_all
+let write_all_vectored = Writer.write_all_vectored
 let write_owned_vectored = Writer.write_owned_vectored
 let flush = Writer.flush
 

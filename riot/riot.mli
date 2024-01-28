@@ -556,6 +556,9 @@ module IO : sig
   val write_owned_vectored :
     'a Writer.t -> bufs:Iovec.t -> (int, [> `Closed ]) io_result
 
+  val write_all_vectored :
+    'a Writer.t -> bufs:Iovec.t -> (unit, [> `Closed ]) io_result
+
   val flush : 'a Writer.t -> (unit, [> `Closed ]) io_result
 
   module Cstruct : sig

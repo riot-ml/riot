@@ -1,6 +1,7 @@
 module Application = Application
 module Bytestring = Bytestring
 module Dynamic_supervisor = Dynamic_supervisor
+module Crypto = Crypto
 module Fd = Fd
 module File = File
 module Gen_server = Gen_server

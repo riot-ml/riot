@@ -924,6 +924,22 @@ module Store : sig
   module Make (B : Base) : Intf with type key = B.key and type value = B.value
 end
 
+module Crypto : sig
+  module Random : sig
+    val cstruct : int -> Cstruct.t
+    val int8 : unit -> int
+    val int16 : unit -> int
+    val int32 : unit -> int32
+    val int64 : unit -> int64
+    val int : ?max:int -> unit -> int
+    val float : ?max:float -> unit -> float
+    val bytes : int -> bytes
+    val bigarray : int -> Cstruct.buffer
+    val string : int -> string
+    val bytestring : int -> Bytestring.t
+  end
+end
+
 module Runtime : sig
   val set_log_level : Logger.level option -> unit
   val syscalls : unit -> int * int * int * int

@@ -8,7 +8,6 @@
   tls
   bytestring
   telemetry
-  hmap
   randomconv
   mirage-crypto
   mirage-crypto-rng

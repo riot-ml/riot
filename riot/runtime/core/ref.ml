@@ -16,6 +16,14 @@ let type_equal : type a b. a t -> b t -> (a, b) Type.eq option =
   | Ref a', Ref b' when Int64.equal a' b' -> Some (Obj.magic Type.Equal)
   | _ -> None
 
+let cast (type a b) (Type.Equal : (a, b) Type.eq) (a : a) : b = a
+
+let cast : type a b. a t -> b t -> a -> b option =
+ fun a b value ->
+  match type_equal a b with
+  | Some witness -> Some (cast witness value)
+  | None -> None
+
 let is_newer (Ref a) (Ref b) = Int64.compare a b = 1
 let hash (Ref a) = Int64.hash a
 

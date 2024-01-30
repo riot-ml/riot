@@ -38,6 +38,11 @@ module Ref : sig
   (** `type_equal refA refB` proves that `'a` and `'b` are equals if the
       underlying refs are also equal.
   *)
+
+  val cast : 'a 'b. 'a t -> 'b t -> 'a -> 'b option
+  (** [cast ref_a ref_b a] will return the value [a] with type of [ref_b] if we
+      can prove that the type equality between [ref_a] and [ref_b] holds. 
+   *)
 end
 
 module Pid : sig

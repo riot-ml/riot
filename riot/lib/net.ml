@@ -42,7 +42,7 @@ module Tcp_listener = struct
               f "Accepted client %a / %a" Addr.pp addr Socket.pp conn);
           Ok (conn, addr)
       | Error `Would_block ->
-          debug (fun f ->
+          trace (fun f ->
               f "Socket not ready, %a is retrying at fd=%a" Pid.pp this Fd.pp t);
           syscall "accept" Interest.(add readable writable) (to_source t)
           @@ fun () -> accept_loop t

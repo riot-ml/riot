@@ -414,16 +414,14 @@ module Scheduler = struct
                   f "scheduler %a stole %a from %a" Scheduler_uid.pp them.uid
                     Pid.pp proc.pid Scheduler_uid.pp us.uid);
               Process.set_sid proc them.uid;
-              let timers =
-                (match Process.receive_timeout proc with
-                | Some t -> [ t ]
-                | None -> [])
-                @
-                match Process.syscall_timeout proc with
-                | Some t -> [ t ]
-                | None -> []
+              let move_timer t =
+                match Timer_wheel.extract_timer us.timers t with
+                | Some timer ->
+                    Timer_wheel.add_timer them.timers timer |> ignore
+                | None -> ()
               in
-              Timer_wheel.move_timers us.timers them.timers timers;
+              Option.iter move_timer (Process.receive_timeout proc);
+              Option.iter move_timer (Process.syscall_timeout proc);
               Proc_queue.queue them.run_queue proc)
       pool.schedulers
 
@@ -439,7 +437,7 @@ module Scheduler = struct
     done;
 
     tick_timers pool sch;
-    if Proc_queue.is_empty sch.run_queue then steal_processes pool sch;
+    (* if Proc_queue.is_empty sch.run_queue then steal_processes pool sch; *)
     Trace.scheduler_loop_end ()
 
   let run pool (sch : t) () =

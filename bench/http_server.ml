@@ -10,9 +10,14 @@ let bufs = IO.Iovec.create ~size:1024 ()
 
 let rec conn_loop conn () =
   let rec handle_request () =
-    let* _req = Net.Tcp_stream.receive ~timeout:1_000_000L conn ~bufs in
-    let* _written = Net.Tcp_stream.send ~timeout:1_000_000L conn ~bufs:data in
-    handle_request ()
+    match receive ~after:10L () with
+    | exception Receive_timeout ->
+        let* _req = Net.Tcp_stream.receive ~timeout:1_000_000L conn ~bufs in
+        let* _written =
+          Net.Tcp_stream.send ~timeout:1_000_000L conn ~bufs:data
+        in
+        handle_request ()
+    | _ -> failwith "somehow received a message?"
   in
   match handle_request () with
   | Ok _ -> conn_loop conn ()
@@ -46,4 +51,4 @@ let main () =
   let _ = List.init 99 (fun _ -> spawn_link acceptor) in
   acceptor ()
 
-let () = Riot.run @@ main
+let () = Riot.run ~workers:0 @@ main

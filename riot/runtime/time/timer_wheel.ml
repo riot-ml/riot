@@ -93,15 +93,7 @@ let remove_timer t timer =
   Mutex.protect t.lock @@ fun () ->
   let timers = Ref.Map.get_all t.ids timer in
   List.iter Timer.mark_as_cancelled timers;
-  Atomic.decr t.timer_count;
   Ref.Map.remove_by t.ids (fun (k, _) -> Ref.equal k timer)
-
-let extract_timer t timer =
-  Mutex.protect t.lock @@ fun () ->
-  let timers = Ref.Map.get_all t.ids timer in
-  Atomic.decr t.timer_count;
-  Ref.Map.remove_by t.ids (fun (k, _) -> Ref.equal k timer);
-  List.nth_opt timers 0
 
 let add_timer t timer =
   Mutex.protect t.lock @@ fun () ->
@@ -115,7 +107,6 @@ let clear_timer t tid =
   Mutex.protect t.lock @@ fun () ->
   let timer = Ref.Map.get t.ids tid in
   Option.iter Timer.mark_as_cancelled timer;
-  Atomic.decr t.timer_count;
   Ref.Map.remove t.ids tid
 
 let make_timer t time mode fn =
@@ -176,36 +167,3 @@ let tick t =
   Log.trace (fun f ->
       f "Done Ticking (%d timers left) %a" (Atomic.get t.timer_count) Mtime.pp
         (Mtime_clock.now ()))
-
-let do_move_timers src dst tids =
-  Log.debug (fun f -> f "moving %d timers" (List.length tids));
-  List.iter
-    (fun tid ->
-      match Ref.Map.get src.ids tid with
-      | None -> ()
-      | Some timer ->
-          Atomic.decr src.timer_count;
-          Ref.Map.remove src.ids tid;
-          src.timers <- TimeHeap.delete_all Timer.equal timer src.timers;
-          dst.timers <- TimeHeap.insert timer dst.timers;
-          Ref.Map.insert dst.ids tid timer;
-          Atomic.incr dst.timer_count;
-          Log.debug (fun f -> f "moved timer %a" Timer.pp timer))
-    tids;
-  Log.debug (fun f -> f "moved %d timers" (List.length tids))
-
-let rec move_timers src dst tids =
-  if List.length tids = 0 then ()
-  else (
-    Log.debug (fun f -> f "trying to move timers");
-    if Mutex.try_lock src.lock then (
-      Log.debug (fun f -> f "locked source timers");
-      if Mutex.try_lock dst.lock then (
-        Log.debug (fun f -> f "locked destination timers");
-        do_move_timers src dst tids;
-        Mutex.unlock dst.lock;
-        Mutex.unlock src.lock)
-      else (
-        Mutex.unlock src.lock;
-        move_timers src dst tids))
-    else move_timers src dst tids)

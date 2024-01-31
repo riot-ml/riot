@@ -414,14 +414,6 @@ module Scheduler = struct
                   f "scheduler %a stole %a from %a" Scheduler_uid.pp them.uid
                     Pid.pp proc.pid Scheduler_uid.pp us.uid);
               Process.set_sid proc them.uid;
-              let move_timer t =
-                match Timer_wheel.extract_timer us.timers t with
-                | Some timer ->
-                    Timer_wheel.add_timer them.timers timer |> ignore
-                | None -> ()
-              in
-              Option.iter move_timer (Process.receive_timeout proc);
-              Option.iter move_timer (Process.syscall_timeout proc);
               Proc_queue.queue them.run_queue proc)
       pool.schedulers
 

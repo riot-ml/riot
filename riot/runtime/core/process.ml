@@ -1,6 +1,7 @@
 module Exn = struct
   exception Receive_timeout
   exception Syscall_timeout
+  exception Terminated
 end
 
 type exit_reason =

@@ -210,7 +210,8 @@ module Scheduler = struct
         f "handle_syscall %s with %a (timeout? %b)" name Process.pp proc
           should_timeout);
 
-    if should_timeout then (
+    if Process.is_exited proc then k (Discontinue Process.Exn.Terminated)
+    else if should_timeout then (
       Log.debug (fun f -> f "Process %a: timed out" Pid.pp (Process.pid proc));
       Process.syscall_timeout proc
       |> Option.iter (Timer_wheel.clear_timer sch.timers);

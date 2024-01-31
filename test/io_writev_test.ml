@@ -22,7 +22,7 @@ let () =
   let buf = IO.Bytes.with_capacity len in
   let fd = File.open_read file in
   let reader = File.to_reader fd in
-  let len = IO.read reader ~buf |> Result.get_ok in
+  let len = IO.read reader buf |> Result.get_ok in
   File.close fd;
   match IO.Bytes.(sub ~pos:0 ~len buf |> to_string) with
   | {| this is some data |} ->

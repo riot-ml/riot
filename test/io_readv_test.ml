@@ -10,7 +10,7 @@ let () =
   let fd = File.open_read "fixtures/io_readv.txt" in
   let reader = File.to_reader fd in
   let buf = Bytes.with_capacity 8 in
-  let len = IO.read reader ~buf |> Result.get_ok in
+  let len = IO.read reader buf |> Result.get_ok in
   let str = Bytes.(sub ~pos:0 ~len buf |> to_string) in
   match str with
   | "hello wo" -> Logger.info (fun f -> f "io_readv_test: OK")

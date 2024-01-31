@@ -59,7 +59,7 @@ module Tls_unix = struct
 
   let read_t t cs =
     let buf = IO.Bytes.with_capacity (Cstruct.length cs) in
-    match IO.read t.reader ~buf with
+    match IO.read t.reader buf with
     | Ok len ->
         trace (fun f -> f "read_t: %d/%d" len (Cstruct.length cs));
         Cstruct.blit_from_bytes buf 0 cs 0 len;
@@ -218,7 +218,7 @@ module Tls_unix = struct
     let module Read = struct
       type nonrec t = src t
 
-      let read t ~buf =
+      let read t ?timeout:_ buf =
         let cs = Cstruct.create (Bytes.length buf) in
         let len =
           match single_read t cs with exception End_of_file -> 0 | len -> len
@@ -232,7 +232,7 @@ module Tls_unix = struct
         in
         Ok len
 
-      let read_vectored _t ~bufs:_ = Ok 0
+      let read_vectored _t _bufs = Ok 0
     end in
     IO.Reader.of_read_src (module Read) t
 

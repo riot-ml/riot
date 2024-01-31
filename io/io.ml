@@ -139,8 +139,8 @@ end
 module type Read = sig
   type t
 
-  val read : t -> buf:bytes -> (int, [> `Closed ]) io_result
-  val read_vectored : t -> bufs:Iovec.t -> (int, [> `Closed ]) io_result
+  val read : t -> ?timeout:int64 -> bytes -> (int, [> `Closed ]) io_result
+  val read_vectored : t -> Iovec.t -> (int, [> `Closed ]) io_result
 end
 
 module Reader = struct
@@ -151,19 +151,21 @@ module Reader = struct
   let of_read_src : type src. src read -> src -> src t =
    fun read src -> Reader (read, src)
 
-  let read : type src dst. src t -> buf:bytes -> (int, [> `Closed ]) io_result =
-   fun (Reader ((module R), src)) ~buf -> R.read src ~buf
+  let read :
+      type src dst.
+      src t -> ?timeout:int64 -> bytes -> (int, [> `Closed ]) io_result =
+   fun (Reader ((module R), src)) ?timeout buf -> R.read src ?timeout buf
 
   let read_vectored :
-      type src dst. src t -> bufs:Iovec.t -> (int, [> `Closed ]) io_result =
-   fun (Reader ((module R), src)) ~bufs -> R.read_vectored src ~bufs
+      type src dst. src t -> Iovec.t -> (int, [> `Closed ]) io_result =
+   fun (Reader ((module R), src)) bufs -> R.read_vectored src bufs
 
   let read_to_end :
       type src dst. src t -> buf:Buffer.t -> (int, [> `Closed ]) io_result =
    fun (Reader ((module R), src)) ~buf:out ->
     let buf = Bytes.create 1024 in
     let rec read_loop total =
-      match R.read src ~buf with
+      match R.read src buf with
       | Ok 0 -> Ok total
       | Ok len ->
           Buffer.add_bytes out (Bytes.sub buf 0 len);
@@ -176,8 +178,8 @@ module Reader = struct
     let module EmptyRead = struct
       type t = unit
 
-      let read () ~buf:_ = Ok 0
-      let read_vectored () ~bufs:_ = Ok 0
+      let read () ?timeout:_ _buf = Ok 0
+      let read_vectored () _bufs = Ok 0
     end in
     of_read_src (module EmptyRead) ()
 end

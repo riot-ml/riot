@@ -17,7 +17,7 @@ let () =
   let file = File.open_read path in
   let reader = File.to_reader file in
   let buf = IO.Bytes.with_capacity 19 in
-  let _read = IO.read reader ~buf in
+  let _read = IO.read reader buf in
   let str = IO.Bytes.to_string buf in
 
   match str with

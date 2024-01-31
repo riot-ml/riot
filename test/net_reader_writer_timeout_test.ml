@@ -20,7 +20,7 @@ let () =
 
   let buf = IO.Bytes.with_capacity 10 in
   let reader = Net.Tcp_stream.to_reader ~timeout:10L socket in
-  (match IO.read ~buf reader with
+  (match IO.read reader buf with
   | exception Syscall_timeout ->
       Logger.debug (fun f -> f "receive timeout works")
   | Ok _ ->

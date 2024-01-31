@@ -47,7 +47,7 @@ let server port socket =
     Logger.debug (fun f ->
         f "Reading from client client %a (%a)" Net.Addr.pp addr Net.Socket.pp
           conn);
-    match IO.read reader ~buf with
+    match IO.read reader buf with
     | Ok len -> (
         Logger.debug (fun f -> f "Server received %d bytes" len);
         let bufs = IO.Iovec.(of_bytes buf |> sub ~len) in
@@ -98,7 +98,7 @@ let client server_port main =
 
   let buf = IO.Bytes.with_capacity 1024 in
   let recv_loop () =
-    match IO.read ~buf reader with
+    match IO.read reader buf with
     | Ok bytes ->
         Logger.debug (fun f -> f "Client received %d bytes" bytes);
         bytes

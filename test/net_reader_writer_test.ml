@@ -23,7 +23,7 @@ let server port socket =
     Logger.debug (fun f ->
         f "Reading from client client %a (%a)" Net.Addr.pp addr Net.Socket.pp
           conn);
-    match IO.read_vectored reader ~bufs with
+    match IO.read_vectored reader bufs with
     | Ok len -> (
         Logger.debug (fun f -> f "Server received %d bytes" len);
         let bufs = IO.Iovec.sub ~len bufs in
@@ -69,7 +69,7 @@ let client server_port main =
 
   let rec recv_loop data =
     let buf = IO.Bytes.with_capacity 1024 in
-    match IO.read ~buf reader with
+    match IO.read reader buf with
     | Ok bytes ->
         Logger.debug (fun f -> f "Client received %d bytes" bytes);
         let bytes = IO.Bytes.sub buf ~pos:0 ~len:bytes in

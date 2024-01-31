@@ -5,15 +5,15 @@ let test_with_buffer capacity =
   let reader = File.to_reader file in
   let buf = IO.Bytes.with_capacity 57946 in
 
-  let len = IO.read reader ~buf |> Result.get_ok in
+  let len = IO.read reader buf |> Result.get_ok in
   let str1 = IO.Bytes.(sub buf ~pos:0 ~len |> to_string) in
   Logger.debug (fun f -> f "read #1: %d bytes" len);
 
-  let len = IO.read reader ~buf |> Result.get_ok in
+  let len = IO.read reader buf |> Result.get_ok in
   let str2 = IO.Bytes.(sub buf ~pos:0 ~len |> to_string) in
   Logger.debug (fun f -> f "read #2: %d bytes" len);
 
-  let len = IO.read reader ~buf |> Result.get_ok in
+  let len = IO.read reader buf |> Result.get_ok in
   let str3 = IO.Bytes.(sub buf ~pos:0 ~len |> to_string) in
   Logger.debug (fun f -> f "read #3: %d bytes" len);
 

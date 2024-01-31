@@ -6,15 +6,15 @@ let test_with_buffer capacity =
 
   let buf = IO.Bytes.with_capacity 8 in
 
-  let op1 = IO.read reader ~buf |> Result.get_ok in
+  let op1 = IO.read reader buf |> Result.get_ok in
   let str1 = IO.Bytes.(sub buf ~pos:0 ~len:op1 |> to_string) in
   Logger.debug (fun f -> f "read #1: %d bytes - %S" op1 str1);
 
-  let op2 = IO.read reader ~buf |> Result.get_ok in
+  let op2 = IO.read reader buf |> Result.get_ok in
   let str2 = IO.Bytes.(sub buf ~pos:0 ~len:op2 |> to_string) in
   Logger.debug (fun f -> f "read #2: %d bytes - %S" op2 str2);
 
-  let op3 = IO.read reader ~buf |> Result.get_ok in
+  let op3 = IO.read reader buf |> Result.get_ok in
   let str3 = IO.Bytes.(sub buf ~pos:0 ~len:op3 |> to_string) in
   Logger.debug (fun f -> f "read #3: %d bytes - %S" op3 str3);
 

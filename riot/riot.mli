@@ -538,8 +538,8 @@ module IO : sig
   module type Read = sig
     type t
 
-    val read : t -> buf:bytes -> (int, [> `Closed ]) io_result
-    val read_vectored : t -> bufs:Iovec.t -> (int, [> `Closed ]) io_result
+    val read : t -> ?timeout:int64 -> bytes -> (int, [> `Closed ]) io_result
+    val read_vectored : t -> Iovec.t -> (int, [> `Closed ]) io_result
   end
 
   module Reader : sig
@@ -550,11 +550,10 @@ module IO : sig
     val empty : unit t
   end
 
-  val read : 'a Reader.t -> buf:bytes -> (int, [> `Closed ]) io_result
+  val read :
+    'a Reader.t -> ?timeout:int64 -> bytes -> (int, [> `Closed ]) io_result
 
-  val read_vectored :
-    'a Reader.t -> bufs:Iovec.t -> (int, [> `Closed ]) io_result
-
+  val read_vectored : 'a Reader.t -> Iovec.t -> (int, [> `Closed ]) io_result
   val read_to_end : 'a Reader.t -> buf:Buffer.t -> (int, [> `Closed ]) io_result
   val write_all : 'a Writer.t -> buf:bytes -> (unit, [> `Closed ]) io_result
 

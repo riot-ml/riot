@@ -23,20 +23,20 @@ let stat path = Unix.stat path
 module Read = struct
   type t = read_file
 
-  let rec read t ~buf =
+  let rec read t ?timeout buf =
     match File.read t.fd buf ~pos:0 ~len:(Io.Bytes.length buf) with
     | Ok n -> Ok n
     | Error `Would_block ->
-        syscall "File.read" Interest.readable (File.to_source t.fd) @@ fun _ ->
-        read t ~buf
+        syscall ?timeout "File.read" Interest.readable (File.to_source t.fd)
+        @@ fun _ -> read t ?timeout buf
     | Error err -> Error err
 
-  let rec read_vectored t ~bufs =
+  let rec read_vectored t bufs =
     match File.read_vectored t.fd bufs with
     | Ok n -> Ok n
     | Error `Would_block ->
         syscall "File.read_vectored" Interest.readable (File.to_source t.fd)
-        @@ fun _ -> read_vectored t ~bufs
+        @@ fun _ -> read_vectored t bufs
     | Error err -> Error err
 end
 

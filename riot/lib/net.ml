@@ -129,12 +129,17 @@ module Tcp_stream = struct
     | `Unix_error err ->
         Format.fprintf fmt "Unix_error(%s)" (Unix.error_message err)
 
-  let to_reader ?timeout t =
+  let to_reader ?timeout:global_timeout t =
     let module Read = struct
       type nonrec t = t
 
-      let read t ~buf = receive ?timeout ~bufs:(Io.Iovec.of_bytes buf) t
-      let read_vectored t ~bufs = receive ?timeout ~bufs t
+      let read t ?timeout buf =
+        let timeout =
+          match timeout with None -> global_timeout | Some _ -> timeout
+        in
+        receive ?timeout ~bufs:(Io.Iovec.of_bytes buf) t
+
+      let read_vectored t bufs = receive ?timeout:global_timeout ~bufs t
     end in
     Io.Reader.of_read_src (module Read) t
 

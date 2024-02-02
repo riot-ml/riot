@@ -941,6 +941,9 @@ module Crypto : sig
     val bigarray : int -> Cstruct.buffer
     val string : int -> string
     val bytestring : int -> Bytestring.t
+    val char : unit -> char
+    val alphanum : unit -> char
+    val seq : int -> (unit -> char) -> string
   end
 end
 

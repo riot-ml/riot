@@ -16,7 +16,7 @@ let () =
   let pid1 = spawn loop in
   let pid2 =
     spawn (fun () ->
-        monitor (self ()) pid1;
+        monitor pid1;
         await_monitor_message ())
   in
   sleep 0.1;

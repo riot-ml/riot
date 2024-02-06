@@ -928,6 +928,23 @@ module Store : sig
   module Make (B : Base) : Intf with type key = B.key and type value = B.value
 end
 
+module Mutex : sig
+  module type Base = sig
+    type value
+  end
+
+  module type Intf = sig
+    type value
+    type t
+
+    val start_link : value -> (t, [> `Exn of exn ]) result
+    val lock : t -> value
+    val unlock : t -> value -> unit
+  end
+
+  module Make (B : Base) : Intf with type value = B.value
+end
+
 module Crypto : sig
   module Random : sig
     val cstruct : int -> Cstruct.t

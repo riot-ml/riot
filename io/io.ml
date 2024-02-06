@@ -87,7 +87,7 @@ end
 module type Write = sig
   type t
 
-  val write : t -> buf:bytes -> (int, [> `Closed ]) io_result
+  val write : t -> buf:string -> (int, [> `Closed ]) io_result
   val write_owned_vectored : t -> bufs:Iovec.t -> (int, [> `Closed ]) io_result
   val flush : t -> (unit, [> `Closed ]) io_result
 end
@@ -99,7 +99,7 @@ module Writer = struct
   let of_write_src : type src. src write -> src -> src t =
    fun write src -> Writer (write, src)
 
-  let write : type src. src t -> buf:bytes -> (int, [> `Closed ]) io_result =
+  let write : type src. src t -> buf:string -> (int, [> `Closed ]) io_result =
    fun (Writer ((module W), dst)) ~buf -> W.write dst ~buf
 
   let write_owned_vectored :
@@ -109,15 +109,15 @@ module Writer = struct
   let flush : type src. src t -> (unit, [> `Closed ]) io_result =
    fun (Writer ((module W), dst)) -> W.flush dst
 
-  let write_all : type src. src t -> buf:bytes -> (unit, [> `Closed ]) io_result
-      =
+  let write_all :
+      type src. src t -> buf:string -> (unit, [> `Closed ]) io_result =
    fun (Writer ((module W), dst)) ~buf ->
-    let total = Bytes.length buf in
+    let total = String.length buf in
     let rec write_loop buf len =
-      if Bytes.length buf > 0 then
+      if String.length buf > 0 then
         let* n = W.write dst ~buf in
         let rest = len - n in
-        write_loop (Bytes.sub buf n (len - n)) rest
+        write_loop (String.sub buf n (len - n)) rest
       else Ok ()
     in
     write_loop buf total
@@ -200,8 +200,8 @@ module Cstruct = struct
 
     let write t ~buf =
       let src_off = 0 in
-      let src_len = Bytes.length buf in
-      Cstruct.blit_from_bytes buf src_off t 0 src_len;
+      let src_len = String.length buf in
+      Cstruct.blit_from_string buf src_off t 0 src_len;
       Ok src_len
 
     let write_owned_vectored t ~bufs =
@@ -268,6 +268,7 @@ module Bytes = struct
     type t = bytes
 
     let write t ~buf =
+      let buf = Bytes.unsafe_of_string buf in
       let len = Bytes.length buf in
       blit ~src:buf ~src_pos:0 ~dst:t ~dst_pos:0 ~len;
       Ok len
@@ -304,6 +305,7 @@ module Buffer = struct
     type t = Buffer.t
 
     let write t ~buf =
+      let buf = Bytes.unsafe_of_string buf in
       Buffer.add_bytes t buf;
       Ok (Bytes.length buf)
 

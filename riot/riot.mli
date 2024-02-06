@@ -520,7 +520,7 @@ module IO : sig
   module type Write = sig
     type t
 
-    val write : t -> buf:bytes -> (int, [> `Closed ]) io_result
+    val write : t -> buf:string -> (int, [> `Closed ]) io_result
 
     val write_owned_vectored :
       t -> bufs:Iovec.t -> (int, [> `Closed ]) io_result
@@ -555,7 +555,7 @@ module IO : sig
 
   val read_vectored : 'a Reader.t -> Iovec.t -> (int, [> `Closed ]) io_result
   val read_to_end : 'a Reader.t -> buf:Buffer.t -> (int, [> `Closed ]) io_result
-  val write_all : 'a Writer.t -> buf:bytes -> (unit, [> `Closed ]) io_result
+  val write_all : 'a Writer.t -> buf:string -> (unit, [> `Closed ]) io_result
 
   val write_owned_vectored :
     'a Writer.t -> bufs:Iovec.t -> (int, [> `Closed ]) io_result

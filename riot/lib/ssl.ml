@@ -241,7 +241,7 @@ module Tls_unix = struct
     let module Write = struct
       type nonrec t = src t
 
-      let write t ~buf = single_write t (Cstruct.of_bytes buf)
+      let write t ~buf = single_write t (Cstruct.of_string buf)
 
       let write_owned_vectored t ~bufs =
         single_write t (IO.Iovec.into_cstruct bufs)

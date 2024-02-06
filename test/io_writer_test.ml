@@ -11,7 +11,7 @@ let () =
   in
   let file = File.open_write path in
   let writer = File.to_writer file in
-  let buf = IO.Bytes.of_string {| this is some data |} in
+  let buf = {| this is some data |} in
   let () = IO.write_all writer ~buf |> Result.get_ok in
 
   let file = File.open_read path in

@@ -150,7 +150,7 @@ module Tcp_stream = struct
       let write_owned_vectored t ~bufs = send ?timeout ~bufs t
 
       let write t ~buf =
-        let bufs = Io.Iovec.of_bytes buf in
+        let bufs = Io.Iovec.from_string buf in
         write_owned_vectored t ~bufs
 
       let flush _t = Ok ()

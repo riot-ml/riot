@@ -46,7 +46,7 @@ let () =
       let iter = Bytestring.to_iter str in
       Bytestring.Iter.expect_empty iter;
       "")
-    "Exception: Bytestring.Iter.Invalid_position";
+    "Exception: Bytestring.No_match";
 
   test "create empty iterator and get 1 byte fails"
     (fun () ->
@@ -54,7 +54,7 @@ let () =
       let iter = Bytestring.to_iter str in
       let _byte = Bytestring.Iter.next_byte iter in
       "")
-    "Exception: Bytestring.Iter.Invalid_position";
+    "Exception: Bytestring.No_match";
 
   test "create empty iterator and get 10 byte fails"
     (fun () ->
@@ -62,7 +62,7 @@ let () =
       let iter = Bytestring.to_iter str in
       let _byte = Bytestring.Iter.next_bytes ~size:10 iter in
       "")
-    "Exception: Bytestring.Iter.Invalid_position";
+    "Exception: Bytestring.No_match";
 
   proptest "create iterator and rest" (fun input ->
       let str = Bytestring.of_string input in

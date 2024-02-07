@@ -21,6 +21,7 @@
   (pps ppxlib.metaquot)))
 
 (library
+ (package bytestring)
  (name naughty_strings)
  (modules naughty_strings))
 

@@ -10,8 +10,18 @@ authors: [
   "Felipe Oliveira Carvalho <felipekde@gmail.com>"
 ]
 license: "MIT"
-homepage: "https://github.com/leostera/riot"
-bug-reports: "https://github.com/leostera/riot/issues"
+tags: [
+  "bytes"
+  "strings"
+  "pattern matching"
+  "binary strings"
+  "rope"
+  "transient"
+  "iterators"
+  "utf8"
+]
+homepage: "https://github.com/riot-ml/riot"
+bug-reports: "https://github.com/riot-ml/riot/issues"
 depends: [
   "io" {= version}
   "ocaml" {>= "5.1.1"}
@@ -36,4 +46,4 @@ build: [
     "@doc" {with-doc}
   ]
 ]
-dev-repo: "git+https://github.com/leostera/riot.git"
+dev-repo: "git+https://github.com/riot-ml/riot.git"

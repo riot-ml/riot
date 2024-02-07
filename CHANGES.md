@@ -16,11 +16,9 @@ This is the largest Riot release yet, and we are splitting the package into 4 su
   and moving to Weak references for processes to ensure they get garbage
   collected timely.
 
-* Introduce Process Priorities and Process Stealing – the scheduler has been
-  improved to support processes with different priorities (High, Normal, and
-  Low), and stealing work from other schedulers (following the priorities) so
-  that eventually the workloads will be balanced, regardless of how they are
-  spawned. Thanks @LeedsJohn for the contribution! 👏
+* Introduce Process Priorities – the scheduler has been improved to support
+  processes with different priorities (High, Normal, and Low). Thanks
+  @LeedsJohn for the contribution! 👏
 
 * Introduce `receive` Timeouts – you can now call `receive ~after:10L ()` and
   if there are messages fetched in 10 microseconds `receive` will raise a
@@ -55,7 +53,9 @@ This is the largest Riot release yet, and we are splitting the package into 4 su
   closest we have to a future. A `Task` is typed, executes a single function, 
   and MUST be awaited with `Task.await ?timeout task`.
 
-* Introduce specialized Dashmap's with the `Dashmap.Make` functor.
+* Introduce `Crypto.Random` module with high-level utilities for creating
+  random data of different types, including integers of different sizes,
+  strings, bytestrings, bytes, characters, and ASCII strings.
 
 * Introduce new named pid functions `Process.where_is` and `Porcess.await_name`
   to make it easier to find pids by name, and await a name to be registered.
@@ -64,12 +64,24 @@ This is the largest Riot release yet, and we are splitting the package into 4 su
 
 * Improve logging on most modules with namespaces
 
+* Initializing the Riot runtime twice results in a runtime exception – thanks
+  @julien-leclercq for the contribution! 👏
+
+* Introduce `Ref.cast` to do type-safe type-casting based on runtime
+  information of a Ref at its instantiation time.
+
+* Introduce a `Stream` module that extends the stdlib Seq with a `reduce_while` combinator.
+
+* Introduce inmemory key-value `Store` that works in a process-friendly
+  fashion, similar to Erlang's ETS.
+
 ### Bytestring
 
 * First implementation of efficient immutable byte strings with cheap view and
   concat operations. Thanks to @felipecrv for contributing! 👏
 
-* Iterators and Transient builders.
+* Iterators and Transient builders for efficiently examining, destructuring,
+  and constructing byte strings from different sources.
 
 * Preliminary Bytestrings syntax support (via a ppx) for constructions and
   efficient pattern matching using the `%b` sigil.

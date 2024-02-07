@@ -13,7 +13,7 @@ let () =
   let _ = Logger.start () |> Result.get_ok in
   Logger.set_log_level (Some Info);
 
-  let task = Task.async (fun () -> count_to 0 10_000) in
+  let task = Task.async (fun () -> count_to 0 1_000) in
 
   match Task.await ~timeout:100_000L task with
   | Ok n ->

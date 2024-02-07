@@ -7,7 +7,7 @@
 (cram enable)
 
 (source
- (github leostera/riot))
+ (github riot-ml/riot))
 
 (authors "Leandro Ostera <leandro@abstractmachines.dev>")
 
@@ -44,6 +44,9 @@
 
 (package
   (name io)
+  (synopsis "Ergonomic, composable, efficient read/write streams")
+  (description
+    "Io implements ergonomic, composable, efficient read/write streams that give you a uniform interface for reading from any source and writing to any sync.")
   (depends
     (cstruct (>= "6.2.0"))
     (ocaml (>= "5.1"))
@@ -52,6 +55,7 @@
 
 (package
   (name gluon)
+  (synopsis "A minimal, portable, and fast API on top of the operating-system's evented I/O API.")
   (depends
     (io (= :version))
     (bytestring (= :version))
@@ -60,7 +64,7 @@
     (ocaml (>= "5.1"))
     (uri (>= "4.4.0"))
     dune)
-  (tags (async io tcp udp iocp multicore)))
+  (tags (async io tcp udp multicore)))
 
 (package
   (name bytestring)
@@ -77,4 +81,5 @@
     (sedlex (>= "3.2"))
     (spices (>= "0.0.2"))
     dune
-    ))
+    )
+  (tags (bytes strings "pattern matching" "binary strings" rope transient iterators utf8)))

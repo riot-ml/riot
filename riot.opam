@@ -7,8 +7,8 @@ maintainer: ["Leandro Ostera <leandro@abstractmachines.dev>"]
 authors: ["Leandro Ostera <leandro@abstractmachines.dev>"]
 license: "MIT"
 tags: ["multicore" "erlang" "actor" "message-passing" "processes"]
-homepage: "https://github.com/leostera/riot"
-bug-reports: "https://github.com/leostera/riot/issues"
+homepage: "https://github.com/riot-ml/riot"
+bug-reports: "https://github.com/riot-ml/riot/issues"
 depends: [
   "bytestring" {= version}
   "castore" {with-test & >= "0.0.2"}
@@ -43,4 +43,4 @@ build: [
     "@doc" {with-doc}
   ]
 ]
-dev-repo: "git+https://github.com/leostera/riot.git"
+dev-repo: "git+https://github.com/riot-ml/riot.git"

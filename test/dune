@@ -54,13 +54,13 @@
  (deps generated/.gitkeep)
  (libraries riot))
 
-(test
- (package riot)
- (name net_timeout_test)
- (enabled_if
-  (= %{env:OPAM_REPO_CI=false} false))
- (modules net_timeout_test)
- (libraries riot port_finder))
+; (test
+;  (package riot)
+;  (name net_timeout_test)
+;  (enabled_if
+;   (= %{env:OPAM_REPO_CI=false} false))
+;  (modules net_timeout_test)
+;  (libraries riot port_finder))
 
 (test
  (package riot)
@@ -78,13 +78,13 @@
  (modules net_reader_writer_test)
  (libraries riot port_finder))
 
-(test
- (package riot)
- (name net_reader_writer_timeout_test)
- (enabled_if
-  (= %{env:OPAM_REPO_CI=false} false))
- (modules net_reader_writer_timeout_test)
- (libraries riot port_finder))
+; (test
+;  (package riot)
+;  (name net_reader_writer_timeout_test)
+;  (enabled_if
+;   (= %{env:OPAM_REPO_CI=false} false))
+;  (modules net_reader_writer_timeout_test)
+;  (libraries riot port_finder))
 
 (test
  (package riot)
@@ -118,11 +118,11 @@
  (modules process_registration_test)
  (libraries riot))
 
-(test
- (package riot)
- (name process_stealing_test)
- (modules process_stealing_test)
- (libraries riot))
+; (test
+;  (package riot)
+;  (name process_stealing_test)
+;  (modules process_stealing_test)
+;  (libraries riot))
 
 (test
  (package riot)

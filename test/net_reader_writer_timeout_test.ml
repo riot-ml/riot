@@ -36,8 +36,8 @@ let () =
   let writer = Net.Tcp_stream.to_writer ~timeout:10L socket in
   (match IO.write_owned_vectored ~bufs writer with
   | exception Syscall_timeout -> Logger.debug (fun f -> f "send timeout works")
-  | Ok _ ->
-      Logger.error (fun f -> f "send timeout sent something?");
+  | Ok bytes ->
+      Logger.error (fun f -> f "send timeout sent %d bytes?" bytes);
       sleep 0.2;
       Stdlib.exit 1
   | Error err ->

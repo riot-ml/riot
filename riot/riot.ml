@@ -4,12 +4,18 @@ open Logger.Make (struct
   let namespace = [ "riot" ]
 end)
 
+exception Riot_already_started
+
 let shutdown ?(status = 0) () =
   debug (fun f -> f "RIOT IS SHUTTING DOWN!");
   let pool = _get_pool () in
   Scheduler.Pool.shutdown pool status
 
+let started = ref false
+
 let run ?(rnd = Random.State.make_self_init ()) ?workers main =
+  if !started then raise Riot_already_started else started := true;
+
   let max_workers = Int.max 0 (Stdlib.Domain.recommended_domain_count () - 2) in
   let workers =
     match workers with Some w -> Int.min w max_workers | None -> max_workers

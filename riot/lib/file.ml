@@ -24,7 +24,7 @@ module Read = struct
   type t = read_file
 
   let rec read t ?timeout buf =
-    match File.read t.fd buf ~pos:0 ~len:(Io.Bytes.length buf) with
+    match File.read t.fd buf ~pos:0 ~len:(Rio.Bytes.length buf) with
     | Ok n -> Ok n
     | Error `Would_block ->
         syscall ?timeout "File.read" Interest.readable (File.to_source t.fd)
@@ -40,7 +40,7 @@ module Read = struct
     | Error err -> Error err
 end
 
-let to_reader t = Io.Reader.of_read_src (module Read) t
+let to_reader t = Rio.Reader.of_read_src (module Read) t
 
 module Write = struct
   type t = write_file
@@ -56,10 +56,10 @@ module Write = struct
     | Error err -> Error err
 
   let write t ~buf =
-    let bufs = Io.Iovec.from_string buf in
+    let bufs = Rio.Iovec.from_string buf in
     write_owned_vectored t ~bufs
 
   let flush _t = Ok ()
 end
 
-let to_writer t = Io.Writer.of_write_src (module Write) t
+let to_writer t = Rio.Writer.of_write_src (module Write) t

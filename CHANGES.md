@@ -7,7 +7,7 @@ This is the largest Riot release yet, and we are splitting the package into 4 su
 * the Riot runtime+library
 * Bytestring – efficient and ergonomic bytestring manipulation
 * Gluon – a low-level, efficient async I/O engine 
-* IO – composable I/O streams for vectored operations 
+* Rio – composable I/O streams for vectored operations 
 
 ### Riot Runtime
 
@@ -96,7 +96,7 @@ This is the largest Riot release yet, and we are splitting the package into 4 su
 * Preliminary support for epoll on Linux and kqueue on macOS with conditional
   compilation via the `config` package.
 
-### IO
+### Rio
 
 * First implementation of composable I/O streams via a Read/Write interface
   inspired by Rust's Read/Write traits.
@@ -154,7 +154,7 @@ This is the largest Riot release yet, and we are splitting the package into 4 su
 * Fix issue with schedulers busy-waiting
 * Introduce separate IO Schedulers for polling
 * Switch to `poll` to support kqueue on macOS
-* Reuse read-buffers on Io.read loops
+* Reuse read-buffers on Rio.read loops
 * Broaden IO socket types to file descriptors
 * Improved polling with shorter poll timeouts and safety checks
 * Add `Dashmap.iter` to iterate over a collection

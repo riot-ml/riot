@@ -2,4 +2,4 @@
  (public_name gluon)
  (preprocess
   (pps bytestring.ppx))
- (libraries bytestring io uri gluon_common gluon_sys libc))
+ (libraries bytestring rio uri gluon_common gluon_sys libc))

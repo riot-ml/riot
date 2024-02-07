@@ -1,4 +1,4 @@
-include Io
+include Rio
 
 module Logger = Logger.Make (struct
   let namespace = [ "riot"; "io" ]

@@ -1,6 +1,6 @@
-# IO
+# Rio
 
-IO is the composable streaming I/O layer on which Riot is built on. It
+Rio is the composable streaming I/O layer on which Riot is built on. It
 provides the interfaces to define Readers and Writers for customs sources and
 sinks, and it provides the gluing together.
 

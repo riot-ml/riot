@@ -43,10 +43,10 @@
   (multicore erlang actor "message-passing" processes)))
 
 (package
-  (name io)
+  (name rio)
   (synopsis "Ergonomic, composable, efficient read/write streams")
   (description
-    "Io implements ergonomic, composable, efficient read/write streams that give you a uniform interface for reading from any source and writing to any sync.")
+    "Rio implements ergonomic, composable, efficient read/write streams that give you a uniform interface for reading from any source and writing to any sync.")
   (depends
     (cstruct (>= "6.2.0"))
     (ocaml (>= "5.1"))
@@ -57,7 +57,7 @@
   (name gluon)
   (synopsis "A minimal, portable, and fast API on top of the operating-system's evented I/O API.")
   (depends
-    (io (= :version))
+    (rio (= :version))
     (bytestring (= :version))
     (libc (>= "0.0.1"))
     (config (>= "0.0.1"))
@@ -74,7 +74,7 @@
     "Leandro Ostera <leandro@abstractmachines.dev>"
     "Felipe Oliveira Carvalho <felipekde@gmail.com>")
   (depends
-    (io (= :version))
+    (rio (= :version))
     (ocaml (>= "5.1.1"))
     (ppxlib (>= 0.31.0))
     (qcheck (and :with-test (>= "0.21.3")))

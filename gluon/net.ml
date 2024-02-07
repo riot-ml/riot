@@ -124,7 +124,7 @@ module Tcp_listener = struct
 end
 
 module Tcp_stream = struct
-  open Io
+  open Rio
 
   type t = Socket.stream_socket
 

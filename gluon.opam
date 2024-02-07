@@ -9,7 +9,7 @@ tags: ["async" "io" "tcp" "udp" "multicore"]
 homepage: "https://github.com/riot-ml/riot"
 bug-reports: "https://github.com/riot-ml/riot/issues"
 depends: [
-  "io" {= version}
+  "rio" {= version}
   "bytestring" {= version}
   "libc" {>= "0.0.1"}
   "config" {>= "0.0.1"}

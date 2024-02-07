@@ -146,7 +146,6 @@ end
 module Reader = struct
   type 'src read = (module Read with type t = 'src)
   type 'src t = Reader of ('src read * 'src)
-  type 'src reader = 'src t
 
   let of_read_src : type src. src read -> src -> src t =
    fun read src -> Reader (read, src)
@@ -187,6 +186,7 @@ end
 let read = Reader.read
 let read_to_end = Reader.read_to_end
 let read_vectored = Reader.read_vectored
+let write = Writer.write
 let write_all = Writer.write_all
 let write_all_vectored = Writer.write_all_vectored
 let write_owned_vectored = Writer.write_owned_vectored

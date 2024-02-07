@@ -1,4 +1,4 @@
-open Io
+open Rio
 
 module Fd : sig
   type t = Unix.file_descr
@@ -138,8 +138,8 @@ module File : sig
   val close : t -> unit
   val read : t -> ?pos:int -> ?len:int -> bytes -> (int, [> `Noop ]) io_result
   val write : t -> ?pos:int -> ?len:int -> bytes -> (int, [> `Noop ]) io_result
-  val read_vectored : t -> Io.Iovec.t -> (int, [> `Noop ]) io_result
-  val write_vectored : t -> Io.Iovec.t -> (int, [> `Noop ]) io_result
+  val read_vectored : t -> Rio.Iovec.t -> (int, [> `Noop ]) io_result
+  val write_vectored : t -> Rio.Iovec.t -> (int, [> `Noop ]) io_result
   val to_source : t -> Source.t
 end
 

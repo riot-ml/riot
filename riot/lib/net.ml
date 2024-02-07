@@ -98,7 +98,8 @@ module Tcp_stream = struct
 
   let rec receive ?timeout ~bufs t =
     trace (fun f ->
-        f "receiving up to %d octets from %a" (Io.Iovec.length bufs) Socket.pp t);
+        f "receiving up to %d octets from %a" (Rio.Iovec.length bufs) Socket.pp
+          t);
     match read_vectored t bufs with
     | Ok len ->
         trace (fun f -> f "received: %d octets from %a" len Socket.pp t);
@@ -110,10 +111,10 @@ module Tcp_stream = struct
     | Error err -> Error err
 
   let rec send ?timeout ~bufs t =
-    trace (fun f -> f "sending: %d octets" (Io.Iovec.length bufs));
+    trace (fun f -> f "sending: %d octets" (Rio.Iovec.length bufs));
     match write_vectored t bufs with
     | Ok bytes ->
-        trace (fun f -> f "sent: %d" (Io.Iovec.length bufs));
+        trace (fun f -> f "sent: %d" (Rio.Iovec.length bufs));
         Ok bytes
     | Error `Would_block ->
         trace (fun f -> f "retrying");
@@ -137,11 +138,11 @@ module Tcp_stream = struct
         let timeout =
           match timeout with None -> global_timeout | Some _ -> timeout
         in
-        receive ?timeout ~bufs:(Io.Iovec.of_bytes buf) t
+        receive ?timeout ~bufs:(Rio.Iovec.of_bytes buf) t
 
       let read_vectored t bufs = receive ?timeout:global_timeout ~bufs t
     end in
-    Io.Reader.of_read_src (module Read) t
+    Rio.Reader.of_read_src (module Read) t
 
   let to_writer ?timeout t =
     let module Write = struct
@@ -150,10 +151,10 @@ module Tcp_stream = struct
       let write_owned_vectored t ~bufs = send ?timeout ~bufs t
 
       let write t ~buf =
-        let bufs = Io.Iovec.from_string buf in
+        let bufs = Rio.Iovec.from_string buf in
         write_owned_vectored t ~bufs
 
       let flush _t = Ok ()
     end in
-    Io.Writer.of_write_src (module Write) t
+    Rio.Writer.of_write_src (module Write) t
 end

@@ -299,12 +299,13 @@ let to_string = function
       Bytes.unsafe_to_string buf
 
 let to_iovec (t : Rep.t) =
-  let open Io in
+  let open Rio in
   let str_to_iovec s =
-    Iovec.{ ba = Bytes.unsafe_of_string s; off = 0; len = String.length s }
+    Iovec.
+      { ba = Stdlib.Bytes.unsafe_of_string s; off = 0; len = String.length s }
   in
   let view_to_iovec { offset = off; length = len; data = ba } =
-    Iovec.[ { ba = Bytes.unsafe_of_string ba; off; len } ]
+    Iovec.[ { ba = Stdlib.Bytes.unsafe_of_string ba; off; len } ]
   in
   let parts_to_iovec parts = List.map str_to_iovec parts in
   let iov =

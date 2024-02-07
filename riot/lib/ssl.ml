@@ -36,7 +36,7 @@ open Logger.Make (struct
   let namespace = [ "riot"; "net"; "ssl" ]
 end)
 
-module IO = Io
+module IO = Rio
 
 let ( let* ) = Result.bind
 
@@ -52,10 +52,10 @@ exception Tls_alert of Tls.Packet.alert_type
 exception Tls_failure of Tls.Engine.failure
 
 module Tls_unix = struct
-  exception Read_error of Io.io_error
-  exception Write_error of Io.io_error
+  exception Read_error of Rio.io_error
+  exception Write_error of Rio.io_error
 
-  let err_to_str err = Format.asprintf "%a" Io.pp_err err
+  let err_to_str err = Format.asprintf "%a" Rio.pp_err err
 
   let read_t t cs =
     let buf = IO.Bytes.with_capacity (Cstruct.length cs) in

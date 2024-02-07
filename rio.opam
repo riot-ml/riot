@@ -2,7 +2,7 @@
 opam-version: "2.0"
 synopsis: "Ergonomic, composable, efficient read/write streams"
 description:
-  "Io implements ergonomic, composable, efficient read/write streams that give you a uniform interface for reading from any source and writing to any sync."
+  "Rio implements ergonomic, composable, efficient read/write streams that give you a uniform interface for reading from any source and writing to any sync."
 maintainer: ["Leandro Ostera <leandro@abstractmachines.dev>"]
 authors: ["Leandro Ostera <leandro@abstractmachines.dev>"]
 license: "MIT"

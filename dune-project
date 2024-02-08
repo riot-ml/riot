@@ -25,7 +25,7 @@
   (castore (and :with-test (>= "0.0.2")))
   (config (>= "0.0.1"))
   (gluon (= :version))
-  (io (= :version))
+  (rio (= :version))
   (mdx (and :with-test (>= "2.3.1")))
   (mirage-crypto (>= "0.11.2"))
   (mirage-crypto-rng (>= "0.11.2"))

@@ -16,12 +16,12 @@ welcomed! This includes:
 To install Riot from sources, make sure to include all its dependencies:
 
 ```sh
-; opam pin config.0.0.1 git+https://github.com/leostera/config.ml
-; opam pin libc.0.0.1 git+https://github.com/ocaml-sys/libc.ml
-; opam pin rio.0.0.8 git+https://github.com/riot-ml/riot
-; opam pin bytestring.0.0.8 git+https://github.com/riot-ml/riot
-; opam pin gluon.0.0.8 git+https://github.com/riot-ml/riot
-; opam pin riot.0.0.8 git+https://github.com/riot-ml/riot
+; opam pin config.0.0.1 git+https://github.com/ocaml-sys/config.ml -y
+; opam pin libc.0.0.1 git+https://github.com/ocaml-sys/libc.ml -y
+; opam pin rio.0.0.8 git+https://github.com/riot-ml/riot -y
+; opam pin bytestring.0.0.8 git+https://github.com/riot-ml/riot -y
+; opam pin gluon.0.0.8 git+https://github.com/riot-ml/riot -y
+; opam pin riot.0.0.8 git+https://github.com/riot-ml/riot -y
 ```
 
 You can run builds with:

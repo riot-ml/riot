@@ -1052,6 +1052,21 @@ let () =
           ] );
     ];
 
+  test 6
+    [ {| hello::8, _hello::2, hello_hello::3 |} ]
+    [
+      Try_run
+        ( [
+            Create_iterator "_data_src";
+            Bind_next_fixed_bits { src = "hello"; size = 8; iter = "_data_src" };
+            Bind_next_fixed_bits
+              { src = "_hello"; size = 2; iter = "_data_src" };
+            Bind_next_fixed_bits
+              { src = "hello_hello"; size = 3; iter = "_data_src" };
+            Empty "_data_src";
+          ],
+          (None, id "test_6_body_0") );
+    ];
   ()
 
 (**

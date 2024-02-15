@@ -55,7 +55,7 @@
 
 (package
   (name gluon)
-  (synopsis "A minimal, portable, and fast API on top of the operating-system's evented I/O API.")
+  (synopsis "A minimal, portable, and fast API on top of the operating-system's evented I/O API")
   (depends
     (rio (= :version))
     (bytestring (= :version))

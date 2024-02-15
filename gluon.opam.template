@@ -1,0 +1,1 @@
+available: arch != "x86_32" & arch != "arm32" & arch != "ppc64" & arch != "s390x" & os != "freebsd"

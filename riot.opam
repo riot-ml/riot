@@ -44,3 +44,4 @@ build: [
   ]
 ]
 dev-repo: "git+https://github.com/riot-ml/riot.git"
+available: arch != "x86_32" & arch != "arm32" & arch != "ppc64" & arch != "s390x" & os != "freebsd"

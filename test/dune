@@ -1,4 +1,5 @@
 (library
+ (package riot)
  (name port_finder)
  (modules port_finder)
  (libraries riot))

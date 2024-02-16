@@ -198,6 +198,7 @@
  (libraries riot))
 
 (test
+ (package riot)
  (name terminate_when_main_terminates_test)
  (modules terminate_when_main_terminates_test)
  (libraries riot))

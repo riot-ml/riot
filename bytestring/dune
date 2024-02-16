@@ -52,5 +52,6 @@
  (libraries bytepattern))
 
 (cram
+ (package bytestring)
  (deps
   (package bytestring)))

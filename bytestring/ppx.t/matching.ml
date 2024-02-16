@@ -33,7 +33,7 @@ let () =
         fin + comp
     | {| fin::1, comp::1, 0::2, 1::4, 0::1, 127::7, |} -> fin + comp
     | {| fin::1, comp::1 |} -> fin + comp
-    | {| rest |} -> Bytestring.length rest
+    | {| the_rest |} -> Bytestring.length the_rest
   in
 
   let _ =
@@ -70,10 +70,10 @@ let () =
        length::7,
        mask::32,
        _payload::bytes(length * 8),
-       _rest::bytes |}
+       _rest_rest::bytes |}
       when length <= 125 && (fin == 0 || length <= mask) ->
         rsv
-    | {| data::bytes  |} -> Bytestring.length data
+    | {| data_data::bytes  |} -> Bytestring.length data_data
   in
 
   ()

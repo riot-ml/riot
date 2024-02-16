@@ -75,5 +75,8 @@ let () =
         rsv
     | {| data_data::bytes  |} -> Bytestring.length data_data
   in
+  let _ =
+    match%b str with {| hello_world |} -> Bytestring.length hello_world
+  in
 
   ()

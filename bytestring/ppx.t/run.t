@@ -356,4 +356,7 @@
          | Bytestring.No_match ->
              (try let data_data = _data_src in Bytestring.length data_data
               with | Bytestring.No_match -> raise Bytestring.No_match)) str in
+    let _ =
+      (fun _data_src ->
+         let hello_world = _data_src in Bytestring.length hello_world) str in
     ()

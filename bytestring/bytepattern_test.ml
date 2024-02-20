@@ -34,6 +34,7 @@ let () =
 
   test "" [];
   test "all" [ IDENT "all" ];
+  test "all_all" [ IDENT "all_all" ];
   test "all::4" [ IDENT "all"; COLON_COLON; NUMBER 4 ];
   test "all::1024" [ IDENT "all"; COLON_COLON; NUMBER 1024 ];
   test "all::utf8" [ IDENT "all"; COLON_COLON; IDENT "utf8" ];
@@ -86,7 +87,7 @@ let () =
 
   len
 
-  ) 
+  )
 
       |}
     [
@@ -148,6 +149,7 @@ let () =
 
   test "" [];
   test "all" [ Bind { name = "all"; size = Rest } ];
+  test "all_all" [ Bind { name = "all_all"; size = Rest } ];
   test "all::8" [ Bind { name = "all"; size = Fixed_bits 8 } ];
   test "all::1024" [ Bind { name = "all"; size = Fixed_bits 1024 } ];
   test "all::utf8" [ Bind { name = "all"; size = Utf8 } ];
@@ -216,6 +218,7 @@ let () =
 
   test "" [ Empty ];
   test "all" [ Bypass "all" ];
+  test "all_all" [ Bypass "all_all" ];
   test "all::8"
     [
       Create_transient "_trns";
@@ -347,6 +350,7 @@ let () =
   (* test: empty pattern is just an empty bytestring *)
   test {| |} [%expr Bytestring.empty];
   test {| all |} [%expr all];
+  test {| all_all |} [%expr all_all];
   test {| all::bytes |} [%expr all];
   test {| all::8 |}
     [%expr
@@ -466,6 +470,7 @@ let () =
 
   test "" [ Empty "_data_src" ];
   test "all" [ Bypass { src = "_data_src"; name = "all" } ];
+  test "all_all" [ Bypass { src = "_data_src"; name = "all_all" } ];
   test "all::8"
     [
       Create_iterator "_data_src";
@@ -614,6 +619,10 @@ let () =
   test {| all |}
     [%expr
       let all = _data_src in
+      ()];
+  test {| all_all |}
+    [%expr
+      let all_all = _data_src in
       ()];
   test {| all::bytes |}
     [%expr
@@ -1043,6 +1052,21 @@ let () =
           ] );
     ];
 
+  test 6
+    [ {| hello::8, _hello::2, hello_hello::3 |} ]
+    [
+      Try_run
+        ( [
+            Create_iterator "_data_src";
+            Bind_next_fixed_bits { src = "hello"; size = 8; iter = "_data_src" };
+            Bind_next_fixed_bits
+              { src = "_hello"; size = 2; iter = "_data_src" };
+            Bind_next_fixed_bits
+              { src = "hello_hello"; size = 3; iter = "_data_src" };
+            Empty "_data_src";
+          ],
+          (None, id "test_6_body_0") );
+    ];
   ()
 
 (**
@@ -1269,5 +1293,26 @@ let () =
             let data = _data_src in
             test_5_body_3
           with Bytestring.No_match -> raise Bytestring.No_match))
+        data];
+  test 6
+    [ {| hello::8 |}; {| _hello::8 |}; {| hello_hello::2 |} ]
+    [%expr
+      (fun _data_src ->
+        let _data_src = Bytestring.to_iter _data_src in
+        try
+          let hello = Bytestring.Iter.next_bits ~size:8 _data_src in
+          Bytestring.Iter.expect_empty _data_src;
+          test_6_body_0
+        with Bytestring.No_match -> (
+          try
+            let _hello = Bytestring.Iter.next_bits ~size:8 _data_src in
+            Bytestring.Iter.expect_empty _data_src;
+            test_6_body_1
+          with Bytestring.No_match -> (
+            try
+              let hello_hello = Bytestring.Iter.next_bits ~size:2 _data_src in
+              Bytestring.Iter.expect_empty _data_src;
+              test_6_body_2
+            with Bytestring.No_match -> raise Bytestring.No_match)))
         data];
   ()

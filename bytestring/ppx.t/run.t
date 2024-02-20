@@ -290,7 +290,7 @@
                      with | Bytestring.No_match -> raise Bytestring.No_match))
          with
          | Bytestring.No_match ->
-             (try let rest = _data_src in Bytestring.length rest
+             (try let the_rest = _data_src in Bytestring.length the_rest
               with | Bytestring.No_match -> raise Bytestring.No_match)) str in
     let _ =
       (fun _data_src ->
@@ -346,7 +346,7 @@
                         let _payload =
                           Bytestring.Iter.next_bytes ~size:(length * 8)
                             _data_src in
-                        let _rest = Bytestring.Iter.rest _data_src in
+                        let _rest_rest = Bytestring.Iter.rest _data_src in
                         Bytestring.Iter.expect_empty _data_src;
                         if (length <= 125) && ((fin == 0) || (length <= mask))
                         then rsv
@@ -354,6 +354,9 @@
                      with | Bytestring.No_match -> raise Bytestring.No_match))
          with
          | Bytestring.No_match ->
-             (try let data = _data_src in Bytestring.length data
+             (try let data_data = _data_src in Bytestring.length data_data
               with | Bytestring.No_match -> raise Bytestring.No_match)) str in
+    let _ =
+      (fun _data_src ->
+         let hello_world = _data_src in Bytestring.length hello_world) str in
     ()

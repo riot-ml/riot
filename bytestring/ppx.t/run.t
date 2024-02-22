@@ -95,9 +95,8 @@
          
          Valid sizes are:
          
-           string      - match on the entire literal
-         string
-           bytes       - match on the entire string
+           bytes      - match on the literal string
+           string       - match on the entire string
            bytes(expr) - match `expr` bytes
            utf8        - match on 1 UTF-8 grapheme
            utf8(expr)  - match `expr` UTF-8 graphemes
@@ -106,7 +105,7 @@
          
          For example:
          
-           hello::string      – use all of `hello` as a literal string
+           hello::string      – use all of `hello` as a string
            hello::bytes       – use all of `hello` as a byte string
            hello::bytes(len)  – use `len` bytes from `hello`
            hello::bits(len)   – use len bits of `hello` (128 bytes)

@@ -297,7 +297,7 @@ Trailing commas are supported, but a single comma is not a valid bytestring patt
 
 Valid sizes are:
 
-  %s      - match on the entire literal string
+  %s      - match on the literal string
   %s       - match on the entire string
   %s - match `expr` bytes
   %s        - match on 1 UTF-8 grapheme
@@ -307,7 +307,7 @@ Valid sizes are:
 
 For example:
 
-  hello::string      – use all of `hello` as a literal string
+  hello::string      – use all of `hello` as a string
   hello::bytes       – use all of `hello` as a byte string
   hello::bytes(len)  – use `len` bytes from `hello`
   hello::bits(len)   – use len bits of `hello` (128 bytes)
@@ -315,7 +315,7 @@ For example:
   hello::7           – use 8 bits of `hello`
 |}
              (error "Invalid size %S for %S" (Lexer.to_string tokens) name)
-             (keyword "%s" "string") (keyword "%s" "bytes")
+             (keyword "%s" "bytes") (keyword "%s" "string")
              (keyword "%s" "bytes(expr)")
              (keyword "%s" "utf8")
              (keyword "%s" "utf8(expr)")

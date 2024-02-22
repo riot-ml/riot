@@ -502,7 +502,7 @@ For example:
 
 Valid sizes for string literals are:
 
-  %s      - match on the entire string literal
+  %s      - match on the entire string
   %s       - match on the entire string
   %s - match `expr` bytes
   %s        - match on 1 UTF-8 grapheme

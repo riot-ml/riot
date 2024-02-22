@@ -73,7 +73,6 @@
          Valid sizes for string literals are:
          
            string      - match on the entire string
-         literal
            bytes       - match on the entire string
            bytes(expr) - match `expr` bytes
            utf8        - match on 1 UTF-8 grapheme

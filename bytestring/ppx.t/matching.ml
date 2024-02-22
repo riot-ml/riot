@@ -78,5 +78,9 @@ let () =
   let _ =
     match%b str with {| hello_world |} -> Bytestring.length hello_world
   in
+  let _ =
+    match%b str with
+    | {| hello_world::string |} -> String.uppercase_ascii hello_world
+  in
 
   ()

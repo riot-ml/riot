@@ -38,6 +38,7 @@ let () =
   test "all::4" [ IDENT "all"; COLON_COLON; NUMBER 4 ];
   test "all::1024" [ IDENT "all"; COLON_COLON; NUMBER 1024 ];
   test "all::utf8" [ IDENT "all"; COLON_COLON; IDENT "utf8" ];
+  test "all::string" [ IDENT "all"; COLON_COLON; IDENT "string" ];
 
   test "2112::utf8" [ NUMBER 2112; COLON_COLON; IDENT "utf8" ];
   test {|"rush\r\n"::bytes|} [ STRING "rush\r\n"; COLON_COLON; IDENT "bytes" ];
@@ -153,6 +154,7 @@ let () =
   test "all::8" [ Bind { name = "all"; size = Fixed_bits 8 } ];
   test "all::1024" [ Bind { name = "all"; size = Fixed_bits 1024 } ];
   test "all::utf8" [ Bind { name = "all"; size = Utf8 } ];
+  test "all::string" [ Bind { name = "all"; size = String_literal } ];
   test "all::bytes" [ Bind { name = "all"; size = Rest } ];
   test "all::bytes(10)" [ Bind { name = "all"; size = Dynamic_bytes (int 10) } ];
   test "all::bytes(foo ())"
@@ -170,6 +172,8 @@ let () =
   test {|"rush"|} [ Expect { value = String "rush"; size = Rest } ];
   test {|"rush\r\n"::bytes|}
     [ Expect { value = String "rush\r\n"; size = Rest } ];
+  test {|"rush"::string|}
+    [ Expect { value = String "rush"; size = String_literal } ];
   test {|"rush"::utf8|} [ Expect { value = String "rush"; size = Utf8 } ];
   test "len::8, body::bytes(len)"
     [
@@ -235,6 +239,12 @@ let () =
     [
       Create_transient "_trns";
       Add_next_utf8 { src = "all" };
+      Commit_transient "_trns";
+    ];
+  test "all::string"
+    [
+      Create_transient "_trns";
+      Add_string_literal { src = "all" };
       Commit_transient "_trns";
     ];
   test "all::bytes" [ Bypass "all" ];
@@ -351,6 +361,11 @@ let () =
   test {| |} [%expr Bytestring.empty];
   test {| all |} [%expr all];
   test {| all_all |} [%expr all_all];
+  test {| all::string |}
+    [%expr
+      let _trns = Bytestring.Transient.create () in
+      Bytestring.Transient.add_literal_string _trns all;
+      Bytestring.Transient.commit _trns];
   test {| all::bytes |} [%expr all];
   test {| all::8 |}
     [%expr
@@ -489,6 +504,12 @@ let () =
       Bind_next_utf8 { src = "all"; iter = "_data_src" };
       Empty "_data_src";
     ];
+  test "all::string"
+    [
+      Create_iterator "_data_src";
+      Bind_string_literal { src = "all"; iter = "_data_src" };
+      Empty "_data_src";
+    ];
   test "all::bytes" [ Bypass { src = "_data_src"; name = "all" } ];
   test "all::bytes(10)"
     [
@@ -623,6 +644,12 @@ let () =
   test {| all_all |}
     [%expr
       let all_all = _data_src in
+      ()];
+  test {| all::string |}
+    [%expr
+      let _data_src = Bytestring.to_iter _data_src in
+      let all = Bytestring.Iter.string_literal _data_src in
+      Bytestring.Iter.expect_empty _data_src;
       ()];
   test {| all::bytes |}
     [%expr
@@ -1067,6 +1094,16 @@ let () =
           ],
           (None, id "test_6_body_0") );
     ];
+  test 7 [ {| hello::string |} ]
+    [
+      Try_run
+        ( [
+            Create_iterator "_data_src";
+            Bind_string_literal { src = "hello"; iter = "_data_src" };
+            Empty "_data_src";
+          ],
+          (None, id "test_7_body_0") );
+    ];
   ()
 
 (**
@@ -1314,5 +1351,13 @@ let () =
               Bytestring.Iter.expect_empty _data_src;
               test_6_body_2
             with Bytestring.No_match -> raise Bytestring.No_match)))
+        data];
+  test 7 [ {| hello::string |} ]
+    [%expr
+      (fun _data_src ->
+        let _data_src = Bytestring.to_iter _data_src in
+        let hello = Bytestring.Iter.string_literal _data_src in
+        Bytestring.Iter.expect_empty _data_src;
+        test_7_body_0)
         data];
   ()

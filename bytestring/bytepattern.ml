@@ -40,6 +40,7 @@ type size =
   | Dynamic_utf8 of Parsetree.expression
   | Utf8
   | Rest
+  | String_literal
 
 type pattern =
   | Bind of { name : string; size : size }
@@ -175,6 +176,8 @@ module Parser = struct
         Format.fprintf fmt "Bind { name=%S; size=Utf8 }" name
     | Bind { name; size = Rest } ->
         Format.fprintf fmt "Bind { name=%S; size=Rest }" name
+    | Bind { name; size = String_literal } ->
+        Format.fprintf fmt "Bind { name=%S; size=String_literal }" name
     | Expect { value; size = Fixed_bits n } ->
         Format.fprintf fmt "Expect { value=%a; size=(Fixed_bits %d) }" pp_value
           value n
@@ -193,6 +196,8 @@ module Parser = struct
     | Expect { value; size = Utf8 } ->
         Format.fprintf fmt "Expect { value=%a; size=Utf8 }" pp_value value
     | Expect { value; size = Rest } ->
+        Format.fprintf fmt "Expect { value=%a; size=Rest }" pp_value value
+    | Expect { value; size = String_literal } ->
         Format.fprintf fmt "Expect { value=%a; size=Rest }" pp_value value
 
   let pp fmt t =
@@ -279,6 +284,9 @@ Trailing commas are supported, but a single comma is not a valid bytestring patt
     | IDENT "bytes" :: rest ->
         (* log "explicit rest"; *)
         (Rest, rest)
+    | IDENT "string" :: rest ->
+        (* log "string literal"; *)
+        (String_literal, rest)
     | NUMBER n :: rest ->
         (* log "size is fixed bits %d" n; *)
         (Fixed_bits n, rest)
@@ -289,6 +297,7 @@ Trailing commas are supported, but a single comma is not a valid bytestring patt
 
 Valid sizes are:
 
+  %s      - match on the entire string literal
   %s       - match on the entire string
   %s - match `expr` bytes
   %s        - match on 1 UTF-8 grapheme
@@ -298,6 +307,7 @@ Valid sizes are:
 
 For example:
 
+  hello::string      – use all of `hello` as a literal string
   hello::bytes       – use all of `hello` as a byte string
   hello::bytes(len)  – use `len` bytes from `hello`
   hello::bits(len)   – use len bits of `hello` (128 bytes)
@@ -305,7 +315,7 @@ For example:
   hello::7           – use 8 bits of `hello`
 |}
              (error "Invalid size %S for %S" (Lexer.to_string tokens) name)
-             (keyword "%s" "bytes")
+             (keyword "%s" "string") (keyword "%s" "bytes")
              (keyword "%s" "bytes(expr)")
              (keyword "%s" "utf8")
              (keyword "%s" "utf8(expr)")
@@ -325,6 +335,7 @@ module Construction_lower = struct
     | Create_transient of string
     | Commit_transient of string
     | Add_rest of { src : string }
+    | Add_string_literal of { src : string }
     | Add_next_utf8 of { src : string }
     | Add_next_fixed_bits of { src : string; size : int }
     | Add_next_dynamic_bits of { src : string; expr : Parsetree.expression }
@@ -335,6 +346,7 @@ module Construction_lower = struct
     | Add_int_dynamic_bytes of { value : int; expr : Parsetree.expression }
     | Add_string_utf8 of { value : string }
     | Add_string_bytes of { value : string }
+    | Add_string_string_literal of { value : string }
     | Add_string_dynamic_bytes of {
         value : string;
         expr : Parsetree.expression;
@@ -350,6 +362,8 @@ module Construction_lower = struct
     | Commit_transient string ->
         Format.fprintf fmt "Commit_transient(%S)" string
     | Add_rest { src } -> Format.fprintf fmt "Add_rest {src=%S}" src
+    | Add_string_literal { src } ->
+        Format.fprintf fmt "Add_string_literal {src=%S}" src
     | Add_next_utf8 { src } -> Format.fprintf fmt "Add_next_utf8 {src=%S)" src
     | Add_next_fixed_bits { src; size } ->
         Format.fprintf fmt "Add_next_fixed_bits {src=%S; size=%d}" src size
@@ -380,6 +394,8 @@ module Construction_lower = struct
     | Add_string_dynamic_utf8 { value; expr } ->
         Format.fprintf fmt "Add_string_dynamic_utf8 {value=%S; expr=%S}" value
           (Pprintast.string_of_expression expr)
+    | Add_string_string_literal { value } ->
+        Format.fprintf fmt "Add_string_string_literal {value=%S}" value
 
   let pp fmt t =
     Format.fprintf fmt "[\r\n  ";
@@ -409,6 +425,9 @@ module Construction_lower = struct
     | Bind { name = src; size = Rest } :: rest ->
         (* log "add_rest %s\n" src; *)
         create_ops ~loc rest (Add_rest { src } :: acc)
+    | Bind { name = src; size = String_literal } :: rest ->
+        (* log "add_string_literal %s\n" src; *)
+        create_ops ~loc rest (Add_string_literal { src } :: acc)
     | Bind { name = src; size = Utf8 } :: rest ->
         (* log "add_next_utf8 %s\n" src; *)
         create_ops ~loc rest (Add_next_utf8 { src } :: acc)
@@ -428,13 +447,17 @@ module Construction_lower = struct
       handle number literals
     *)
     | Expect
-        { value = Number value; size = (Rest | Utf8 | Dynamic_utf8 _) as size }
+        {
+          value = Number value;
+          size = (Rest | Utf8 | Dynamic_utf8 _ | String_literal) as size;
+        }
       :: _rest ->
         let[@warning "-8"] size =
           match size with
           | Rest -> "bytes"
           | Utf8 -> "utf8"
           | Dynamic_utf8 n -> "utf8(" ^ Pprintast.string_of_expression n ^ ")"
+          | String_literal -> "string"
         in
         failwith ~loc
           (Format.sprintf
@@ -479,6 +502,7 @@ For example:
 
 Valid sizes for string literals are:
 
+  %s      - match on the entire string literal
   %s       - match on the entire string
   %s - match `expr` bytes
   %s        - match on 1 UTF-8 grapheme
@@ -486,13 +510,14 @@ Valid sizes for string literals are:
 
 For example:
 
+  "rush"::string     – use all of the "rush" string
   "rush"::bytes      – use all of the "rush" string
   "rush"::bytes(10)  – use "rush" as a 10-byte string
   "rush"::utf8       – use "rush" as a valid UTF-8 string
   "rush"::utf8(10)   – use "rush" as a 10-grapheme utf-8 string
 |}
              (error "Invalid size %S for value %S" size value)
-             (keyword "%s" "bytes")
+             (keyword "%s" "string") (keyword "%s" "bytes")
              (keyword "%s" "bytes(expr)")
              (keyword "%s" "utf8")
              (keyword "%s" "utf8(expr)"))
@@ -504,6 +529,8 @@ For example:
         create_ops ~loc rest (Add_string_dynamic_bytes { value; expr } :: acc)
     | Expect { value = String value; size = Dynamic_utf8 expr } :: rest ->
         create_ops ~loc rest (Add_string_dynamic_utf8 { value; expr } :: acc)
+    | Expect { value = String value; size = String_literal } :: rest ->
+        create_ops ~loc rest (Add_string_string_literal { value } :: acc)
 end
 
 module Transient_builder = struct
@@ -532,6 +559,10 @@ module Transient_builder = struct
     | Add_rest { src } :: rest ->
         [%expr
           Bytestring.Transient.add_string _trns [%e id ~loc src];
+          [%e to_expr ~loc rest]]
+    | Add_string_literal { src } :: rest ->
+        [%expr
+          Bytestring.Transient.add_literal_string _trns [%e id ~loc src];
           [%e to_expr ~loc rest]]
     | Add_next_utf8 { src } :: rest ->
         [%expr
@@ -594,6 +625,11 @@ module Transient_builder = struct
         [%expr
           Bytestring.Transient.add_literal_string _trns [%e value];
           [%e to_expr ~loc rest]]
+    | Add_string_string_literal { value } :: rest ->
+        let value = Exp.constant (Const.string value) in
+        [%expr
+          Bytestring.Transient.add_literal_string _trns [%e value];
+          [%e to_expr ~loc rest]]
     | _ -> bug ~loc "invalid lower repr when cosntructing bytestring"
 
   let to_transient_builder ~loc patterns =
@@ -609,6 +645,7 @@ module Matching_lower = struct
     | Bypass of { src : string; name : string }
     | Create_iterator of string
     | Bind_rest of { iter : string; src : string }
+    | Bind_string_literal of { iter : string; src : string }
     | Bind_next_utf8 of { iter : string; src : string }
     | Bind_next_fixed_bits of { iter : string; src : string; size : int }
     | Bind_next_dynamic_bits of {
@@ -649,6 +686,7 @@ module Matching_lower = struct
         value : string;
         expr : Parsetree.expression;
       }
+    | Expect_string_string_literal of { iter : string; value : string }
 
   let pp_one fmt t =
     match t with
@@ -658,6 +696,8 @@ module Matching_lower = struct
     | Create_iterator string -> Format.fprintf fmt "Create_iterator(%S)" string
     | Bind_rest { iter; src } ->
         Format.fprintf fmt "Bind_rest {src=%S; iter=%S}" src iter
+    | Bind_string_literal { iter; src } ->
+        Format.fprintf fmt "Bind_string_literal {src=%S; iter=%S}" src iter
     | Bind_next_utf8 { iter; src } ->
         Format.fprintf fmt "Bind_next_utf8 {src=%S; iter=%S}" src iter
     | Bind_next_fixed_bits { iter; src; size } ->
@@ -705,6 +745,9 @@ module Matching_lower = struct
           "Expect_string_dynamic_utf8 {value=%S; expr=%S; iter=%S}" value
           (Pprintast.string_of_expression expr)
           iter
+    | Expect_string_string_literal { iter; value } ->
+        Format.fprintf fmt "Expect_string_string_literal {value=%S; iter=%S}"
+          value iter
 
   let pp fmt t =
     Format.fprintf fmt "[\r\n  ";
@@ -754,17 +797,24 @@ module Matching_lower = struct
         (* log "bind_dynamic_bytes %s %s\n" src expr; *)
         create_ops ~loc ~iter rest
           (Bind_next_dynamic_bytes { iter; src; expr } :: acc)
+    | Bind { name = src; size = String_literal } :: rest ->
+        (* log "bind_rest %s\n" src; *)
+        create_ops ~loc ~iter rest (Bind_string_literal { iter; src } :: acc)
     (*
       handle number literals
     *)
     | Expect
-        { value = Number value; size = (Utf8 | Dynamic_utf8 _ | Rest) as size }
+        {
+          value = Number value;
+          size = (Utf8 | Dynamic_utf8 _ | Rest | String_literal) as size;
+        }
       :: _rest ->
         let[@warning "-8"] size =
           match size with
           | Utf8 -> "utf8"
           | Rest -> "bytes"
           | Dynamic_utf8 n -> "utf8(" ^ Pprintast.string_of_expression n ^ ")"
+          | String_literal -> "string("
         in
         failwith ~loc
           (Format.sprintf
@@ -839,6 +889,9 @@ For example:
     | Expect { value = String value; size = Dynamic_utf8 expr } :: rest ->
         create_ops ~loc ~iter rest
           (Expect_string_dynamic_utf8 { iter; value; expr } :: acc)
+    | Expect { value = String value; size = String_literal } :: rest ->
+        create_ops ~loc ~iter rest
+          (Expect_string_string_literal { iter; value } :: acc)
 end
 
 module Pattern_matcher = struct
@@ -873,6 +926,12 @@ module Pattern_matcher = struct
         let src = var ~loc src in
         [%expr
           let [%p src] = Bytestring.Iter.rest [%e iter] in
+          [%e to_expr ~body ~loc rest]]
+    | Bind_string_literal { src; iter } :: rest ->
+        let iter = id ~loc iter in
+        let src = var ~loc src in
+        [%expr
+          let [%p src] = Bytestring.Iter.string_literal [%e iter] in
           [%e to_expr ~body ~loc rest]]
     | Bind_next_utf8 { src; iter } :: rest ->
         let iter = id ~loc iter in
@@ -952,6 +1011,12 @@ module Pattern_matcher = struct
           Bytestring.Iter.expect_literal_utf8 [%e iter] [%e value];
           [%e to_expr ~body ~loc rest]]
     | Expect_string_bytes { value; iter } :: rest ->
+        let iter = id ~loc iter in
+        let value = Exp.constant (Const.string value) in
+        [%expr
+          Bytestring.Iter.expect_literal_string [%e iter] [%e value];
+          [%e to_expr ~body ~loc rest]]
+    | Expect_string_string_literal { value; iter } :: rest ->
         let iter = id ~loc iter in
         let value = Exp.constant (Const.string value) in
         [%expr

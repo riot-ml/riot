@@ -95,8 +95,8 @@
          
          Valid sizes are:
          
-           string      - match on the entire string
-         literal
+           string      - match on the entire literal
+         string
            bytes       - match on the entire string
            bytes(expr) - match `expr` bytes
            utf8        - match on 1 UTF-8 grapheme

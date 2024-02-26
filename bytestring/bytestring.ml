@@ -440,7 +440,7 @@ module Iter = struct
     t.length <- 0;
     rest
 
-  let string_literal t =
+  let rest_as_string t =
     let str = t.bytes |> Seq.map Char.chr |> String.of_seq in
     t.bytes <- Seq.empty;
     t.length <- 0;

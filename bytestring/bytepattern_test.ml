@@ -154,7 +154,7 @@ let () =
   test "all::8" [ Bind { name = "all"; size = Fixed_bits 8 } ];
   test "all::1024" [ Bind { name = "all"; size = Fixed_bits 1024 } ];
   test "all::utf8" [ Bind { name = "all"; size = Utf8 } ];
-  test "all::string" [ Bind { name = "all"; size = String_literal } ];
+  test "all::string" [ Bind { name = "all"; size = Rest_as_string } ];
   test "all::bytes" [ Bind { name = "all"; size = Rest } ];
   test "all::bytes(10)" [ Bind { name = "all"; size = Dynamic_bytes (int 10) } ];
   test "all::bytes(foo ())"
@@ -173,7 +173,7 @@ let () =
   test {|"rush\r\n"::bytes|}
     [ Expect { value = String "rush\r\n"; size = Rest } ];
   test {|"rush"::string|}
-    [ Expect { value = String "rush"; size = String_literal } ];
+    [ Expect { value = String "rush"; size = Rest_as_string } ];
   test {|"rush"::utf8|} [ Expect { value = String "rush"; size = Utf8 } ];
   test "len::8, body::bytes(len)"
     [
@@ -244,7 +244,7 @@ let () =
   test "all::string"
     [
       Create_transient "_trns";
-      Add_string_literal { src = "all" };
+      Add_rest_as_string { src = "all" };
       Commit_transient "_trns";
     ];
   test "all::bytes" [ Bypass "all" ];
@@ -507,7 +507,7 @@ let () =
   test "all::string"
     [
       Create_iterator "_data_src";
-      Bind_string_literal { src = "all"; iter = "_data_src" };
+      Bind_rest_as_string { src = "all"; iter = "_data_src" };
       Empty "_data_src";
     ];
   test "all::bytes" [ Bypass { src = "_data_src"; name = "all" } ];
@@ -648,7 +648,7 @@ let () =
   test {| all::string |}
     [%expr
       let _data_src = Bytestring.to_iter _data_src in
-      let all = Bytestring.Iter.string_literal _data_src in
+      let all = Bytestring.Iter.rest_as_string _data_src in
       Bytestring.Iter.expect_empty _data_src;
       ()];
   test {| all::bytes |}
@@ -1099,7 +1099,7 @@ let () =
       Try_run
         ( [
             Create_iterator "_data_src";
-            Bind_string_literal { src = "hello"; iter = "_data_src" };
+            Bind_rest_as_string { src = "hello"; iter = "_data_src" };
             Empty "_data_src";
           ],
           (None, id "test_7_body_0") );
@@ -1356,7 +1356,7 @@ let () =
     [%expr
       (fun _data_src ->
         let _data_src = Bytestring.to_iter _data_src in
-        let hello = Bytestring.Iter.string_literal _data_src in
+        let hello = Bytestring.Iter.rest_as_string _data_src in
         Bytestring.Iter.expect_empty _data_src;
         test_7_body_0)
         data];

@@ -366,7 +366,7 @@
     let _ =
       (fun _data_src ->
          let _data_src = Bytestring.to_iter _data_src in
-         let hello_world = Bytestring.Iter.string_literal _data_src in
+         let hello_world = Bytestring.Iter.rest_as_string _data_src in
          Bytestring.Iter.expect_empty _data_src;
          String.uppercase_ascii hello_world) str in
     ()

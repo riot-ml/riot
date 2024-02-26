@@ -40,7 +40,7 @@ type size =
   | Dynamic_utf8 of Parsetree.expression
   | Utf8
   | Rest
-  | String_literal
+  | Rest_as_string
 
 type pattern =
   | Bind of { name : string; size : size }
@@ -176,8 +176,8 @@ module Parser = struct
         Format.fprintf fmt "Bind { name=%S; size=Utf8 }" name
     | Bind { name; size = Rest } ->
         Format.fprintf fmt "Bind { name=%S; size=Rest }" name
-    | Bind { name; size = String_literal } ->
-        Format.fprintf fmt "Bind { name=%S; size=String_literal }" name
+    | Bind { name; size = Rest_as_string } ->
+        Format.fprintf fmt "Bind { name=%S; size=Rest_as_string }" name
     | Expect { value; size = Fixed_bits n } ->
         Format.fprintf fmt "Expect { value=%a; size=(Fixed_bits %d) }" pp_value
           value n
@@ -197,8 +197,9 @@ module Parser = struct
         Format.fprintf fmt "Expect { value=%a; size=Utf8 }" pp_value value
     | Expect { value; size = Rest } ->
         Format.fprintf fmt "Expect { value=%a; size=Rest }" pp_value value
-    | Expect { value; size = String_literal } ->
-        Format.fprintf fmt "Expect { value=%a; size=Rest }" pp_value value
+    | Expect { value; size = Rest_as_string } ->
+        Format.fprintf fmt "Expect { value=%a; size=Rest_as_string }" pp_value
+          value
 
   let pp fmt t =
     Format.fprintf fmt "[\r\n  ";
@@ -285,8 +286,8 @@ Trailing commas are supported, but a single comma is not a valid bytestring patt
         (* log "explicit rest"; *)
         (Rest, rest)
     | IDENT "string" :: rest ->
-        (* log "string literal"; *)
-        (String_literal, rest)
+        (* log "rest as string"; *)
+        (Rest_as_string, rest)
     | NUMBER n :: rest ->
         (* log "size is fixed bits %d" n; *)
         (Fixed_bits n, rest)
@@ -335,7 +336,7 @@ module Construction_lower = struct
     | Create_transient of string
     | Commit_transient of string
     | Add_rest of { src : string }
-    | Add_string_literal of { src : string }
+    | Add_rest_as_string of { src : string }
     | Add_next_utf8 of { src : string }
     | Add_next_fixed_bits of { src : string; size : int }
     | Add_next_dynamic_bits of { src : string; expr : Parsetree.expression }
@@ -346,7 +347,7 @@ module Construction_lower = struct
     | Add_int_dynamic_bytes of { value : int; expr : Parsetree.expression }
     | Add_string_utf8 of { value : string }
     | Add_string_bytes of { value : string }
-    | Add_string_string_literal of { value : string }
+    | Add_string_rest_as_string of { value : string }
     | Add_string_dynamic_bytes of {
         value : string;
         expr : Parsetree.expression;
@@ -362,8 +363,8 @@ module Construction_lower = struct
     | Commit_transient string ->
         Format.fprintf fmt "Commit_transient(%S)" string
     | Add_rest { src } -> Format.fprintf fmt "Add_rest {src=%S}" src
-    | Add_string_literal { src } ->
-        Format.fprintf fmt "Add_string_literal {src=%S}" src
+    | Add_rest_as_string { src } ->
+        Format.fprintf fmt "Add_rest_as_string {src=%S}" src
     | Add_next_utf8 { src } -> Format.fprintf fmt "Add_next_utf8 {src=%S)" src
     | Add_next_fixed_bits { src; size } ->
         Format.fprintf fmt "Add_next_fixed_bits {src=%S; size=%d}" src size
@@ -394,8 +395,8 @@ module Construction_lower = struct
     | Add_string_dynamic_utf8 { value; expr } ->
         Format.fprintf fmt "Add_string_dynamic_utf8 {value=%S; expr=%S}" value
           (Pprintast.string_of_expression expr)
-    | Add_string_string_literal { value } ->
-        Format.fprintf fmt "Add_string_string_literal {value=%S}" value
+    | Add_string_rest_as_string { value } ->
+        Format.fprintf fmt "Add_string_rest_as_string {value=%S}" value
 
   let pp fmt t =
     Format.fprintf fmt "[\r\n  ";
@@ -425,9 +426,9 @@ module Construction_lower = struct
     | Bind { name = src; size = Rest } :: rest ->
         (* log "add_rest %s\n" src; *)
         create_ops ~loc rest (Add_rest { src } :: acc)
-    | Bind { name = src; size = String_literal } :: rest ->
-        (* log "add_string_literal %s\n" src; *)
-        create_ops ~loc rest (Add_string_literal { src } :: acc)
+    | Bind { name = src; size = Rest_as_string } :: rest ->
+        (* log "add_rest_as_string %s\n" src; *)
+        create_ops ~loc rest (Add_rest_as_string { src } :: acc)
     | Bind { name = src; size = Utf8 } :: rest ->
         (* log "add_next_utf8 %s\n" src; *)
         create_ops ~loc rest (Add_next_utf8 { src } :: acc)
@@ -449,7 +450,7 @@ module Construction_lower = struct
     | Expect
         {
           value = Number value;
-          size = (Rest | Utf8 | Dynamic_utf8 _ | String_literal) as size;
+          size = (Rest | Utf8 | Dynamic_utf8 _ | Rest_as_string) as size;
         }
       :: _rest ->
         let[@warning "-8"] size =
@@ -457,7 +458,7 @@ module Construction_lower = struct
           | Rest -> "bytes"
           | Utf8 -> "utf8"
           | Dynamic_utf8 n -> "utf8(" ^ Pprintast.string_of_expression n ^ ")"
-          | String_literal -> "string"
+          | Rest_as_string -> "string"
         in
         failwith ~loc
           (Format.sprintf
@@ -529,8 +530,8 @@ For example:
         create_ops ~loc rest (Add_string_dynamic_bytes { value; expr } :: acc)
     | Expect { value = String value; size = Dynamic_utf8 expr } :: rest ->
         create_ops ~loc rest (Add_string_dynamic_utf8 { value; expr } :: acc)
-    | Expect { value = String value; size = String_literal } :: rest ->
-        create_ops ~loc rest (Add_string_string_literal { value } :: acc)
+    | Expect { value = String value; size = Rest_as_string } :: rest ->
+        create_ops ~loc rest (Add_string_rest_as_string { value } :: acc)
 end
 
 module Transient_builder = struct
@@ -560,7 +561,7 @@ module Transient_builder = struct
         [%expr
           Bytestring.Transient.add_string _trns [%e id ~loc src];
           [%e to_expr ~loc rest]]
-    | Add_string_literal { src } :: rest ->
+    | Add_rest_as_string { src } :: rest ->
         [%expr
           Bytestring.Transient.add_literal_string _trns [%e id ~loc src];
           [%e to_expr ~loc rest]]
@@ -625,7 +626,7 @@ module Transient_builder = struct
         [%expr
           Bytestring.Transient.add_literal_string _trns [%e value];
           [%e to_expr ~loc rest]]
-    | Add_string_string_literal { value } :: rest ->
+    | Add_string_rest_as_string { value } :: rest ->
         let value = Exp.constant (Const.string value) in
         [%expr
           Bytestring.Transient.add_literal_string _trns [%e value];
@@ -645,7 +646,7 @@ module Matching_lower = struct
     | Bypass of { src : string; name : string }
     | Create_iterator of string
     | Bind_rest of { iter : string; src : string }
-    | Bind_string_literal of { iter : string; src : string }
+    | Bind_rest_as_string of { iter : string; src : string }
     | Bind_next_utf8 of { iter : string; src : string }
     | Bind_next_fixed_bits of { iter : string; src : string; size : int }
     | Bind_next_dynamic_bits of {
@@ -686,7 +687,7 @@ module Matching_lower = struct
         value : string;
         expr : Parsetree.expression;
       }
-    | Expect_string_string_literal of { iter : string; value : string }
+    | Expect_string_rest_as_string of { iter : string; value : string }
 
   let pp_one fmt t =
     match t with
@@ -696,8 +697,8 @@ module Matching_lower = struct
     | Create_iterator string -> Format.fprintf fmt "Create_iterator(%S)" string
     | Bind_rest { iter; src } ->
         Format.fprintf fmt "Bind_rest {src=%S; iter=%S}" src iter
-    | Bind_string_literal { iter; src } ->
-        Format.fprintf fmt "Bind_string_literal {src=%S; iter=%S}" src iter
+    | Bind_rest_as_string { iter; src } ->
+        Format.fprintf fmt "Bind_rest_as_string {src=%S; iter=%S}" src iter
     | Bind_next_utf8 { iter; src } ->
         Format.fprintf fmt "Bind_next_utf8 {src=%S; iter=%S}" src iter
     | Bind_next_fixed_bits { iter; src; size } ->
@@ -745,8 +746,8 @@ module Matching_lower = struct
           "Expect_string_dynamic_utf8 {value=%S; expr=%S; iter=%S}" value
           (Pprintast.string_of_expression expr)
           iter
-    | Expect_string_string_literal { iter; value } ->
-        Format.fprintf fmt "Expect_string_string_literal {value=%S; iter=%S}"
+    | Expect_string_rest_as_string { iter; value } ->
+        Format.fprintf fmt "Expect_string_rest_as_string {value=%S; iter=%S}"
           value iter
 
   let pp fmt t =
@@ -797,16 +798,16 @@ module Matching_lower = struct
         (* log "bind_dynamic_bytes %s %s\n" src expr; *)
         create_ops ~loc ~iter rest
           (Bind_next_dynamic_bytes { iter; src; expr } :: acc)
-    | Bind { name = src; size = String_literal } :: rest ->
-        (* log "bind_rest %s\n" src; *)
-        create_ops ~loc ~iter rest (Bind_string_literal { iter; src } :: acc)
+    | Bind { name = src; size = Rest_as_string } :: rest ->
+        (* log "bind_rest_as_string %s\n" src; *)
+        create_ops ~loc ~iter rest (Bind_rest_as_string { iter; src } :: acc)
     (*
       handle number literals
     *)
     | Expect
         {
           value = Number value;
-          size = (Utf8 | Dynamic_utf8 _ | Rest | String_literal) as size;
+          size = (Utf8 | Dynamic_utf8 _ | Rest | Rest_as_string) as size;
         }
       :: _rest ->
         let[@warning "-8"] size =
@@ -814,7 +815,7 @@ module Matching_lower = struct
           | Utf8 -> "utf8"
           | Rest -> "bytes"
           | Dynamic_utf8 n -> "utf8(" ^ Pprintast.string_of_expression n ^ ")"
-          | String_literal -> "string("
+          | Rest_as_string -> "string"
         in
         failwith ~loc
           (Format.sprintf
@@ -889,9 +890,9 @@ For example:
     | Expect { value = String value; size = Dynamic_utf8 expr } :: rest ->
         create_ops ~loc ~iter rest
           (Expect_string_dynamic_utf8 { iter; value; expr } :: acc)
-    | Expect { value = String value; size = String_literal } :: rest ->
+    | Expect { value = String value; size = Rest_as_string } :: rest ->
         create_ops ~loc ~iter rest
-          (Expect_string_string_literal { iter; value } :: acc)
+          (Expect_string_rest_as_string { iter; value } :: acc)
 end
 
 module Pattern_matcher = struct
@@ -927,11 +928,11 @@ module Pattern_matcher = struct
         [%expr
           let [%p src] = Bytestring.Iter.rest [%e iter] in
           [%e to_expr ~body ~loc rest]]
-    | Bind_string_literal { src; iter } :: rest ->
+    | Bind_rest_as_string { src; iter } :: rest ->
         let iter = id ~loc iter in
         let src = var ~loc src in
         [%expr
-          let [%p src] = Bytestring.Iter.string_literal [%e iter] in
+          let [%p src] = Bytestring.Iter.rest_as_string [%e iter] in
           [%e to_expr ~body ~loc rest]]
     | Bind_next_utf8 { src; iter } :: rest ->
         let iter = id ~loc iter in
@@ -1016,7 +1017,7 @@ module Pattern_matcher = struct
         [%expr
           Bytestring.Iter.expect_literal_string [%e iter] [%e value];
           [%e to_expr ~body ~loc rest]]
-    | Expect_string_string_literal { value; iter } :: rest ->
+    | Expect_string_rest_as_string { value; iter } :: rest ->
         let iter = id ~loc iter in
         let value = Exp.constant (Const.string value) in
         [%expr

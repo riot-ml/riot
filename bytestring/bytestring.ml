@@ -440,6 +440,12 @@ module Iter = struct
     t.length <- 0;
     rest
 
+  let rest_as_string t =
+    let str = t.bytes |> Seq.map Char.chr |> String.of_seq in
+    t.bytes <- Seq.empty;
+    t.length <- 0;
+    str
+
   let expect_bytes _bytes _t = ()
   let expect_literal_int _t ?size:_ _bit = ()
 

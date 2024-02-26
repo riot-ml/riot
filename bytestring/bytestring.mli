@@ -42,6 +42,7 @@ module Iter : sig
   val next_utf8 : t -> bytestring
   val next_utf8_seq : len:int -> t -> bytestring
   val rest : t -> bytestring
+  val rest_as_string : t -> string
   val expect_empty : t -> unit
   val expect_bits : t -> int -> unit
   val expect_bytes : t -> bytestring -> unit

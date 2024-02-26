@@ -72,6 +72,7 @@
          
          Valid sizes for string literals are:
          
+           string      - match on the entire string
            bytes       - match on the entire string
            bytes(expr) - match `expr` bytes
            utf8        - match on 1 UTF-8 grapheme
@@ -79,6 +80,7 @@
          
          For example:
          
+           "rush"::string     – use all of the "rush" string
            "rush"::bytes      – use all of the "rush" string
            "rush"::bytes(10)  – use "rush" as a 10-byte string
            "rush"::utf8       – use "rush" as a valid UTF-8 string
@@ -93,6 +95,7 @@
          Valid sizes are:
          
            bytes       - match on the entire string
+           string      - match on the literal string
            bytes(expr) - match `expr` bytes
            utf8        - match on 1 UTF-8 grapheme
            utf8(expr)  - match `expr` UTF-8 graphemes
@@ -101,6 +104,7 @@
          
          For example:
          
+           hello::string      – use all of `hello` as a string
            hello::bytes       – use all of `hello` as a byte string
            hello::bytes(len)  – use `len` bytes from `hello`
            hello::bits(len)   – use len bits of `hello` (128 bytes)
@@ -359,4 +363,10 @@
     let _ =
       (fun _data_src ->
          let hello_world = _data_src in Bytestring.length hello_world) str in
+    let _ =
+      (fun _data_src ->
+         let _data_src = Bytestring.to_iter _data_src in
+         let hello_world = Bytestring.Iter.rest_as_string _data_src in
+         Bytestring.Iter.expect_empty _data_src;
+         String.uppercase_ascii hello_world) str in
     ()

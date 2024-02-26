@@ -298,8 +298,8 @@ Trailing commas are supported, but a single comma is not a valid bytestring patt
 
 Valid sizes are:
 
-  %s      - match on the literal string
   %s       - match on the entire string
+  %s      - match on the literal string
   %s - match `expr` bytes
   %s        - match on 1 UTF-8 grapheme
   %s  - match `expr` UTF-8 graphemes

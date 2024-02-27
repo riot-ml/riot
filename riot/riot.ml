@@ -13,7 +13,7 @@ let shutdown ?(status = 0) () =
 
 let started = ref false
 
-let run ?(rnd = Random.State.make_self_init ()) ?workers main =
+let run_with_status ?(rnd = Random.State.make_self_init ()) ?workers (main:(unit -> (int, [> `Unknown]) result)) =
   if !started then raise Riot_already_started else started := true;
 
   let max_workers = Int.max 0 (Stdlib.Domain.recommended_domain_count () - 2) in
@@ -32,13 +32,15 @@ let run ?(rnd = Random.State.make_self_init ()) ?workers main =
   Scheduler.set_current_scheduler sch0;
   Scheduler.Pool.set_pool pool;
 
-  let _pid = _spawn ~pool ~scheduler:sch0 main in
+  let _pid = _spawn ~pool ~scheduler:sch0 (fun _ -> shutdown ~status:(main () |> Result.get_ok) ()) in
   Scheduler.run pool sch0 ();
 
   Log.debug (fun f -> f "Riot runtime shutting down...");
   List.iter Stdlib.Domain.join domains;
   Log.debug (fun f -> f "Riot runtime shutdown");
   Stdlib.exit pool.status
+
+let run ?(rnd = Random.State.make_self_init ()) ?workers main = run_with_status ~rnd ?workers (fun _ -> main (); Ok 0)
 
 let start ?rnd ?workers ~apps () =
   run ?rnd ?workers @@ fun () ->

@@ -42,9 +42,7 @@ module Addr = struct
         match ai_protocol with
         | 6 -> Some (tcp (Unix.string_of_inet_addr addr) port)
         | _ -> None)
-    | _ ->
-        Printf.printf "skipping\n%!";
-        None
+    | _ -> None
 
   let get_info host service =
     syscall @@ fun () ->

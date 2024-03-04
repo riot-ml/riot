@@ -7,6 +7,8 @@
 (test
  (package riot)
  (name ssl_test)
+ (enabled_if
+  (= %{env:OPAM_REPO_CI=false} false))
  (modules ssl_test)
  (deps fixtures/tls.crt fixtures/tls.key)
  (libraries riot port_finder x509 mirage-crypto-rng mirage-crypto-rng.unix))

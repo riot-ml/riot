@@ -11,6 +11,7 @@
 #include <string.h>
 #include <sys/event.h>
 #include <unistd.h>
+#include "./utils.h"
 
 
 value kqueue_event_to_record(struct kevent *kevent) {
@@ -70,7 +71,7 @@ CAMLprim value gluon_unix_kevent(value max_events_val, value timeout_val, value 
         event_ptrs[i] = &events[i];
     }
     event_ptrs[num_events] = NULL;
-    event_array = caml_alloc_array(kqueue_event_to_record, event_ptrs);
+    event_array = caml_alloc_array((ocaml_alloc_first_arg_fn)kqueue_event_to_record, (ocaml_alloc_second_arg)event_ptrs);
 
     free(events);
     CAMLreturn(event_array);

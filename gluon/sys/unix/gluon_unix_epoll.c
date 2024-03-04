@@ -7,6 +7,7 @@
 #include <caml/unixsupport.h>
 #include <sys/epoll.h>
 #include <errno.h>
+#include "./utils.h"
 
 CAMLprim value gluon_unix_epoll_create1(value flags) {
     CAMLparam1(flags);
@@ -49,7 +50,7 @@ CAMLprim value gluon_unix_epoll_wait(value v_timeout, value v_max_events, value 
         event_ptrs[i] = &events[i];
       }
       event_ptrs[ready] = NULL;
-      event_array = caml_alloc_array(epoll_event_to_record, event_ptrs);
+      event_array = caml_alloc_array((ocaml_alloc_first_arg_fn)epoll_event_to_record, (ocaml_alloc_second_arg)event_ptrs);
       free(event_ptrs);
     } else {
       event_array = Atom(0);

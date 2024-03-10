@@ -46,7 +46,7 @@ let default_on_error error =
                     Printf.sprintf "%s\n%s" reason backtrace
     | _ -> "Unsupported error type (please use `Msg or default your own on_error function)"
   in
-  Printf.eprintf "Riot raised an error: %s\n" error_string;
+  Log.error (fun f -> f "Riot raised an error: %s\n" error_string);
   1
 
 let run_with_status ?(rnd = Random.State.make_self_init ()) ?workers ?(on_error = default_on_error) main =

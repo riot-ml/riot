@@ -51,7 +51,10 @@ let default_on_error error =
 
 let run_with_status ?(rnd = Random.State.make_self_init ()) ?workers ?(on_error = default_on_error) main =
   run ~rnd ?workers (fun _ ->
-      let status: int = Result.fold ~ok:Fun.id ~error:on_error @@ main () in
+      let status = match main () with
+        | Ok code -> code
+        | Error reason -> on_error reason
+      in
       shutdown ~status ())
 
 let start ?rnd ?workers ~apps () =

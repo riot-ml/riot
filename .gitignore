@@ -4,3 +4,8 @@ _build
 *.beam
 *.trace
 test/generated/*
+
+# nix ignores
+.direnv
+result
+.envrc

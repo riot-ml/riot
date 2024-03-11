@@ -42,7 +42,8 @@ let run ?(rnd = Random.State.make_self_init ()) ?workers main =
 
 let default_on_error (error:  [ | `Msg of string ]) =
   let backtrace = Printexc.get_backtrace () in
-  let error_string = Printf.sprintf "%s\n%s" reason backtrace in
+  let error_string = match error with `Msg reason -> Printf.sprintf "%s\n%s" reason backtrace
+  in
   Log.error (fun f -> f "Riot raised an error: %s\n" error_string);
   1
 

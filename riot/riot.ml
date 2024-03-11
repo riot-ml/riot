@@ -40,12 +40,9 @@ let run ?(rnd = Random.State.make_self_init ()) ?workers main =
   Log.debug (fun f -> f "Riot runtime shutdown");
   Stdlib.exit pool.status
 
-let default_on_error error =
-  let error_string = match error with
-    | `Msg reason -> let backtrace = Printexc.get_backtrace () in
-                    Printf.sprintf "%s\n%s" reason backtrace
-    | _ -> "Unsupported error type (please use `Msg or default your own on_error function)"
-  in
+let default_on_error (error:  [ | `Msg of string ]) =
+  let backtrace = Printexc.get_backtrace () in
+  let error_string = Printf.sprintf "%s\n%s" reason backtrace in
   Log.error (fun f -> f "Riot raised an error: %s\n" error_string);
   1
 

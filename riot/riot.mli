@@ -232,6 +232,9 @@ val spawn_pinned : (unit -> unit) -> Pid.t
 val spawn_link : (unit -> unit) -> Pid.t
 (** Spawns a new process and links it to the current process before returning. *)
 
+val spawn_blocking : (unit -> unit) -> Pid.t
+(** Spawns a new isolated process that does not yield to the Riot scheduler. *)
+
 exception Name_already_registered of string * Pid.t
 
 val register : string -> Pid.t -> unit

@@ -33,7 +33,7 @@
   (ocaml (>= "5.1"))
   (odoc (and :with-doc (>= "2.2.2")))
   (ptime (>= "1.1.0"))
-  (randomconv (>= "0.1.3"))
+  (randomconv (= "0.2.0"))
   (telemetry (>= "0.0.1"))
   (tls (>="0.17.3"))
   (uri (>= "4.4.0"))

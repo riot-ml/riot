@@ -29,9 +29,9 @@ let main () =
         loop this C 100)
   in
 
-  let m1 = receive ~after:50_000L () in
-  let m2 = receive ~after:50_000L () in
-  let m3 = receive ~after:50_000L () in
+  let m1 = receive_any ~after:50_000L () in
+  let m2 = receive_any ~after:50_000L () in
+  let m3 = receive_any ~after:50_000L () in
 
   match (m1, m2, m3) with
   | C, B, A ->

@@ -8,7 +8,7 @@ let main () =
   let pid = spawn (fun () -> ()) in
   Process.monitor pid;
 
-  match receive ~after:500_000L () with
+  match receive_any ~after:500_000L () with
   | Process.Messages.Monitor (Process_down pid2) when Pid.equal pid pid2 ->
       Logger.debug (fun f -> f "add_monitor: was notified of process death");
       Logger.info (fun f -> f "add_monitor: OK");

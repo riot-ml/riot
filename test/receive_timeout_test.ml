@@ -8,7 +8,7 @@ let () =
   Logger.set_log_level (Some Info);
   let _ = Timer.send_after (self ()) Unexpected ~after:100L |> Result.get_ok in
 
-  match receive ~after:1L () with
+  match receive_any ~after:1L () with
   | exception Receive_timeout ->
       Logger.info (fun f -> f "receive_timeout_test: OK");
 

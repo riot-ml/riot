@@ -93,7 +93,7 @@ let () =
   let client = spawn (fun () -> client port main) in
   monitor server;
   monitor client;
-  match receive ~after:10_000_000L () with
+  match receive_any ~after:10_000_000L () with
   | exception Receive_timeout ->
       Logger.error (fun f -> f "net_test: test timed out");
       fail ()

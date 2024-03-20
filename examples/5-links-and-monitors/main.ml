@@ -1,7 +1,7 @@
 open Riot
 
 let rec await_monitor_message () =
-  match receive () with
+  match receive_any () with
   | Process.Messages.Monitor (Process_down pid) ->
       Format.printf "uh-oh! Process %a terminated\n%!" Pid.pp pid
   | _ -> await_monitor_message ()

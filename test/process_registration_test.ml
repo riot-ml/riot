@@ -23,7 +23,7 @@ module Registry_test = struct
 
     send_by_name ~name:pid_name Hello;
 
-    (match[@warning "-8"] receive ~after:500_000L () with
+    (match[@warning "-8"] receive_any ~after:500_000L () with
     | Hello ->
         Logger.debug (fun f ->
             f "process_registration_test: send_by_name works"));

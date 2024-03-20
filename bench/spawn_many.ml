@@ -6,7 +6,7 @@ module Test_app = struct
   type Riot.Message.t += Loop_stop
 
   let loop count =
-    match receive () with
+    match receive_any () with
     | Loop_stop -> Log.debug (fun f -> f "dead at %d%!" count)
 
   let main t0 () =

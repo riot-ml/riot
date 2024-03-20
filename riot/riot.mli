@@ -69,14 +69,7 @@ module Message : sig
       program can see the constructors that are relevant for them.
     *)
 
-  (** [select_marker] is used in a _selective receive_ call to match the exact
-      messages you are looking for. This is useful to skip ahead in your
-      mailbox without having to consume all the messages in it.
-  *)
-  type select_marker =
-    | Take  (** use [Take] to mark a message as selected *)
-    | Skip  (** use [Skip] to requeue for later consumption *)
-    | Drop  (** use [Drop] to remove this message while selecting *)
+  type 'msg selector = t -> [ `select of 'msg | `skip ]
 end
 
 module Process : sig
@@ -269,7 +262,7 @@ exception Receive_timeout
 exception Syscall_timeout
 
 val receive :
-  ?selector:(Message.t -> [ `select of 'msg | `skip ]) ->
+  selector:(Message.t -> [ `select of 'msg | `skip ]) ->
   ?after:int64 ->
   ?ref:unit Ref.t ->
   unit ->
@@ -301,6 +294,9 @@ val receive :
     it. Those messages will be delivered in-order in future calls to `receive
     ()`.
 *)
+
+val receive_any : ?after:int64 -> ?ref:unit Ref.t -> unit -> Message.t
+(** [receive_any ()] behaves like [receive] but does not require a [selector] and instead will return any message in the mailbox. *)
 
 val shutdown : ?status:int -> unit -> unit
 (** Gracefully shuts down the runtime. Any non-yielding process will block this. *)

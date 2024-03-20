@@ -31,22 +31,22 @@ let main () =
     |> Result.get_ok
   in
 
-  let (Ping_me child_pid) = receive ~after:500_000L () in
+  let (Ping_me child_pid) = receive_any ~after:500_000L () in
   Logger.debug (fun f -> f "#1 received pid %a" Pid.pp child_pid);
 
   exit child_pid Process.Exit_signal;
 
-  let (Ping_me child_pid) = receive ~after:500_000L () in
+  let (Ping_me child_pid) = receive_any ~after:500_000L () in
   Logger.debug (fun f -> f "#2 received pid %a" Pid.pp child_pid);
 
   exit child_pid Process.Exit_signal;
 
-  let (Ping_me child_pid) = receive ~after:500_000L () in
+  let (Ping_me child_pid) = receive_any ~after:500_000L () in
   Logger.debug (fun f -> f "#3 received pid %a" Pid.pp child_pid);
 
   exit child_pid Process.Exit_signal;
 
-  match receive ~after:500_000L () with
+  match receive_any ~after:500_000L () with
   | Process.Messages.Exit (pid, _reason) when Pid.equal pid sup ->
       Logger.info (fun f ->
           f "supervisor_shutdown_test: supervisor finished as expected");

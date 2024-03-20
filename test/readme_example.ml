@@ -9,8 +9,13 @@ let () =
   Riot.run @@ fun () ->
   let pid =
     spawn (fun () ->
-        match receive () with
-        | Hello_world ->
+      let selector msg = 
+        match msg with
+        | Hello_world -> `select `hello_world
+        | _ -> `skip 
+      in
+        match receive ~selector () with
+        | `hello_world ->
             Logger.info (fun f -> f "hello world from %a!" Pid.pp (self ()));
             shutdown ())
   in

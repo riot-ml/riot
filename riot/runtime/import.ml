@@ -17,11 +17,13 @@ let syscall ?timeout name interest source cb =
   Effect.perform (Proc_effect.Syscall { name; interest; source; timeout });
   cb ()
 
-let receive ?after ?ref () =
+let default_selector msg = `select msg
+
+let receive ?(selector = default_selector) ?after ?ref () =
   let timeout =
     match after with None -> `infinity | Some after -> `after after
   in
-  Effect.perform (Proc_effect.Receive { ref; timeout })
+  Effect.perform (Proc_effect.Receive { ref; timeout; selector })
 
 let yield () = Effect.perform Proc_effect.Yield
 let random () = (_get_sch ()).rnd

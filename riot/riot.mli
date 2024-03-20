@@ -268,7 +268,12 @@ val wait_pids : Pid.t list -> unit
 exception Receive_timeout
 exception Syscall_timeout
 
-val receive : ?after:int64 -> ?ref:unit Ref.t -> unit -> Message.t
+val receive :
+  ?selector:(Message.t -> [ `select of 'msg | `skip ]) ->
+  ?after:int64 ->
+  ?ref:unit Ref.t ->
+  unit ->
+  'msg
 (** [receive ()] will return the first message in the process mailbox.
 
     This function will suspend a process that has an empty mailbox, and the
@@ -282,6 +287,11 @@ val receive : ?after:int64 -> ?ref:unit Ref.t -> unit -> Message.t
     This is useful to prevent deadlock of processes when receiving messages.
 
     ### Selective Receive
+
+    If a `selector` was passed, the `selector` function will be used to select
+    if a message will be picked or if it will be skipped.
+
+    ### Receive with Refs
 
     If a `ref` was passed, then `[receive ~ref ()]` will skip all messages
     created before the creation of this `Ref.t` value, and will only return

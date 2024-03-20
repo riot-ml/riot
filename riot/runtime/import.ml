@@ -181,10 +181,21 @@ let is_process_alive pid =
   | Some proc -> Process.is_alive proc
   | None -> false
 
-let rec wait_pids pids =
-  match pids with
-  | [] -> ()
-  | pid :: tail -> wait_pids (if is_process_alive pid then pids else tail)
+let wait_pids pids =
+  List.iter monitor pids;
+  let selector msg =
+    match msg with
+    | Process.Messages.Monitor (Process_down pid) when List.mem pid pids ->
+        `select Process.Messages.(Process_down pid)
+    | _ -> `skip
+  in
+  let rec do_wait pids =
+    match receive ~selector () with
+    | Process_down pid ->
+        let pids = List.filter (fun pid' -> not (Pid.equal pid' pid)) pids in
+        if List.length pids = 0 then () else do_wait pids
+  in
+  do_wait pids
 
 module Timer = struct
   type timeout = Util.Timeout.t

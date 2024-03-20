@@ -26,6 +26,8 @@ let main () =
         loop ())
   in
 
+  List.iter monitor [ pid1; pid2 ];
+
   sleep 0.5;
   (* once we send this exit signal to pid1, and it dies, it should take pid2 down with it *)
   exit pid1 Normal;

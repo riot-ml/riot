@@ -14,7 +14,7 @@ let msg_to_str = function
 
 let main () =
   let (Ok _) = Logger.start () in
-  Runtime.set_log_level (Some Trace);
+  (* Runtime.set_log_level (Some Trace); *)
   Logger.set_log_level (Some Info);
   let this = self () in
 
@@ -27,11 +27,11 @@ let main () =
   let after = 10_000L in
   let messages =
     [
-      receive ~after ();
-      receive ~after ();
-      receive ~after ();
-      receive ~after ();
-      receive ~after ();
+      receive_any ~after ();
+      receive_any ~after ();
+      receive_any ~after ();
+      receive_any ~after ();
+      receive_any ~after ();
     ]
     |> List.rev
   in

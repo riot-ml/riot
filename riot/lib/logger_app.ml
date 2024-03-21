@@ -12,7 +12,7 @@ module Formatter = struct
     Format.make_formatter (output_substring stdout) (fun () -> flush stdout)
 
   let rec formatter_loop config =
-    match receive () with
+    match receive_any () with
     | Log { message; ts; src = sch, pid; level; ns } ->
         let pp_now = Ptime.pp_rfc3339 ~frac_s:5 ~space:true ~tz_offset_s:0 () in
 

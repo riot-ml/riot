@@ -24,23 +24,21 @@ let call : type res. Pid.t -> res req -> res =
  fun pid req ->
   let ref = Ref.make () in
   send pid (Call (self (), ref, req));
-  let rec do_receive : unit -> res =
-   fun () ->
-    match receive () with
+  let selector : res Message.selector =
+   fun msg ->
+    match msg with
     | Reply (ref', res) -> (
         match Ref.type_equal ref ref' with
-        | Some Type.Equal -> res
+        | Some Type.Equal -> `select res
         | None -> failwith "bad message")
-    | msg ->
-        send pid msg;
-        do_receive ()
+    | _ -> `skip
   in
-  do_receive ()
+  receive ~selector ()
 
 let rec loop : type args state. (args, state) impl -> state -> unit =
  fun impl state ->
   let (module I : Impl with type args = args and type state = state) = impl in
-  match receive () with
+  match receive_any () with
   | Call (pid, ref, req) ->
       let res, state = I.handle_call req pid state in
       send pid (Reply (ref, res));

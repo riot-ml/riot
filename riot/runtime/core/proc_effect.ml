@@ -5,8 +5,9 @@ type _ Effect.t +=
   | Receive : {
       ref : 'a Ref.t option;
       timeout : Timeout.t;
+      selector : Message.t -> [ `select of 'msg | `skip ];
     }
-      -> Message.t Effect.t
+      -> 'msg Effect.t
   [@@unboxed]
 
 type _ Effect.t += Yield : unit Effect.t [@@unboxed]

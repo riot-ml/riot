@@ -26,9 +26,12 @@ let main () =
         loop ())
   in
 
-  sleep 0.5;
-  (* once we send this exit signal to pid1, and it dies, it should take pid2 down with it *)
-  exit pid1 Normal;
+  let _ =
+    spawn (fun () ->
+        sleep 0.5;
+        (* once we send this exit signal to pid1, and it dies, it should take pid2 down with it *)
+        exit pid1 Normal)
+  in
 
   (* so we'll wait for both pids to be dead *)
   wait_pids [ pid1; pid2 ];

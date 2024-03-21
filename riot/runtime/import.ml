@@ -17,11 +17,21 @@ let syscall ?timeout name interest source cb =
   Effect.perform (Proc_effect.Syscall { name; interest; source; timeout });
   cb ()
 
-let receive ?after ?ref () =
+let receive :
+    type msg.
+    selector:(Message.t -> [ `select of msg | `skip ]) ->
+    ?after:int64 ->
+    ?ref:unit Ref.t ->
+    unit ->
+    msg =
+ fun ~selector ?after ?ref () ->
   let timeout =
     match after with None -> `infinity | Some after -> `after after
   in
-  Effect.perform (Proc_effect.Receive { ref; timeout })
+  Effect.perform (Proc_effect.Receive { ref; timeout; selector })
+
+let receive_any ?after ?ref () =
+  receive ~selector:(fun msg -> `select msg) ?after ?ref ()
 
 let yield () = Effect.perform Proc_effect.Yield
 let random () = (_get_sch ()).rnd
@@ -171,10 +181,44 @@ let is_process_alive pid =
   | Some proc -> Process.is_alive proc
   | None -> false
 
-let rec wait_pids pids =
-  match pids with
-  | [] -> ()
-  | pid :: tail -> wait_pids (if is_process_alive pid then pids else tail)
+let wait_pids pids =
+  (* First we make sure we are monitoring all the pids we are awaiting *)
+  List.iter monitor pids;
+
+  (* Immediately after monitoring, we want to make sure we remove
+     from the list all the pids that are already terminated, since we won't
+     receive monitoring messages for those. *)
+  let pool = _get_pool () in
+  let pids =
+    List.filter
+      (fun pid ->
+        match Proc_table.get pool.processes pid with
+        | Some proc -> Process.is_alive proc
+        | None -> false)
+      pids
+  in
+
+  (* Now we can create our selector function to select the monitoring
+     messages for the pids we care about. *)
+  let selector msg =
+    let open Process.Messages in
+    match msg with
+    | Monitor (Process_down pid) when List.mem pid pids ->
+        `select (Process_down pid)
+    | _ -> `skip
+  in
+
+  (* And we can enter the receive loop, filtering out the pids as they come.
+     When the list of pids becomes empty, we exit the recursion. *)
+  let rec do_wait pids =
+    if List.length pids = 0 then ()
+    else
+      match receive ~selector () with
+      | Process_down pid ->
+          let pids = List.filter (fun pid' -> not (Pid.equal pid' pid)) pids in
+          do_wait pids
+  in
+  do_wait pids
 
 module Timer = struct
   type timeout = Util.Timeout.t

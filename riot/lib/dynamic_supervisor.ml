@@ -12,7 +12,7 @@ type Message.t +=
   | Max_children
 
 let rec loop state =
-  match receive () with
+  match receive_any () with
   | Process.Messages.Monitor _ ->
       trace (fun f -> f "child finished");
       loop { state with curr_children = Int.max 0 (state.curr_children - 1) }
@@ -48,6 +48,12 @@ let child_spec ?(max_children = 50) ~name () =
 let start_child pid spec =
   let ref = Ref.make () in
   send pid (Start_child (self (), spec));
-  match[@warning "-8"] receive ~ref () with
-  | Started_child pid -> Ok pid
-  | Max_children -> Error `Max_children
+  let selector msg =
+    match msg with
+    | Started_child pid -> `select (`started_child pid)
+    | Max_children -> `select `max_children
+    | _ -> `skip
+  in
+  match receive ~selector ~ref () with
+  | `started_child pid -> Ok pid
+  | `max_children -> Error `Max_children

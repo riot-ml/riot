@@ -134,7 +134,7 @@ let () =
   in
   monitor server;
   monitor client;
-  match receive ~after:500_000L () with
+  match receive_any ~after:500_000L () with
   | Received "hello world" -> Logger.info (fun f -> f "ssl_test: OK")
   | Received other ->
       Logger.error (fun f -> f "ssl_test: bad payload: %S" other);

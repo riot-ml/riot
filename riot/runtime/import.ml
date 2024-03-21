@@ -211,10 +211,12 @@ let wait_pids pids =
   (* And we can enter the receive loop, filtering out the pids as they come.
      When the list of pids becomes empty, we exit the recursion. *)
   let rec do_wait pids =
-    match receive ~selector () with
-    | Process_down pid ->
-        let pids = List.filter (fun pid' -> not (Pid.equal pid' pid)) pids in
-        if List.length pids = 0 then () else do_wait pids
+    if List.length pids = 0 then ()
+    else
+      match receive ~selector () with
+      | Process_down pid ->
+          let pids = List.filter (fun pid' -> not (Pid.equal pid' pid)) pids in
+          do_wait pids
   in
   do_wait pids
 

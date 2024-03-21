@@ -25,6 +25,12 @@ module Test_app = struct
 
     List.iter (fun pid -> send pid Loop_stop) pids;
 
+    Logger.info (fun f ->
+        let t1 = Ptime_clock.now () in
+        let delta = Ptime.diff t1 t0 in
+        let delta = Ptime.Span.to_float_s delta in
+        f "sent %d messages in %.3fs" (List.length pids) delta);
+
     wait_pids pids;
 
     Logger.info (fun f ->

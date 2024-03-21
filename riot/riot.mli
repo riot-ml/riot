@@ -304,6 +304,21 @@ val shutdown : ?status:int -> unit -> unit
 val run : ?rnd:Random.State.t -> ?workers:int -> (unit -> unit) -> unit
 (** Start the Riot runtime using function [main] to boot the system *)
 
+val on_error : [ `Msg of string ] -> int
+
+val run_with_status :
+  ?rnd:Random.State.t ->
+  ?workers:int ->
+  on_error:('error -> int) ->
+  (unit -> (int, 'error) result) ->
+  unit
+(** [run_with_status ~on_error main] starts the Riot runtime using function
+    [main] to boot the system and handling errors with [on_error].
+
+    [main] should return a result of either an exit code or an error.
+    [on_error] should handle an error code appropriately, then return a status code.
+*)
+
 val start :
   ?rnd:Random.State.t ->
   ?workers:int ->

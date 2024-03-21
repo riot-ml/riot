@@ -40,6 +40,22 @@ let run ?(rnd = Random.State.make_self_init ()) ?workers main =
   Log.debug (fun f -> f "Riot runtime shutdown");
   Stdlib.exit pool.status
 
+let on_error (error : [ `Msg of string ]) =
+  let backtrace = Printexc.get_backtrace () in
+  let error_string =
+    match error with `Msg reason -> Printf.sprintf "%s\n%s" reason backtrace
+  in
+  Log.error (fun f -> f "Riot raised an error: %s\n" error_string);
+  1
+
+let run_with_status ?(rnd = Random.State.make_self_init ()) ?workers ~on_error
+    main =
+  run ~rnd ?workers (fun _ ->
+      let status =
+        match main () with Ok code -> code | Error reason -> on_error reason
+      in
+      shutdown ~status ())
+
 let start ?rnd ?workers ~apps () =
   run ?rnd ?workers @@ fun () ->
   let child_specs =

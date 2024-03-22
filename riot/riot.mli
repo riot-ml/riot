@@ -637,6 +637,7 @@ module File : sig
   val stat : string -> Unix.stats
   val to_reader : read_file -> read_file IO.Reader.t
   val to_writer : write_file -> write_file IO.Writer.t
+  val exists : string -> bool
 end
 
 module Net : sig

@@ -14,7 +14,7 @@ let main () =
   let (Ok _) = Timer.send_after this A ~after:100L in
   let (Ok t) = Timer.send_after this B ~after:10L in
   Timer.cancel t;
-  match receive ~after:10_000L () with
+  match receive_any ~after:10_000L () with
   | A ->
       Logger.debug (fun f ->
           f "cancel_timer_test: timer successfully cancelled");

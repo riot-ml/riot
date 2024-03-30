@@ -12,8 +12,8 @@ let main () =
 
   let (Ok _timer) = Timer.send_interval this A ~every:50L in
 
-  let A = receive ~after:2000L () in
-  let A = receive ~after:2000L () in
+  let A = receive_any ~after:2000L () in
+  let A = receive_any ~after:2000L () in
 
   Logger.debug (fun f -> f "send_interval_test: messages sent with interval");
   Logger.info (fun f -> f "send_interval_test: OK");

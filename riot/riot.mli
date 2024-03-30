@@ -69,14 +69,7 @@ module Message : sig
       program can see the constructors that are relevant for them.
     *)
 
-  (** [select_marker] is used in a _selective receive_ call to match the exact
-      messages you are looking for. This is useful to skip ahead in your
-      mailbox without having to consume all the messages in it.
-  *)
-  type select_marker =
-    | Take  (** use [Take] to mark a message as selected *)
-    | Skip  (** use [Skip] to requeue for later consumption *)
-    | Drop  (** use [Drop] to remove this message while selecting *)
+  type 'msg selector = t -> [ `select of 'msg | `skip ]
 end
 
 module Process : sig
@@ -271,7 +264,12 @@ val wait_pids : Pid.t list -> unit
 exception Receive_timeout
 exception Syscall_timeout
 
-val receive : ?after:int64 -> ?ref:unit Ref.t -> unit -> Message.t
+val receive :
+  selector:(Message.t -> [ `select of 'msg | `skip ]) ->
+  ?after:int64 ->
+  ?ref:unit Ref.t ->
+  unit ->
+  'msg
 (** [receive ()] will return the first message in the process mailbox.
 
     This function will suspend a process that has an empty mailbox, and the
@@ -286,6 +284,11 @@ val receive : ?after:int64 -> ?ref:unit Ref.t -> unit -> Message.t
 
     ### Selective Receive
 
+    If a `selector` was passed, the `selector` function will be used to select
+    if a message will be picked or if it will be skipped.
+
+    ### Receive with Refs
+
     If a `ref` was passed, then `[receive ~ref ()]` will skip all messages
     created before the creation of this `Ref.t` value, and will only return
     newer messages.
@@ -295,11 +298,29 @@ val receive : ?after:int64 -> ?ref:unit Ref.t -> unit -> Message.t
     ()`.
 *)
 
+val receive_any : ?after:int64 -> ?ref:unit Ref.t -> unit -> Message.t
+(** [receive_any ()] behaves like [receive] but does not require a [selector] and instead will return any message in the mailbox. *)
+
 val shutdown : ?status:int -> unit -> unit
 (** Gracefully shuts down the runtime. Any non-yielding process will block this. *)
 
 val run : ?rnd:Random.State.t -> ?workers:int -> (unit -> unit) -> unit
 (** Start the Riot runtime using function [main] to boot the system *)
+
+val on_error : [ `Msg of string ] -> int
+
+val run_with_status :
+  ?rnd:Random.State.t ->
+  ?workers:int ->
+  on_error:('error -> int) ->
+  (unit -> (int, 'error) result) ->
+  unit
+(** [run_with_status ~on_error main] starts the Riot runtime using function
+    [main] to boot the system and handling errors with [on_error].
+
+    [main] should return a result of either an exit code or an error.
+    [on_error] should handle an error code appropriately, then return a status code.
+*)
 
 val start :
   ?rnd:Random.State.t ->
@@ -619,6 +640,7 @@ module File : sig
   val stat : string -> Unix.stats
   val to_reader : read_file -> read_file IO.Reader.t
   val to_writer : write_file -> write_file IO.Writer.t
+  val exists : string -> bool
 end
 
 module Net : sig

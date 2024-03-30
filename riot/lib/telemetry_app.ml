@@ -10,7 +10,7 @@ module Dispatcher = struct
   let __main_dispatcher__ : Pid.t ref = ref Pid.zero
 
   let rec loop () =
-    match receive () with
+    match receive_any () with
     | Event e ->
         Telemetry.emit e;
         loop ()

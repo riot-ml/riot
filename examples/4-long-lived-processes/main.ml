@@ -5,7 +5,7 @@ type Message.t += Hello of string
 let () =
   Riot.run @@ fun () ->
   let rec loop () =
-    (match receive () with
+    (match receive_any () with
     | Hello name -> print_endline ("Hello, " ^ name ^ "! :D")
     | _ -> print_endline "Oh no, an unhandled message! D:");
     loop ()

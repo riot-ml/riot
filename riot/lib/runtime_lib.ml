@@ -68,7 +68,7 @@ compactions=%d
   let rec loop () =
     print_scheduler_stats ();
     print_gc_stats ();
-    receive () |> ignore;
+    receive_any () |> ignore;
     loop ()
 
   let start ?(every = 2_000_000L) () =

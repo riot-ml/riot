@@ -6,7 +6,7 @@ type Message.t += A | B | C | Continue
 
 let loop pid =
   send pid A;
-  receive ~after:500_000L () |> ignore;
+  receive_any ~after:500_000L () |> ignore;
   send pid B;
   send pid C
 
@@ -22,9 +22,9 @@ let main () =
   let ref = Ref.make () in
   send pid1 Continue;
 
-  let m1 = receive ~ref ~after:50_000L () in
-  let m2 = receive ~ref ~after:50_000L () in
-  let m3 = receive ~after:50_000L () in
+  let m1 = receive_any ~ref ~after:50_000L () in
+  let m2 = receive_any ~ref ~after:50_000L () in
+  let m3 = receive_any ~after:50_000L () in
 
   match (m1, m2, m3) with
   | B, C, A ->

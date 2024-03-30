@@ -54,30 +54,41 @@ let restart_child pid state =
     let children = init_child spec :: List.remove_assoc pid state.children in
     `continue { state with children })
 
+type sup_request = List_children_req of { reply : Pid.t; ref : unit Ref.t }
+
+type sup_response =
+  | List_children_res of { children : Pid.t list; ref : unit Ref.t }
+
 type Message.t +=
-  | List_children_req : { reply : Pid.t; ref : unit Ref.t } -> Message.t
-  | List_children_res : { children : Pid.t list; ref : unit Ref.t } -> Message.t
+  | Supervisor_request of sup_request
+  | Supervisor_response of sup_response
 
 let rec loop state =
   trace (fun f -> f "entered supervision loop");
-  match receive () with
-  | Process.Messages.Exit (pid, Normal) when List.mem_assoc pid state.children
-    ->
+  let selector : _ Message.selector =
+   fun msg ->
+    match msg with
+    | Process.Messages.Exit (pid, reason) when List.mem_assoc pid state.children
+      ->
+        `select (`child_exit (pid, reason))
+    | Supervisor_request msg -> `select (`req msg)
+    | _ -> `skip
+  in
+  match receive ~selector () with
+  | `child_exit (pid, Normal) ->
       trace (fun f -> f "child %a stopped normally" Pid.pp pid);
       let state =
         { state with children = List.remove_assoc pid state.children }
       in
       loop state
-  | Process.Messages.Exit (pid, reason) when List.mem_assoc pid state.children
-    ->
+  | `child_exit (pid, reason) ->
       trace (fun f ->
           f "child %a stopped: %a" Pid.pp pid Process.pp_reason reason);
       handle_child_exit pid reason state
-  | List_children_req { reply; ref } ->
+  | `req (List_children_req { reply; ref }) ->
       let children = List.map (fun (pid, _) -> pid) state.children in
-      send reply (List_children_res { children; ref });
+      send reply (Supervisor_response (List_children_res { children; ref }));
       loop state
-  | _ -> loop state
 
 and handle_child_exit pid _reason state =
   match restart_child pid state with
@@ -112,11 +123,13 @@ let start_link ?(strategy = One_for_one) ?(restart_limit = 1)
 
 let children pid =
   let ref = Ref.make () in
-  send pid (List_children_req { reply = self (); ref });
-  let rec wait_response () =
-    match receive ~ref () with
-    | List_children_res { children; ref = ref' } when Ref.equal ref ref' ->
-        children
-    | _ -> wait_response ()
+  send pid (Supervisor_request (List_children_req { reply = self (); ref }));
+  let selector msg =
+    match msg with
+    | Supervisor_response (List_children_res { ref = ref'; _ } as msg)
+      when Ref.equal ref ref' ->
+        `select msg
+    | _ -> `skip
   in
-  wait_response ()
+  match receive ~selector () with
+  | List_children_res { children; _ } -> children

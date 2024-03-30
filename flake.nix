@@ -1,16 +1,36 @@
 {
   description = "An actor-model multi-core scheduler for OCaml 5";
 
-  # line below ensures that nixpkgs used is same between minttea & riot
-  # inputs.minttea.inputs.nixpkgs.follows = "nixpkgs";
+  inputs = {
+    nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
 
-  inputs.castore.url = "github:suri-framework/castore";
-  inputs.config.url = "github:ocaml-sys/config.ml";
-  inputs.libc.url = "github:ocaml-sys/libc.ml";
-  inputs.minttea.url = "github:leostera/minttea";
-  inputs.rio.url = "github:riot-ml/rio";
-  inputs.telemetry.url = "github:leostera/telemetry";
-  inputs.nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
+    castore = {
+      url = "github:suri-framework/castore";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
+    config = {
+      url = "github:ocaml-sys/config.ml";
+      inputs.nixpkgs.follows = "nixpkgs";
+      inputs.minttea.follows = "minttea";
+    };
+    libc = {
+      url = "github:ocaml-sys/libc.ml";
+      inputs.nixpkgs.follows = "nixpkgs";
+      inputs.config.follows = "config";
+    };
+    minttea = {
+      url = "github:leostera/minttea";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
+    rio = {
+      url = "github:riot-ml/rio";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
+    telemetry = {
+      url = "github:leostera/telemetry";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
+  };
 
   outputs = inputs@{ self, flake-parts, ... }:
     flake-parts.lib.mkFlake { inherit inputs; } {
@@ -19,12 +39,16 @@
         let
           inherit (pkgs) ocamlPackages mkShell lib;
           inherit (ocamlPackages) buildDunePackage;
-          version = "0.0.2";
+          version = "0.0.8+dev";
         in
           {
             devShells = {
               default = mkShell.override {stdenv = pkgs.clang17Stdenv;} {
-                inputsFrom = [ self'.packages.default self'.packages.bytestring self'.packages.gluon ];
+                inputsFrom = [
+                  self'.packages.default
+                  self'.packages.bytestring
+                  self'.packages.gluon
+                ];
                 buildInputs = [ ocamlPackages.utop ];
                 packages = builtins.attrValues {
                   inherit (pkgs) clang_17 clang-tools_17 pkg-config;
@@ -33,6 +57,16 @@
               };
             };
             packages = {
+              randomconv = buildDunePackage {
+                version = "0.2.0";
+                pname = "randomconv";
+                src = builtins.fetchGit {
+                  url = "git@github.com:hannesm/randomconv.git";
+                  rev = "b2ce656d09738d676351f5a1c18aff0ff37a7dcc";
+                  ref = "refs/tags/${version}";
+                };
+              };
+
               default = buildDunePackage {
                 inherit version;
                 pname = "riot";
@@ -50,7 +84,7 @@
                   mtime
                   odoc
                   ptime
-                  randomconv
+                  self'.packages.randomconv
                   inputs'.telemetry.packages.default
                   tls
                   uri

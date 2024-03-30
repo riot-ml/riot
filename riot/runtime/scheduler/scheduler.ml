@@ -95,8 +95,8 @@ module Scheduler = struct
           add_to_run_queue sch proc)
       pool.schedulers
 
-  let handle_receive k pool sch (proc : Process.t) (ref : 'a Ref.t option)
-      timeout =
+  let handle_receive k pool sch (proc : Process.t) ~(ref : 'a Ref.t option)
+      ~timeout ~selector =
     Trace.handle_receive_span @@ fun () ->
     let open Proc_state in
     (* When a timeout is specified, we want to create it in the timer
@@ -179,21 +179,35 @@ module Scheduler = struct
              but we already have removed the monitor, then we will simply ignore this message. *)
           | ( _,
               Some
-                Message.
-                  {
-                    msg = Process.Messages.Monitor (Process_down mon_pid) as msg;
-                    _;
-                  } ) ->
+                (Message.
+                   {
+                     msg =
+                       Process.Messages.Monitor (Process_down mon_pid) as msg;
+                     _;
+                   } as envelope) ) ->
               Process.clear_receive_timeout proc;
-              if Process.is_monitored_by_pid proc mon_pid then k (Continue msg)
+              if Process.is_monitored_by_pid proc mon_pid then (
+                match selector msg with
+                | `select msg ->
+                    Process.clear_receive_timeout proc;
+                    k (Continue msg)
+                | `skip ->
+                    Process.add_to_save_queue proc envelope;
+                    go (fuel - 1))
               else go (fuel - 1)
           (* lastly, if we have a ref and the mesasge is newer than the ref, and
              when we don't have a ref, we just pop the message and continue with it
           *)
-          | _, Some Message.{ msg; _ } ->
-              Process.clear_receive_timeout proc;
-              k (Continue msg)
+          | _, Some msg -> (
+              match selector Message.(msg.msg) with
+              | `select msg ->
+                  Process.clear_receive_timeout proc;
+                  k (Continue msg)
+              | `skip ->
+                  Process.add_to_save_queue proc msg;
+                  go (fuel - 1))
       in
+
       go fuel
 
   let handle_syscall k pool (sch : t) (proc : Process.t) name interest source
@@ -263,9 +277,10 @@ module Scheduler = struct
     let perform : type a b. (a, b) step_callback =
      fun k eff ->
       match eff with
+      | Receive { ref; timeout; selector } ->
+          handle_receive k pool sch proc ~ref ~timeout ~selector
       | Syscall { name; interest; source; timeout } ->
           handle_syscall k pool sch proc name interest source timeout
-      | Receive { ref; timeout } -> handle_receive k pool sch proc ref timeout
       | Yield ->
           Log.trace (fun f ->
               f "Process %a: yielding" Pid.pp (Process.pid proc));

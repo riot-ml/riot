@@ -6,7 +6,7 @@ module Test_app = struct
   type Riot.Message.t += Loop_stop
 
   let loop count =
-    match receive () with
+    match receive_any () with
     | Loop_stop -> Log.debug (fun f -> f "dead at %d%!" count)
 
   let main t0 () =
@@ -24,6 +24,12 @@ module Test_app = struct
         f "spawned %d processes in %.3fs" (List.length pids) delta);
 
     List.iter (fun pid -> send pid Loop_stop) pids;
+
+    Logger.info (fun f ->
+        let t1 = Ptime_clock.now () in
+        let delta = Ptime.diff t1 t0 in
+        let delta = Ptime.Span.to_float_s delta in
+        f "sent %d messages in %.3fs" (List.length pids) delta);
 
     wait_pids pids;
 

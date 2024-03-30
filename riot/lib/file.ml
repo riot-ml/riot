@@ -20,6 +20,11 @@ let remove path = Unix.unlink path
 let seek t ~off = Fd.seek t.fd off Unix.SEEK_SET
 let stat path = Unix.stat path
 
+let exists path =
+  match Unix.stat path with
+  | exception Unix.Unix_error (Unix.ENOENT, _, _) -> false
+  | (exception _) | _ -> true
+
 module Read = struct
   type t = read_file
 

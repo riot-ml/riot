@@ -10,7 +10,7 @@ let bufs = IO.Iovec.create ~size:1024 ()
 
 let rec conn_loop conn () =
   let rec handle_request () =
-    match receive ~after:10L () with
+    match receive_any ~after:10L () with
     | exception Receive_timeout ->
         let* _req = Net.Tcp_stream.receive ~timeout:1_000_000L conn ~bufs in
         let* _written =

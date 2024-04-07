@@ -1,4 +1,0 @@
-(library
- (package gluon)
- (name gluon_common)
- (libraries unix))

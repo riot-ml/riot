@@ -1,6 +1,4 @@
-# Changes
-
-## 0.0.9
+# 0.0.9
 
 * Introduce Message Selectors – selectors are functions from `Message.t` down
   to a specific subset of messages your process is currently interested in.
@@ -18,7 +16,7 @@
 
 * Fix TLS dependency to 0.17.3
 
-## 0.0.8
+# 0.0.8
 
 This is the largest Riot release yet, and we are splitting the package into 4 sub-packages:
 
@@ -119,7 +117,7 @@ This is the largest Riot release yet, and we are splitting the package into 4 su
 * First implementation of composable I/O streams via a Read/Write interface
   inspired by Rust's Read/Write traits.
 
-## 0.0.7
+# 0.0.7
 
 * Introduce IO module with low-level IO operations such as performing direct
   vectorized (or regular) reads/writes. New operations include:
@@ -166,7 +164,7 @@ This is the largest Riot release yet, and we are splitting the package into 4 su
 * Rewrite Dashmap internals to use a Hashtbl
 
 
-## 0.0.6
+# 0.0.6
 
 * Redo packaging to expose a single public library: `riot`
 * Fix issue with schedulers busy-waiting
@@ -180,7 +178,7 @@ This is the largest Riot release yet, and we are splitting the package into 4 su
 * Fix bugs with syscall suspension that was introduced with reduction counting
 
 
-## 0.0.5
+# 0.0.5
 
 * Add `register name pid`
 * Add `unregister name`
@@ -188,7 +186,7 @@ This is the largest Riot release yet, and we are splitting the package into 4 su
 * Fix timer wheel making it remove timers correctly
 * Add better test for `Timer.send_after`
 
-## 0.0.4
+# 0.0.4
 
 * Internally immediately suspend (bypassing reduction counts) when on a receive expression
 * Fix reads from closed Unix sockets
@@ -198,7 +196,7 @@ This is the largest Riot release yet, and we are splitting the package into 4 su
 * Fix GC i/o process table
 * Surface pretty-printing of socket values 
 
-## 0.0.3
+# 0.0.3
 
 * Big namespace refactor. `Riot.Runtime` includes the lower-level runtime
   blocks, and everything else that is more user-friendly lives at the `Riot.*`
@@ -209,13 +207,13 @@ level.
 * Fix `Riot.Logger` to fit the `Application` interface
 * Add a new `Riot.Telemetry` backend for doing async telemetry
 
-## 0.0.2
+# 0.0.2
 
 * New `Riot.random ()` API to expose current scheduler's random state
 * Better logging in the `Net` module
 * Fix a bug where `Net.Socket` operations where hanging on I/O polling when they could have been eager
 
-## 0.0.1
+# 0.0.1
 
 First release, including:
 

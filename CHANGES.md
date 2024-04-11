@@ -1,5 +1,23 @@
 # Changes
 
+## 0.0.9
+
+* Introduce Message Selectors – selectors are functions from `Message.t` down
+  to a specific subset of messages your process is currently interested in.
+  Messages that aren't selected will be kept in the queue in place. This allows
+  us to implement patterns where we scan the mailbox for specific messages,
+  while allowing new messages to come in and not be accidentally discarded.
+
+* Several nix-flake improvements – thanks to @metame :clap:
+
+* Introduce a new `run_with_status` function that converts a Result into an
+  exit status, and helps one-off programs be written more succintly – thanks
+  @Dev380 :sparkles:
+
+* Add File.exists to the Riot lib
+
+* Fix TLS dependency to 0.17.3
+
 ## 0.0.8
 
 This is the largest Riot release yet, and we are splitting the package into 4 sub-packages:

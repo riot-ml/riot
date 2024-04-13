@@ -535,6 +535,23 @@ module Pool = struct
        sockets and handle that as a regular value rather than as a signal. *)
     Sys.set_signal Sys.sigpipe Sys.Signal_ignore
 
+  let spawn_scheduler_on_pool pool (scheduler : t) : unit Domain.t =
+    Stdlib.Domain.spawn (fun () ->
+        setup ();
+        set_pool pool;
+        Scheduler.set_current_scheduler scheduler;
+        try
+          Scheduler.run pool scheduler ();
+          Log.trace (fun f ->
+              f "<<< shutting down scheduler #%a" Scheduler_uid.pp scheduler.uid)
+        with exn ->
+          Log.error (fun f ->
+              f "Scheduler.run exception: %s due to: %s%!"
+                (Printexc.to_string exn)
+                (Printexc.raw_backtrace_to_string
+                   (Printexc.get_raw_backtrace ())));
+          shutdown pool 1)
+
   let make ?(rnd = Random.State.make_self_init ()) ~domains ~main () =
     setup ();
 
@@ -553,25 +570,9 @@ module Pool = struct
         registry = Proc_registry.create ();
       }
     in
-    let spawn (scheduler : t) =
-      Stdlib.Domain.spawn (fun () ->
-          setup ();
-          set_pool pool;
-          Scheduler.set_current_scheduler scheduler;
-          try
-            Scheduler.run pool scheduler ();
-            Log.trace (fun f ->
-                f "<<< shutting down scheduler #%a" Scheduler_uid.pp
-                  scheduler.uid)
-          with exn ->
-            Log.error (fun f ->
-                f "Scheduler.run exception: %s due to: %s%!"
-                  (Printexc.to_string exn)
-                  (Printexc.raw_backtrace_to_string
-                     (Printexc.get_raw_backtrace ())));
-            shutdown pool 1)
-    in
-    Log.debug (fun f -> f "Created %d schedulers" (List.length schedulers));
+    Log.debug (fun f ->
+        f "Created %d schedulers including the main scheduler"
+          (List.length schedulers));
 
     let io_thread =
       Stdlib.Domain.spawn (fun () ->
@@ -585,6 +586,8 @@ module Pool = struct
             shutdown pool 2)
     in
 
-    let scheduler_threads = List.map spawn schedulers in
+    let scheduler_threads =
+      List.map (spawn_scheduler_on_pool pool) schedulers
+    in
     (pool, io_thread :: scheduler_threads)
 end

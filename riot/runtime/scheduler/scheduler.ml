@@ -590,4 +590,9 @@ module Pool = struct
       List.map (spawn_scheduler_on_pool pool) schedulers
     in
     (pool, io_thread :: scheduler_threads)
+
+  (** Creates a new blocking scheduler in the pool *)
+  let spawn_blocking ?(rnd = Random.State.make_self_init ()) _pool =
+    let new_scheduler = Scheduler.make ~rnd () in
+    new_scheduler
 end

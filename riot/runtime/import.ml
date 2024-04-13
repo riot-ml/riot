@@ -139,6 +139,11 @@ let spawn_pinned fn =
 
 let spawn_link fn = _spawn ~do_link:true fn
 
+let spawn_blocking fn =
+  let pool = _get_pool () in
+  let blocking_scheduler = Scheduler.Pool.spawn_blocking pool in
+  _spawn ~do_link:false ~scheduler:blocking_scheduler fn
+
 let monitor pid =
   let pool = _get_pool () in
   let this = _get_proc (self ()) in

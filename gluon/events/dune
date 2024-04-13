@@ -1,4 +1,0 @@
-(library
- (package gluon)
- (name gluon_events)
- (libraries gluon_common))

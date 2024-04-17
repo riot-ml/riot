@@ -910,6 +910,17 @@ module Hashmap : sig
   module Make (B : Base) : Intf with type key = B.key
 end
 
+module Mutex : sig
+  type 'a t = private { mutable inner : 'a; process : Pid.t }
+  type err
+
+  val create : 'a -> 'a t
+  val lock : 'a t -> ('a, err) result
+  val unlock : 'a t -> (unit, err) result
+  val with_lock : 'a t -> ('a -> unit) -> (unit, err) result
+  val try_lock : 'a t -> ('a, err) result
+end
+
 module Stream : sig
   type 'v t = 'v Seq.t
 

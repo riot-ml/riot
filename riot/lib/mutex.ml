@@ -70,29 +70,26 @@ let selector = function
   | (LockAccepted | Failed _ | Monitor (Process_down _)) as m -> `select m
   | _ -> `skip
 
-(*
-    NOTE: (@faycarsons) The intention behind monitoring and listening for any 
-    messages that could signal failure is to prevent deadlocks in the event 
-    the mutex process somehow dies before sending a `LockAccepted` message.
-*)
-let wait_lock ({ process; _ } : 'a t) =
-  monitor process;
-  send process @@ Lock (self ());
+(* NOTE: (@faycarsons) This should(?) prevent deadlocks caused by mutex
+    process dyng before sending `LockAccepted` message *)
+let wait_lock mutex =
+  monitor mutex.process;
+  send mutex.process @@ Lock (self ());
   match receive ~selector () with
   | Monitor (Process_down _) -> Error `process_died
   | Failed reason -> Error reason
   | _ -> Ok ()
 
-let try_wait_lock t =
-  monitor t.process;
-  send t.process @@ TryLock (self ());
+let try_wait_lock mutex =
+  monitor mutex.process;
+  send mutex.process @@ TryLock (self ());
   match[@warning "-8"] receive ~selector () with
-  | LockAccepted -> Ok t.inner
+  | LockAccepted -> Ok ()
   | Failed reason -> Error reason
   | Monitor (Process_down _) -> Error `process_died
 
-let wait_unlock { process; _ } =
-  send process @@ Unlock (self ());
+let wait_unlock mutex =
+  send mutex.process @@ Unlock (self ());
   match
     receive
       ~selector:(function
@@ -102,36 +99,34 @@ let wait_unlock { process; _ } =
   | Failed reason -> Error reason
   | _ -> Ok ()
 
+(* NOTE: (@faycarsons) Maybe use marshaling here instead? Unsure how much of a
+    priority getting a true deep copy, I.E. for nested data structures, is vs
+    cost of serialization. *)
+let clone (x : 'a) : 'a = Obj.(repr x |> dup |> magic)
+
 (* Exposed API *)
 
-let lock t =
-  let* _ = wait_lock t in
-  Ok t.inner
-
-let try_lock t =
-  let* _ = try_wait_lock t in
-  Ok t.inner
-
-let unlock t = wait_unlock t
-
-let with_lock t fn =
+let lock t fn =
   let* _ = wait_lock t in
   fn t.inner;
-  let* _ = wait_unlock t in
-  Ok ()
+  wait_unlock t
 
-let try_with_lock t fn =
-  let* _ = try_wait_lock t in
-  fn t.inner;
-  let* _ = wait_unlock t in
-  Ok ()
+let try_lock mutex fn =
+  let* _ = try_wait_lock mutex in
+  fn mutex.inner;
+  wait_unlock mutex
 
-let with_inner t fn =
+let get (t : 'a t) : ('a, err) result =
   let* _ = wait_lock t in
-  let res = fn t.inner in
+  let { inner; _ } = t in
   let* _ = wait_unlock t in
-  Ok res
+  Result.ok @@ clone inner
 
-(* NOTE(@faycarsons): not sure if we want these? *)
+let try_get mutex =
+  let* _ = try_wait_lock mutex in
+  let { inner; _ } = mutex in
+  let* _ = wait_unlock mutex in
+  Result.ok @@ clone inner
+
+(* NOTE: (@faycarsons) not sure if we want this? *)
 let unsafe_get t = t.inner
-let unsafe_set t v = t.inner <- v

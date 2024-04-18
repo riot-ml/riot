@@ -915,10 +915,17 @@ module Mutex : sig
   type err
 
   val create : 'a -> 'a t
-  val lock : 'a t -> ('a, err) result
-  val unlock : 'a t -> (unit, err) result
-  val with_lock : 'a t -> ('a -> unit) -> (unit, err) result
-  val try_lock : 'a t -> ('a, err) result
+  (** [create inner] wrap inner in aa mutex *)
+
+  val lock : 'a t -> ('a -> unit) -> (unit, err) result
+  (** [lock mutex fn] Waits for lock on mutex, applies fn to value wrapped by mutex, and then unlocks *)
+
+  val get : 'a t -> ('a, err) result
+  (** [get mutex] Waits for lock on mutex and then returns a deep copy of the value wrapped by the mutex *)
+
+  val unsafe_get : 'a t -> 'a
+  (** [unsafe_get mutex] Returns value held by mutex. Does not copy, if 'a is a 
+      reference to a mutable type then mutating it will mutate the mutex's inner *)
 end
 
 module Stream : sig

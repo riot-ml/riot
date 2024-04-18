@@ -9,7 +9,9 @@ and status = Locked of Pid.t | Unlocked
 
 type error = [ `multiple_unlocks | `locked | `not_owner | `process_died ]
 
-let pp_err = function
+let pp_err :
+    [< `multiple_unlocks | `locked | `not_owner | `process_died ] -> string =
+  function
   | `multiple_unlocks -> "Mutex received multiple unlock messages"
   | `locked -> "Mutex is locked"
   | `not_owner -> "Process does not own mutex"

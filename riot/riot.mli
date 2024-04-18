@@ -914,6 +914,7 @@ module Mutex : sig
   type 'a t
   type error
 
+  val pp_err : error -> string
   val create : 'a -> 'a t
   val lock : 'a t -> ('a -> 'a) -> (unit, error) result
   val try_lock : 'a t -> ('a -> 'a) -> (unit, error) result

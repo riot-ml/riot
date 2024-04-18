@@ -9,9 +9,7 @@ and status = Locked of Pid.t | Unlocked
 
 type error = [ `multiple_unlocks | `locked | `not_owner | `process_died ]
 
-let pp_err :
-    [< `multiple_unlocks | `locked | `not_owner | `process_died ] -> string =
-  function
+let pp_err = function
   | `multiple_unlocks -> "Mutex received multiple unlock messages"
   | `locked -> "Mutex is locked"
   | `not_owner -> "Process does not own mutex"
@@ -27,40 +25,34 @@ type Message.t +=
 
 let rec loop ({ status; queue } as state) =
   match receive_any () with
-  | Lock owner -> (
-      match status with
-      | Locked _ -> Lf_queue.push queue owner
-      | Unlocked ->
-          monitor owner;
-          send owner LockAccepted;
-          loop { state with status = Locked owner })
+  | (Lock owner | TryLock owner) when status = Unlocked ->
+      monitor owner;
+      send owner LockAccepted;
+      loop { state with status = Locked owner }
+  | Lock requesting ->
+      Lf_queue.push queue requesting;
+      loop state
+  | TryLock requesting -> send requesting @@ Failed `locked
   | Unlock pid when status = Locked pid ->
       send pid UnlockAccepted;
       demonitor pid;
       check_queue { state with status = Unlocked }
-  | Unlock not_owner -> (
-      match status with
-      | Locked _owner ->
-          Logger.error (fun f ->
-              f "Mutex (PID: %a) received unlock from non-owning process" Pid.pp
-              @@ self ());
-          send not_owner @@ Failed `not_owner
-      | Unlocked ->
-          Logger.error (fun f ->
-              f "Mutex (PID: %a) received unlock message while unlocked" Pid.pp
-              @@ self ());
-          send not_owner @@ Failed `multiple_unlocks)
-  | TryLock owner -> (
-      match status with
-      | Locked _current -> send owner @@ Failed `locked
-      | Unlocked ->
-          monitor owner;
-          send owner LockAccepted;
-          loop { state with status = Locked owner })
+  | Unlock not_owner when status = Unlocked ->
+      Logger.error (fun f ->
+          f "Mutex (PID: %a) received unlock message while unlocked" Pid.pp
+            (self ()));
+      send not_owner @@ Failed `multiple_unlocks
+  | Unlock not_owner ->
+      Logger.error (fun f ->
+          f "Mutex (PID: %a) received unlock message from non-owner process"
+            Pid.pp (self ()));
+      send not_owner @@ Failed `not_owner
   | Monitor (Process_down fell_pid) when status = Locked fell_pid ->
       Logger.error (fun f -> f "Mutex owner crashed: %a" Pid.pp fell_pid);
       loop { state with status = Unlocked }
-  | _ -> loop state
+  | _ ->
+      Logger.debug (fun f -> f "Mutex received unexpected message");
+      loop state
 
 and check_queue ({ queue; _ } as state) =
   match Lf_queue.pop queue with
@@ -101,10 +93,10 @@ let try_wait_lock mutex =
 
 let wait_unlock mutex =
   send mutex.process @@ Unlock (self ());
-  match receive ~selector () with
+  match[@warning "-8"] receive ~selector () with
   | Failed reason -> Error reason
   | Monitor (Process_down _) -> Error `process_died
-  | _ -> Ok ()
+  | UnlockAccepted -> Ok ()
 
 (* NOTE: (@faycarsons) Maybe use marshaling here instead? Unsure how much of a
     priority getting a true deep copy, I.E. for nested data structures, is vs

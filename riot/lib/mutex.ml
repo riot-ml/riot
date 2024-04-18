@@ -7,7 +7,7 @@ type 'a t = { mutable inner : 'a; process : Pid.t }
 type state = { status : status; queue : Pid.t Lf_queue.t }
 and status = Locked of Pid.t | Unlocked
 
-type err = [ `multiple_unlocks | `locked | `wrong_owner | `process_died ]
+type error = [ `multiple_unlocks | `locked | `wrong_owner | `process_died ]
 
 type Message.t +=
   | Lock of Pid.t
@@ -15,7 +15,7 @@ type Message.t +=
   | TryLock of Pid.t
   | LockAccepted
   | UnlockAccepted
-  | Failed of err
+  | Failed of error
 
 let rec loop ({ status; queue } as state) =
   match receive_any () with
@@ -30,17 +30,18 @@ let rec loop ({ status; queue } as state) =
       send pid UnlockAccepted;
       demonitor pid;
       check_queue { state with status = Unlocked }
-  | Unlock _ -> (
+  | Unlock not_owner -> (
       match status with
-      | Locked wrong_owner ->
+      | Locked _owner ->
           Logger.error (fun f ->
               f "Mutex (PID: %a) received unlock from non-owning process" Pid.pp
               @@ self ());
-          send wrong_owner @@ Failed `wrong_owner
+          send not_owner @@ Failed `wrong_owner
       | Unlocked ->
           Logger.error (fun f ->
               f "Mutex (PID: %a) received unlock message while unlocked" Pid.pp
-              @@ self ()))
+              @@ self ());
+          send not_owner @@ Failed `multiple_unlocks)
   | TryLock owner -> (
       match status with
       | Locked _current -> send owner @@ Failed `locked
@@ -71,7 +72,7 @@ let selector = function
   | _ -> `skip
 
 (* NOTE: (@faycarsons) This should(?) prevent deadlocks caused by mutex
-    process dyng before sending `LockAccepted` message *)
+    process dying before sending `LockAccepted` message *)
 let wait_lock mutex =
   monitor mutex.process;
   send mutex.process @@ Lock (self ());
@@ -116,7 +117,7 @@ let try_lock mutex fn =
   fn mutex.inner;
   wait_unlock mutex
 
-let get (t : 'a t) : ('a, err) result =
+let get (t : 'a t) : ('a, error) result =
   let* _ = wait_lock t in
   let { inner; _ } = t in
   let* _ = wait_unlock t in

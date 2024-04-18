@@ -911,21 +911,13 @@ module Hashmap : sig
 end
 
 module Mutex : sig
-  type 'a t = private { mutable inner : 'a; process : Pid.t }
-  type err
+  type 'a t
+  type error
 
   val create : 'a -> 'a t
-  (** [create inner] wrap inner in aa mutex *)
-
-  val lock : 'a t -> ('a -> unit) -> (unit, err) result
-  (** [lock mutex fn] Waits for lock on mutex, applies fn to value wrapped by mutex, and then unlocks *)
-
-  val get : 'a t -> ('a, err) result
-  (** [get mutex] Waits for lock on mutex and then returns a deep copy of the value wrapped by the mutex *)
-
+  val lock : 'a t -> ('a -> unit) -> (unit, error) result
+  val get : 'a t -> ('a, error) result
   val unsafe_get : 'a t -> 'a
-  (** [unsafe_get mutex] Returns value held by mutex. Does not copy, if 'a is a 
-      reference to a mutable type then mutating it will mutate the mutex's inner *)
 end
 
 module Stream : sig

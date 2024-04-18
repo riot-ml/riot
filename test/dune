@@ -75,14 +75,6 @@
 
 (test
  (package riot)
- (name mutex)
- (enabled_if
-  (= %{env:MUTEX_DEV=false} true))
- (modules mutex)
- (libraries riot))
-
-(test
- (package riot)
  (name net_reader_writer_test)
  (enabled_if
   (= %{env:OPAM_REPO_CI=false} false))

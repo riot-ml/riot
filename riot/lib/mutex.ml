@@ -98,10 +98,15 @@ let wait_unlock mutex =
   | Monitor (Process_down _) -> Error `process_died
   | UnlockAccepted -> Ok ()
 
-(* NOTE: (@faycarsons) Maybe use marshaling here instead? Unsure how much of a
-    priority getting a true deep copy, I.E. for nested data structures, is vs
-    cost of serialization. *)
-let clone (x : 'a) : 'a = Obj.(repr x |> dup |> magic)
+(* NOTE: (@faycarsons) Assuming that we do want functions like `get` to return
+   a copy of the wrapped value, to prevent mutation once the mutex has been
+   unlocked: I'm not sure how we want to go about that copying. There are maybe
+   cheaper but less safe solutions using `Obj`, but if the serialization cost
+   is OK this seems to work fine *)
+let clone (inner : 'a) : 'a =
+  let open Marshal in
+  let ser = to_bytes inner [ Closures; No_sharing ] in
+  from_bytes ser 0
 
 (* Exposed API *)
 

@@ -7,7 +7,13 @@ type 'a t = { mutable inner : 'a; process : Pid.t }
 type state = { status : status; queue : Pid.t Lf_queue.t }
 and status = Locked of Pid.t | Unlocked
 
-type error = [ `multiple_unlocks | `locked | `wrong_owner | `process_died ]
+type error = [ `multiple_unlocks | `locked | `not_owner | `process_died ]
+
+let pp_err = function
+  | `multiple_unlocks -> "Mutex received multiple unlock messages"
+  | `locked -> "Mutex is locked"
+  | `not_owner -> "Process does not own mutex"
+  | `process_died -> "Mutex process died"
 
 type Message.t +=
   | Lock of Pid.t
@@ -36,7 +42,7 @@ let rec loop ({ status; queue } as state) =
           Logger.error (fun f ->
               f "Mutex (PID: %a) received unlock from non-owning process" Pid.pp
               @@ self ());
-          send not_owner @@ Failed `wrong_owner
+          send not_owner @@ Failed `not_owner
       | Unlocked ->
           Logger.error (fun f ->
               f "Mutex (PID: %a) received unlock message while unlocked" Pid.pp
@@ -68,11 +74,13 @@ let create inner =
   { inner; process }
 
 let selector = function
-  | (LockAccepted | Failed _ | Monitor (Process_down _)) as m -> `select m
+  | (LockAccepted | UnlockAccepted | Failed _ | Monitor (Process_down _)) as m
+    ->
+      `select m
   | _ -> `skip
 
-(* NOTE: (@faycarsons) This should(?) prevent deadlocks caused by mutex
-    process dying before sending `LockAccepted` message *)
+(* NOTE: (@faycarsons) Monitoring should(?) prevent deadlocks caused by mutex
+    process dying *)
 let wait_lock mutex =
   monitor mutex.process;
   send mutex.process @@ Lock (self ());
@@ -91,13 +99,9 @@ let try_wait_lock mutex =
 
 let wait_unlock mutex =
   send mutex.process @@ Unlock (self ());
-  match
-    receive
-      ~selector:(function
-        | (UnlockAccepted | Failed _) as msg -> `select msg | _ -> `skip)
-      ()
-  with
+  match receive ~selector () with
   | Failed reason -> Error reason
+  | Monitor (Process_down _) -> Error `process_died
   | _ -> Ok ()
 
 (* NOTE: (@faycarsons) Maybe use marshaling here instead? Unsure how much of a
@@ -107,27 +111,35 @@ let clone (x : 'a) : 'a = Obj.(repr x |> dup |> magic)
 
 (* Exposed API *)
 
-let lock t fn =
-  let* _ = wait_lock t in
-  fn t.inner;
-  wait_unlock t
+let lock mutex fn =
+  let* _ = wait_lock mutex in
+  mutex.inner <- fn mutex.inner;
+  wait_unlock mutex
 
 let try_lock mutex fn =
+  let* _ = try_wait_lock mutex in
+  mutex.inner <- fn mutex.inner;
+  wait_unlock mutex
+
+let iter mutex fn =
+  let* _ = wait_lock mutex in
+  fn mutex.inner;
+  wait_unlock mutex
+
+let try_iter mutex fn =
   let* _ = try_wait_lock mutex in
   fn mutex.inner;
   wait_unlock mutex
 
-let get (t : 'a t) : ('a, error) result =
-  let* _ = wait_lock t in
-  let { inner; _ } = t in
-  let* _ = wait_unlock t in
-  Result.ok @@ clone inner
+let get mutex =
+  let* _ = wait_lock mutex in
+  let* _ = wait_unlock mutex in
+  Result.ok @@ clone mutex.inner
 
 let try_get mutex =
   let* _ = try_wait_lock mutex in
-  let { inner; _ } = mutex in
   let* _ = wait_unlock mutex in
-  Result.ok @@ clone inner
+  Result.ok @@ clone mutex.inner
 
 (* NOTE: (@faycarsons) not sure if we want this? *)
 let unsafe_get t = t.inner

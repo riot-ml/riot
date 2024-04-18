@@ -915,8 +915,12 @@ module Mutex : sig
   type error
 
   val create : 'a -> 'a t
-  val lock : 'a t -> ('a -> unit) -> (unit, error) result
+  val lock : 'a t -> ('a -> 'a) -> (unit, error) result
+  val try_lock : 'a t -> ('a -> 'a) -> (unit, error) result
+  val iter : 'a t -> ('a -> unit) -> (unit, error) result
+  val try_iter : 'a t -> ('a -> unit) -> (unit, error) result
   val get : 'a t -> ('a, error) result
+  val try_get : 'a t -> ('a, error) result
   val unsafe_get : 'a t -> 'a
 end
 

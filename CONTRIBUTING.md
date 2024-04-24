@@ -13,6 +13,8 @@ welcomed! This includes:
 
 ### Installing from Sources
 
+#### Opam
+
 To install Riot from sources, make sure to include all its dependencies:
 
 ```sh
@@ -30,11 +32,35 @@ You can run builds with:
 ; dune build
 ```
 
-You can run all tests with
+You can run all tests with:
 
 ```sh
 ; dune test
 ```
+
+#### Nix
+
+The only requirement is that you have nix installed with flakes enabled.
+
+To build the project you can run:
+
+```sh
+; nix build
+```
+
+To enter a dev shell with all deps, utop, lsp, and dune installed, simply run:
+
+```sh
+; nix develop
+```
+
+Or if you're using direnv:
+
+```sh
+; echo 'use flake' >> .envrc && direnv allow
+```
+
+An example repo for creating new projects using riot and nix intended for those new to nix can be found [here](https://github.com/metame/nix_riot_example).
 
 ### Adding tests
 

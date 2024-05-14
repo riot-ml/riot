@@ -79,7 +79,7 @@
                 src = builtins.fetchGit {
                   url = "git@github.com:hannesm/randomconv.git";
                   rev = "b2ce656d09738d676351f5a1c18aff0ff37a7dcc";
-                  ref = "refs/tags/${version}";
+                  ref = "refs/tags/0.2.0";
                 };
               };
 

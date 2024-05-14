@@ -95,6 +95,10 @@ module Scheduler = struct
           add_to_run_queue sch proc)
       pool.schedulers
 
+  let kickstart_blocking_process pool sch (proc : Process.t) =
+    add_to_run_queue sch proc;
+    pool.schedulers
+
   let handle_receive k pool sch (proc : Process.t) ~(ref : 'a Ref.t option)
       ~timeout ~selector =
     Trace.handle_receive_span @@ fun () ->
@@ -571,7 +575,7 @@ module Pool = struct
       }
     in
     Log.debug (fun f ->
-        f "Created %d schedulers including the main scheduler"
+        f "Created %d schedulers excluding the main scheduler"
           (List.length schedulers));
 
     let io_thread =
@@ -592,7 +596,8 @@ module Pool = struct
     (pool, io_thread :: scheduler_threads)
 
   (** Creates a new blocking scheduler in the pool *)
-  let spawn_blocking ?(rnd = Random.State.make_self_init ()) _pool =
+  let spawn_blocking_scheduler ?(rnd = Random.State.make_self_init ()) pool =
     let new_scheduler = Scheduler.make ~rnd () in
+    let _domain = spawn_scheduler_on_pool pool new_scheduler in
     new_scheduler
 end

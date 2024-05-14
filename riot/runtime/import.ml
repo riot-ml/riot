@@ -141,8 +141,26 @@ let spawn_link fn = _spawn ~do_link:true fn
 
 let spawn_blocking fn =
   let pool = _get_pool () in
-  let blocking_scheduler = Scheduler.Pool.spawn_blocking pool in
-  _spawn ~do_link:false ~scheduler:blocking_scheduler fn
+  let blocking_scheduler = Scheduler.Pool.spawn_blocking_scheduler pool in
+  let proc =
+    Process.make blocking_scheduler.uid (fun () ->
+        try
+          fn ();
+          Normal
+        with
+        | Proc_state.Unwind -> Normal
+        | exn ->
+            Log.error (fun f ->
+                f "Process %a died with unhandled exception %s:\n%s" Pid.pp
+                  (self ()) (Printexc.to_string exn)
+                  (Printexc.get_backtrace ()));
+
+            Exception exn)
+  in
+  Scheduler.Pool.register_process pool proc;
+  let _ = Scheduler.kickstart_blocking_process pool blocking_scheduler proc in
+  proc.pid
+(* _spawn ~do_link:false ~scheduler:blocking_scheduler fn *)
 
 let monitor pid =
   let pool = _get_pool () in

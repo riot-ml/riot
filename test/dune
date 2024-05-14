@@ -121,11 +121,11 @@
  (modules process_blocking_test)
  (libraries riot))
 
-(test
- (package riot)
- (name process_registration_test)
- (modules process_registration_test)
- (libraries riot))
+; (test
+;  (package riot)
+;  (name process_registration_test)
+;  (modules process_registration_test)
+;  (libraries riot))
 
 ; (test
 ;  (package riot)

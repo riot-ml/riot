@@ -54,7 +54,7 @@
         let
           inherit (pkgs) ocamlPackages mkShell lib;
           inherit (ocamlPackages) buildDunePackage;
-          version = "0.0.9+dev";
+          version = "0.0.9";
         in
           {
             devShells = {

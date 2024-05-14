@@ -141,7 +141,10 @@ let spawn_link fn = _spawn ~do_link:true fn
 
 let spawn_blocking fn =
   let pool = _get_pool () in
+  (* Create a scheduler *)
   let blocking_scheduler = Scheduler.Pool.spawn_blocking_scheduler pool in
+
+  (* Start the process *)
   let proc =
     Process.make blocking_scheduler.uid (fun () ->
         try

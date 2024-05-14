@@ -31,19 +31,17 @@ let rec wait_for_answer () =
   match receive_any () with
   | AnswerToAllTheWorldsProblems n ->
       Printf.printf
-        "Got the answer!\n\
-        \ The answer to all the worlds problems has been calculated to be %d\n"
+        "Got the answer!\nThe answer to all the worlds problems has been calculated to be %d\n"
         n
   | _ -> wait_for_answer ()
 
 let () =
-  Runtime.set_log_level (Some Trace);
+  (* Runtime.set_log_level (Some Trace); *)
   print_endline "Test spawn_blocking";
   Riot.run ~workers:0 @@ fun () ->
   let _ = Logger.start () |> Result.get_ok in
-  Logger.set_log_level (Some Debug);
+  Logger.set_log_level (Some Info);
 
-  (* let main_pid = self () in *)
   let pid_waiting = spawn wait_for_answer in
 
   let _countdown_pid = spawn (fun () -> countdown_worker 100) in

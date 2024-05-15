@@ -113,6 +113,7 @@ module Process : sig
         (** Processes with a [High] priority will be scheduled before processes
            with a [Normal] priority which will be scheduled before processes
            with a [Low] priority. *)
+    | IsBlockingProc of bool
 
   (* An [exit_reason] describes why a process finished. *)
   type exit_reason =

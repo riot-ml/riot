@@ -12,6 +12,7 @@ type t = {
   idle_mutex : Mutex.t;
   idle_condition : Condition.t;
   currently_stealing : Mutex.t;
+  mutable stop : bool;
 }
 
 type io = {
@@ -26,12 +27,15 @@ type io = {
   mutable calls_send : int;
 }
 
+type blocking = { scheduler : t; domain : unit Domain.t }
+
 type pool = {
   mutable stop : bool;
   mutable status : int;
   io_scheduler : io;
   schedulers : t list;
   processes : Proc_table.t;
+  blocking_schedulers : blocking list Atomic.t;
   mutable proc_count : int;
   registry : Proc_registry.t;
 }
@@ -60,6 +64,7 @@ module Scheduler = struct
       idle_mutex = Mutex.create ();
       idle_condition = Condition.create ();
       currently_stealing = Mutex.create ();
+      stop = false;
     }
 
   let get_current_scheduler, (set_current_scheduler : t -> unit) =
@@ -363,6 +368,11 @@ module Scheduler = struct
             awake_process pool linked_proc)
       linked_pids;
 
+    if Process.is_blocking_proc proc then (
+      Log.debug (fun f -> f "Set scheduler.stop to true");
+      sch.stop <- true)
+    else ();
+
     Proc_queue.remove sch.run_queue proc;
     Proc_table.remove pool.processes proc.pid;
     Proc_registry.remove pool.registry proc.pid;
@@ -458,6 +468,7 @@ module Scheduler = struct
     (try
        while true do
          if pool.stop then raise_notrace Exit;
+         if sch.stop then raise_notrace Exit;
 
          Mutex.lock sch.idle_mutex;
          while
@@ -473,6 +484,57 @@ module Scheduler = struct
        done
      with Exit -> ());
     Log.trace (fun f -> f "< exit worker loop")
+end
+
+module Blocking_scheduler = struct
+  (* include Scheduler *)
+  type t = blocking
+
+  let make sch domain = { scheduler = sch; domain }
+
+  let rec add_to_pool pool blocking =
+    let dom_list = Atomic.get pool.blocking_schedulers in
+    if
+      Atomic.compare_and_set pool.blocking_schedulers dom_list
+        (blocking :: dom_list)
+    then ()
+    else add_to_pool pool blocking
+
+  let rec remove_from_pool pool blocking =
+    let cur = Atomic.get pool.blocking_schedulers in
+    let without_removee = List.filter (fun sch -> sch.domain != blocking.domain) cur in
+    if Atomic.compare_and_set pool.blocking_schedulers cur without_removee then
+      ()
+    else remove_from_pool pool blocking
+
+  (* let run pool (sch : t) () =
+     Log.trace (fun f -> f "> enter worker loop");
+     let exception Exit in
+     (try
+        while true do
+          if pool.stop then raise_notrace Exit;
+
+          Mutex.lock sch.idle_mutex;
+          while
+            (not pool.stop)
+            && Proc_queue.is_empty sch.run_queue
+            && not (Timer_wheel.can_tick sch.timers)
+          do
+            Condition.wait sch.idle_condition sch.idle_mutex
+          done;
+          Mutex.unlock sch.idle_mutex;
+
+          Scheduler.run_loop pool sch
+        done
+      with Exit -> ());
+     Log.trace (fun f -> f "< exit worker loop") *)
+
+  (* Override the handle exit function *)
+  let handle_exit_blocking_proc pool sch proc reason =
+    Scheduler.handle_exit_proc pool sch.scheduler proc reason;
+    (* In addition to the above, we want to remove this scheduler thereby freeing up the thread/core *)
+    (* TODO: Remove domain from pool *)
+    remove_from_pool pool sch
 end
 
 include Scheduler
@@ -542,6 +604,7 @@ module Pool = struct
   let spawn_scheduler_on_pool pool (scheduler : t) : unit Domain.t =
     Stdlib.Domain.spawn (fun () ->
         setup ();
+        Stdlib.Domain.at_exit (fun () -> Log.warn (fun f -> f "Domain freed"));
         set_pool pool;
         Scheduler.set_current_scheduler scheduler;
         try
@@ -571,6 +634,7 @@ module Pool = struct
         io_scheduler;
         schedulers = [ main ] @ schedulers;
         processes = Proc_table.create ();
+        blocking_schedulers = Atomic.make [];
         registry = Proc_registry.create ();
       }
     in
@@ -598,6 +662,8 @@ module Pool = struct
   (** Creates a new blocking scheduler in the pool *)
   let spawn_blocking_scheduler ?(rnd = Random.State.make_self_init ()) pool =
     let new_scheduler = Scheduler.make ~rnd () in
-    let _domain = spawn_scheduler_on_pool pool new_scheduler in
-    new_scheduler
+    let domain = spawn_scheduler_on_pool pool new_scheduler in
+    let blocking_sch = Blocking_scheduler.make new_scheduler domain in
+    Blocking_scheduler.add_to_pool pool blocking_sch;
+    blocking_sch
 end

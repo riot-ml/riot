@@ -146,7 +146,7 @@ let spawn_blocking fn =
 
   (* Start the process *)
   let proc =
-    Process.make blocking_scheduler.uid (fun () ->
+    Process.make blocking_scheduler.scheduler.uid (fun () ->
         try
           fn ();
           Normal
@@ -160,8 +160,11 @@ let spawn_blocking fn =
 
             Exception exn)
   in
+  Process.set_flag proc (IsBlockingProc true);
   Scheduler.Pool.register_process pool proc;
-  let _ = Scheduler.kickstart_blocking_process pool blocking_scheduler proc in
+  let _ =
+    Scheduler.kickstart_blocking_process pool blocking_scheduler.scheduler proc
+  in
   proc.pid
 (* _spawn ~do_link:false ~scheduler:blocking_scheduler fn *)
 

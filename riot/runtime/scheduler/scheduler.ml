@@ -507,34 +507,11 @@ module Blocking_scheduler = struct
       ()
     else remove_from_pool pool blocking
 
-  (* let run pool (sch : t) () =
-     Log.trace (fun f -> f "> enter worker loop");
-     let exception Exit in
-     (try
-        while true do
-          if pool.stop then raise_notrace Exit;
-
-          Mutex.lock sch.idle_mutex;
-          while
-            (not pool.stop)
-            && Proc_queue.is_empty sch.run_queue
-            && not (Timer_wheel.can_tick sch.timers)
-          do
-            Condition.wait sch.idle_condition sch.idle_mutex
-          done;
-          Mutex.unlock sch.idle_mutex;
-
-          Scheduler.run_loop pool sch
-        done
-      with Exit -> ());
-     Log.trace (fun f -> f "< exit worker loop") *)
 
   (* Override the handle exit function *)
-  let handle_exit_blocking_proc pool sch proc reason =
-    Scheduler.handle_exit_proc pool sch.scheduler proc reason;
-    (* In addition to the above, we want to remove this scheduler thereby freeing up the thread/core *)
-    (* TODO: Remove domain from pool *)
-    remove_from_pool pool sch
+  (* let handle_exit_blocking_proc pool sch proc reason = *)
+    (* Scheduler.handle_exit_proc pool sch.scheduler proc reason; *)
+    (* remove_from_pool pool sch *)
 end
 
 include Scheduler

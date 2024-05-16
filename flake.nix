@@ -7,7 +7,6 @@
     bytestring = {
       url = "github:riot-ml/bytestring";
       inputs.nixpkgs.follows = "nixpkgs";
-      inputs.minttea.follows = "minttea";
       inputs.rio.follows = "rio";
     };
 
@@ -19,7 +18,6 @@
     config = {
       url = "github:ocaml-sys/config.ml";
       inputs.nixpkgs.follows = "nixpkgs";
-      inputs.minttea.follows = "minttea";
     };
 
     gluon = {
@@ -27,13 +25,7 @@
       inputs.nixpkgs.follows = "nixpkgs";
       inputs.bytestring.follows = "bytestring";
       inputs.config.follows = "config";
-      inputs.minttea.follows = "minttea";
       inputs.rio.follows = "rio";
-    };
-
-    minttea = {
-      url = "github:leostera/minttea";
-      inputs.nixpkgs.follows = "nixpkgs";
     };
 
     rio = {

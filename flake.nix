@@ -4,28 +4,43 @@
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
 
+    bytestring = {
+      url = "github:riot-ml/bytestring";
+      inputs.nixpkgs.follows = "nixpkgs";
+      inputs.minttea.follows = "minttea";
+      inputs.rio.follows = "rio";
+    };
+
     castore = {
       url = "github:suri-framework/castore";
       inputs.nixpkgs.follows = "nixpkgs";
     };
+
     config = {
       url = "github:ocaml-sys/config.ml";
       inputs.nixpkgs.follows = "nixpkgs";
       inputs.minttea.follows = "minttea";
     };
-    libc = {
-      url = "github:ocaml-sys/libc.ml";
+
+    gluon = {
+      url = "github:riot-ml/gluon";
       inputs.nixpkgs.follows = "nixpkgs";
+      inputs.bytestring.follows = "bytestring";
       inputs.config.follows = "config";
+      inputs.minttea.follows = "minttea";
+      inputs.rio.follows = "rio";
     };
+
     minttea = {
       url = "github:leostera/minttea";
       inputs.nixpkgs.follows = "nixpkgs";
     };
+
     rio = {
       url = "github:riot-ml/rio";
       inputs.nixpkgs.follows = "nixpkgs";
     };
+
     telemetry = {
       url = "github:leostera/telemetry";
       inputs.nixpkgs.follows = "nixpkgs";
@@ -39,17 +54,18 @@
         let
           inherit (pkgs) ocamlPackages mkShell lib;
           inherit (ocamlPackages) buildDunePackage;
-          version = "0.0.8+dev";
+          version = "0.0.9+dev";
         in
           {
             devShells = {
               default = mkShell.override {stdenv = pkgs.clang17Stdenv;} {
-                inputsFrom = [
-                  self'.packages.default
-                  self'.packages.bytestring
-                  self'.packages.gluon
+                buildInputs = with ocamlPackages; [
+                  dune_3
+                  ocaml
+                  utop
+                  ocamlformat
                 ];
-                buildInputs = [ ocamlPackages.utop ];
+                inputsFrom = [ self'.packages.default ];
                 packages = builtins.attrValues {
                   inherit (pkgs) clang_17 clang-tools_17 pkg-config;
                   inherit (ocamlPackages) ocaml-lsp ocamlformat-rpc-lib;
@@ -58,12 +74,13 @@
             };
             packages = {
               randomconv = buildDunePackage {
-                version = "0.2.0";
+                version = "v0.2.0";
                 pname = "randomconv";
-                src = builtins.fetchGit {
-                  url = "git@github.com:hannesm/randomconv.git";
+                src = pkgs.fetchFromGitHub {
+                  owner = "hannesm";
+                  repo = "randomconv";
                   rev = "b2ce656d09738d676351f5a1c18aff0ff37a7dcc";
-                  ref = "refs/tags/${version}";
+                  sha256 = "sha256-KIvx/UNtPTg0EqfwuJgzSCtr6RgKIXK6yv9QkUUHbJk=";
                 };
               };
 
@@ -71,10 +88,10 @@
                 inherit version;
                 pname = "riot";
                 propagatedBuildInputs = with ocamlPackages; [
-                  self'.packages.bytestring
+                  inputs'.bytestring.packages.default
                   inputs'.castore.packages.default
                   inputs'.config.packages.default
-                  self'.packages.gluon
+                  inputs'.gluon.packages.default
                   inputs'.rio.packages.default
                   (mdx.override {
                     inherit logs;
@@ -90,31 +107,6 @@
                   uri
                   x509
                 ];
-                src = ./.;
-              };
-              bytestring = buildDunePackage {
-                inherit version;
-                pname = "bytestring";
-                propagatedBuildInputs = with ocamlPackages; [
-                  inputs'.rio.packages.default
-                  ppxlib
-                  qcheck
-                  sedlex
-                  inputs'.minttea.packages.spices
-                ];
-                src = ./.;
-              };
-              gluon = buildDunePackage {
-                inherit version;
-                pname = "gluon";
-                propagatedBuildInputs = with ocamlPackages; [
-                  self'.packages.bytestring
-                  inputs'.config.packages.default
-                  inputs'.libc.packages.default
-                  inputs'.rio.packages.default
-                  uri
-                ]
-                ++ lib.optionals pkgs.stdenv.isDarwin [ pkgs.darwin.apple_sdk.frameworks.System ];
                 src = ./.;
               };
             };

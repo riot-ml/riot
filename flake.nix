@@ -74,12 +74,13 @@
             };
             packages = {
               randomconv = buildDunePackage {
-                version = "0.2.0";
+                version = "v0.2.0";
                 pname = "randomconv";
-                src = builtins.fetchGit {
-                  url = "git@github.com:hannesm/randomconv.git";
+                src = pkgs.fetchFromGitHub {
+                  owner = "hannesm";
+                  repo = "randomconv";
                   rev = "b2ce656d09738d676351f5a1c18aff0ff37a7dcc";
-                  ref = "refs/tags/${version}";
+                  sha256 = "sha256-KIvx/UNtPTg0EqfwuJgzSCtr6RgKIXK6yv9QkUUHbJk=";
                 };
               };
 

@@ -5,7 +5,7 @@ type event = Telemetry.event = ..
 let name = "Riot.Telemetry"
 
 module Dispatcher = struct
-  type Core.Message.t += Event of Telemetry.event [@@unboxed]
+  type Core.Message.t += Event of Telemetry.event
 
   let __main_dispatcher__ : Pid.t ref = ref Pid.zero
 

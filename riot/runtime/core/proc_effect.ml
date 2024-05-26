@@ -8,9 +8,8 @@ type _ Effect.t +=
       selector : Message.t -> [ `select of 'msg | `skip ];
     }
       -> 'msg Effect.t
-  [@@unboxed]
 
-type _ Effect.t += Yield : unit Effect.t [@@unboxed]
+type _ Effect.t += Yield : unit Effect.t
 
 type _ Effect.t +=
   | Syscall : {
@@ -20,4 +19,3 @@ type _ Effect.t +=
       timeout : Timeout.t;
     }
       -> unit Effect.t
-  [@@unboxed]

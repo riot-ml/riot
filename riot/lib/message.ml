@@ -1,1 +1,1 @@
-include Runtime.Core.Message
+include Riot_runtime.Core.Message

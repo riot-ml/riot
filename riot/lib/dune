@@ -4,7 +4,7 @@
  (libraries
   global
   logger
-  runtime
+  riot_runtime
   tls
   bytestring
   telemetry

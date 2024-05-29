@@ -7,7 +7,7 @@ module Test_app = struct
 
   let loop count =
     match receive_any () with
-    | Loop_stop -> Log.debug (fun f -> f "dead at %d%!" count)
+    | Loop_stop -> Riot_runtime.Log.debug (fun f -> f "dead at %d%!" count)
 
   let main t0 () =
     Logger.info (fun f -> f "boot test app");

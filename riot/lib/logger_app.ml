@@ -6,7 +6,7 @@ open Logger.Make (struct
 end)
 
 module Formatter = struct
-  type Message.t += Log of log [@@unboxed]
+  type Message.t += Log of log
 
   let stdout =
     Format.make_formatter (output_substring stdout) (fun () -> flush stdout)

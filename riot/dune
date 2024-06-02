@@ -1,4 +1,4 @@
 (library
  (name riot)
  (public_name riot)
- (libraries lib runtime))
+ (libraries lib riot_runtime))

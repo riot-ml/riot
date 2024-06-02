@@ -141,7 +141,7 @@ module Process : sig
       [None] if no process was registered for that name.
   *)
 
-  val sid : t -> Core.Scheduler_uid.t
+  val sid : t -> Riot_runtime.Core.Scheduler_uid.t
   (** [sid t] returns the scheduler id for the scheduler in charge of the
       process. *)
 

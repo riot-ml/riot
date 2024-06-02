@@ -1,5 +1,15 @@
 include Lib
 
+open struct
+  open Riot_runtime
+  module Log = Log
+  module Core = Core
+  module Import = Import
+  module Util = Util
+  module Scheduler = Scheduler
+  module Time = Time
+end
+
 open Logger.Make (struct
   let namespace = [ "riot" ]
 end)

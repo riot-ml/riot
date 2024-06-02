@@ -1,5 +1,5 @@
-module Scheduler_uid = Runtime.Core.Scheduler_uid
-module Log = Runtime.Log
+module Scheduler_uid = Riot_runtime.Core.Scheduler_uid
+module Log = Riot_runtime.Log
 open Global
 
 type opts = { print_source : bool; print_time : bool; color_output : bool }
@@ -43,7 +43,7 @@ end
 type log = {
   level : level;
   ts : Ptime.t;
-  src : Scheduler_uid.t * Core.Pid.t;
+  src : Scheduler_uid.t * Riot_runtime.Core.Pid.t;
   ns : namespace;
   message : string;
 }
@@ -55,7 +55,7 @@ let on_log log = !__on_log__ log
 let write : type a. level -> namespace -> (a, unit) logger_format -> unit =
  fun level ns msgf ->
   let ts = Ptime_clock.now () in
-  let sch = Scheduler.get_current_scheduler () in
+  let sch = Riot_runtime.Scheduler.get_current_scheduler () in
   let pid = self () in
   let src = (sch.uid, pid) in
   let buf = Buffer.create 128 in

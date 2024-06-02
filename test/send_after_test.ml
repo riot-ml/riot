@@ -43,7 +43,7 @@ let main () =
       Logger.info (fun f -> f "send_after_test: OK")
   | _ ->
       let messages = messages |> List.map msg_to_str |> String.concat "," in
-      Log.error (fun f -> f "bad message sequence: %s" messages);
+      Riot_runtime.Log.error (fun f -> f "bad message sequence: %s" messages);
       sleep 0.1;
       shutdown ~status:1 ()
 

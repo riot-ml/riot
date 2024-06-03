@@ -4,6 +4,7 @@ _build
 *.beam
 *.trace
 test/generated/*
+_opam
 
 # nix ignores
 .direnv

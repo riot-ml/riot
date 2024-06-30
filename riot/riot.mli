@@ -381,6 +381,7 @@ module Gen_server : sig
 
     val init : args -> state init_result
     val handle_call : 'res. 'res req -> Pid.t -> state -> 'res * state
+    val handle_cast : 'res. 'res req -> state -> state
     val handle_info : Message.t -> state -> unit
   end
 
@@ -394,6 +395,11 @@ module Gen_server : sig
       This function will block the current process until a response arrives.
 
       TODO(leostera): add ?timeout param
+    *)
+
+  val cast : Pid.t -> 'res req -> unit
+  (** [cast pid req] will send a type-safe request [req] to the generic server behind [pid]
+      without waiting for a response
     *)
 
   val start_link :

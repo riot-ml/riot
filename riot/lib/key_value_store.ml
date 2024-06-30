@@ -20,7 +20,14 @@ module MakeServer (B : Base) = struct
    fun req _from state ->
     match req with
     | Get k -> (Hashtbl.find_opt state.tbl k, state)
-    | Put (k, v) -> (Hashtbl.replace state.tbl k v, state)
+    | _ -> failwith "invalid call"
+
+  let handle_cast : type res. res Gen_server.req -> state -> state =
+   fun req state ->
+    match req with
+    | Put (k, v) ->
+        Hashtbl.replace state.tbl k v;
+        state
     | _ -> failwith "invalid call"
 end
 

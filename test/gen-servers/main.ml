@@ -52,6 +52,8 @@ module Twitch = struct
 
     let handle_continue cont_req _state =
       match cont_req with Update_status n -> { status = n }
+
+    let handle_cast _cast_req _state = failwith "unimplemented"
   end
 
   let start_link ?(verbose = false) () =

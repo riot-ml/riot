@@ -16,11 +16,15 @@ module MakeServer (B : Base) = struct
   let init () = Gen_server.Ok { tbl = Hashtbl.create 0 }
 
   let handle_call :
-      type res. res Gen_server.req -> Pid.t -> state -> res * state =
+      type res.
+      res Gen_server.req ->
+      Pid.t ->
+      state ->
+      (res, state) Gen_server.call_result =
    fun req _from state ->
     match req with
-    | Get k -> (Hashtbl.find_opt state.tbl k, state)
-    | Put (k, v) -> (Hashtbl.replace state.tbl k v, state)
+    | Get k -> Gen_server.Reply (Hashtbl.find_opt state.tbl k, state)
+    | Put (k, v) -> Gen_server.Reply (Hashtbl.replace state.tbl k v, state)
     | _ -> failwith "invalid call"
 end
 

@@ -352,6 +352,9 @@ module Gen_server : sig
       ]}
     *)
 
+  type cast_req = ..
+  type cont_req = ..
+
   (** [state init_result] is used to initialize a new generic server. *)
   type 'state init_result =
     | Ok of 'state
@@ -359,6 +362,12 @@ module Gen_server : sig
     | Error
         (** use this value to crash the process and notify a supervisor of it *)
     | Ignore  (** use this value to exit the process normally *)
+
+  type ('res, 'state) call_result =
+    | Reply of ('res * 'state)
+    | Reply_continue of ('res * 'state * cont_req)
+
+  type 'state cast_result = No_reply of 'state
 
   (** [Impl] is the module type of the generic server base implementations. You
       can use this type when defining new gen servers like this:
@@ -380,7 +389,12 @@ module Gen_server : sig
     type state
 
     val init : args -> state init_result
-    val handle_call : 'res. 'res req -> Pid.t -> state -> 'res * state
+
+    val handle_call :
+      'res. 'res req -> Pid.t -> state -> ('res, state) call_result
+
+    val handle_cast : cast_req -> state -> state cast_result
+    val handle_continue : cont_req -> state -> state
     val handle_info : Message.t -> state -> unit
   end
 
@@ -394,6 +408,11 @@ module Gen_server : sig
       This function will block the current process until a response arrives.
 
       TODO(leostera): add ?timeout param
+    *)
+
+  val cast : Pid.t -> cast_req -> unit
+  (** [cast pid req] will send a type-safe request [req] to the generic server behind [pid]
+      and does not wait for a response.
     *)
 
   val start_link :

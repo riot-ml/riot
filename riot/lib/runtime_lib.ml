@@ -1,6 +1,6 @@
 open Global
 
-let set_log_level = Runtime.Log.set_log_level
+let set_log_level = Riot_runtime.Log.set_log_level
 
 let syscalls () =
   let pool = _get_pool () in
@@ -26,11 +26,11 @@ module Stats = struct
     let total_schedulers = pool.schedulers |> List.length in
     let breakdown =
       pool.schedulers
-      |> List.map (fun (sch : Scheduler.t) ->
+      |> List.map (fun (sch : Riot_runtime.Scheduler.t) ->
              Format.asprintf "  sch #%a [live_procs=%d; timers=%d]"
-               Runtime.Core.Scheduler_uid.pp sch.uid
-               (Runtime.Core.Proc_queue.size sch.run_queue)
-               (Runtime.Time.Timer_wheel.size sch.timers))
+               Riot_runtime.Core.Scheduler_uid.pp sch.uid
+               (Riot_runtime.Core.Proc_queue.size sch.run_queue)
+               (Riot_runtime.Time.Timer_wheel.size sch.timers))
       |> String.concat "\n"
     in
     info (fun f ->

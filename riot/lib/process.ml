@@ -1,5 +1,5 @@
-open Runtime.Import
-module P = Runtime.Core.Process
+open Riot_runtime.Import
+module P = Riot_runtime.Core.Process
 
 open Logger.Make (struct
   let namespace = [ "riot"; "process" ]

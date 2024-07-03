@@ -1,4 +1,14 @@
 (library
  (package riot)
- (name runtime)
- (libraries core log scheduler time util rio))
+ (name riot_runtime)
+ (libraries
+  gluon
+  mtime
+  mtime.clock.os
+  ptime
+  ptime.clock.os
+  rio
+  runtime_events
+  unix))
+
+(include_subdirs unqualified)

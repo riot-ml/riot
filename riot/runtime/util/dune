@@ -1,4 +1,0 @@
-(library
- (package riot)
- (name util)
- (libraries log unix runtime_events))

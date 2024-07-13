@@ -52,7 +52,7 @@
       systems = [ "x86_64-linux" "aarch64-linux" "aarch64-darwin" "x86_64-darwin" ];
       perSystem = { config, self', inputs', pkgs, system, ... }:
         let
-          inherit (pkgs) ocamlPackages mkShell lib;
+          inherit (pkgs) ocamlPackages mkShell;
           inherit (ocamlPackages) buildDunePackage;
           version = "0.0.9+dev";
         in
@@ -79,7 +79,7 @@
                 src = builtins.fetchGit {
                   url = "git@github.com:hannesm/randomconv.git";
                   rev = "b2ce656d09738d676351f5a1c18aff0ff37a7dcc";
-                  ref = "refs/tags/${version}";
+                  ref = "refs/tags/v0.2.0";
                 };
               };
 

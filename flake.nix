@@ -37,7 +37,7 @@
     };
 
     rio = {
-      url = "github:riot-ml/rio";
+      url = "github:riot-ml/rio/e7ee9006d96fd91248599fa26c1982364375dd9e";
       inputs.nixpkgs.follows = "nixpkgs";
     };
 

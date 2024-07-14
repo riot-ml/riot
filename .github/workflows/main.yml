@@ -19,6 +19,7 @@ jobs:
           - ubuntu-latest
         ocaml-compiler:
           - "5.1"
+          - "5.2"
         allow-prerelease-opam:
           - true
         opam-repositories:

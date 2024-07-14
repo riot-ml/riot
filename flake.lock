@@ -893,16 +893,17 @@
         ]
       },
       "locked": {
-        "lastModified": 1713871722,
-        "narHash": "sha256-g3porvRt5iRK2Vi+8JuiMd9OtWiYb6R34y1rLYqyQ0o=",
+        "lastModified": 1712801167,
+        "narHash": "sha256-2v3DuZZ/s5DmC4sFOFQf6vYIDb+XUQPmtyB1DIDX6ks=",
         "owner": "riot-ml",
         "repo": "rio",
-        "rev": "52ae6fc89360f0a46b8a57833ba583fcb569481e",
+        "rev": "e7ee9006d96fd91248599fa26c1982364375dd9e",
         "type": "github"
       },
       "original": {
         "owner": "riot-ml",
         "repo": "rio",
+        "rev": "e7ee9006d96fd91248599fa26c1982364375dd9e",
         "type": "github"
       }
     },

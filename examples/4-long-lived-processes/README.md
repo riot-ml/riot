@@ -23,7 +23,7 @@ someone, and continues awaiting.
 
 ```ocaml
 let rec loop () =
-  (match receive () with
+  (match receive_any () with
   | Hello name -> print_endline ("Hello, " ^ name ^ "! :D")
   | _ -> print_endline "Oh no, an unhandled message! D:");
   loop ()
@@ -37,7 +37,7 @@ One caveat is that because function application can't be interrupted, we need
 to make sure we _yield_ control back to the scheduler at some point before
 recursing. Otherwise one of the cores will be _blocked_ by this process until it yields.
 
-In our example, this is done automatically when we call `receive`
+In our example, this is done automatically when we call `receive_any`
 
 In fact, we are strategically placing yields all through the standard library
 to make it as seamless as possible to write Riot programs without thinking

@@ -3,6 +3,7 @@ module Log = Riot_runtime.Log
 open Global
 
 type opts = { print_source : bool; print_time : bool; color_output : bool }
+type config = { opts : opts; started_by : Riot_runtime.Core.Pid.t }
 
 type ('a, 'b) logger_format =
   (('a, Format.formatter, unit, 'b) format4 -> 'a) -> 'b

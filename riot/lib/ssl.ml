@@ -90,28 +90,38 @@ module Tls_unix = struct
   let try_write_t t cs =
     try write_t t cs with _ -> trace (fun f -> f "try_write_t failed")
 
+  let inject_state tls = function
+    | `Active _ -> `Active tls
+    | `Eof -> `Eof
+    | `Error _ as e -> e
+
   let rec read_react t =
     trace (fun f -> f "tls.read_react");
     let handle tls cs =
       match Tls.Engine.handle_tls tls cs with
-      | Ok (state', `Response resp, `Data data) ->
-          trace (fun f -> f "tls.read_react->ok");
-          let state' =
-            match state' with
-            | `Ok tls -> `Active tls
-            | `Eof -> `Eof
-            | `Alert a ->
-                trace (fun f -> f "tls.read_react->alert");
-                `Error (Tls_alert a)
-          in
-          t.state <- state';
-          Option.iter (try_write_t t) resp;
-          data
-      | Error (alert, `Response resp) ->
-          trace (fun f -> f "tls.read_react->error");
-          t.state <- `Error (Tls_failure alert);
-          write_t t resp;
-          read_react t
+      | Ok (state', eof, `Response resp, `Data data) ->
+         trace (fun f -> f "tls.read_react->ok");
+         let state' =
+           match eof with
+           | Some `Eof -> `Eof
+           | _ -> inject_state state' t.state
+         in
+         t.state <- state';
+         Option.iter (try_write_t t) resp;
+         data
+      | Error (fail, `Response resp) ->
+         let state' =
+           match fail with
+           | `Alert a ->
+              trace (fun f -> f "tls.read_react->alert");
+              `Error (Tls_alert a)
+           | f ->
+              trace (fun f -> f "tls.read_react->error");
+              `Error (Tls_failure f)
+         in
+         t.state <- state';
+         write_t t resp;
+         read_react t
     in
 
     match t.state with

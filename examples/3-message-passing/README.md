@@ -12,22 +12,22 @@ type Message.t += Hello_world
 
 Your message can have any shape you want, so long as it fits into this message
 type. Once a message is defined, we can start a process that knows how to
-receive them. To receive a message we use the `receive` function, like this:
+receive them. To receive a message we use the `receive_any` function, like this:
 
 ```ocaml
-match receive () with
+match receive_any () with
 | Hello_world -> print_endline "Hello, World! :D"
 ```
 
-`receive ()` will try to get a message from the _current process mailbox_. If
-the mailbox is empty, `receive ()` _will suspend the process_ until a message
+`receive_any ()` will try to get a message from the _current process mailbox_. If
+the mailbox is empty, `receive_any ()` _will suspend the process_ until a message
 is delivered.
 
 Since messages are represented with an open variant, when we pattern match on
-`receive ()` we will have to make sure to handle or ignore _other messages_.
+`receive_any ()` we will have to make sure to handle or ignore _other messages_.
 
 ```ocaml
-match receive () with
+match receive_any () with
 | Hello_world -> print_endline "Hello, World! :D"
 | _ -> print_endline "Oh no, an unhandled message! D:"
 ```

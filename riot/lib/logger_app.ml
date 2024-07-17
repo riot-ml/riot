@@ -5,6 +5,8 @@ open Logger.Make (struct
   let namespace = [ "riot"; "logger" ]
 end)
 
+type Message.t += Logger_ready
+
 module Formatter = struct
   type Message.t += Log of log
 
@@ -47,7 +49,8 @@ module Formatter = struct
     let pid =
       spawn_link (fun () ->
           Process.flag (Priority High);
-          formatter_loop config)
+          send config.started_by Logger_ready;
+          formatter_loop config.opts)
     in
     set_on_log (fun log -> send pid (Log log));
     Ok pid
@@ -59,5 +62,12 @@ let default_opts =
   { print_time = true; print_source = false; color_output = true }
 
 let start () =
-  let child_specs = [ Formatter.child_spec default_opts ] in
-  Supervisor.start_link ~child_specs ()
+  let this = self () in
+  let config = { opts = default_opts; started_by = this } in
+  let child_specs = [ Formatter.child_spec config ] in
+  let result = Supervisor.start_link ~child_specs () in
+  let `ready =
+    let selector msg = if msg = Logger_ready then `select `ready else `skip in
+    receive ~selector ()
+  in
+  result

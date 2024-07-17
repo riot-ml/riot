@@ -100,28 +100,28 @@ module Tls_unix = struct
     let handle tls cs =
       match Tls.Engine.handle_tls tls cs with
       | Ok (state', eof, `Response resp, `Data data) ->
-         trace (fun f -> f "tls.read_react->ok");
-         let state' =
-           match eof with
-           | Some `Eof -> `Eof
-           | _ -> inject_state state' t.state
-         in
-         t.state <- state';
-         Option.iter (try_write_t t) resp;
-         data
+          trace (fun f -> f "tls.read_react->ok");
+          let state' =
+            match eof with
+            | Some `Eof -> `Eof
+            | _ -> inject_state state' t.state
+          in
+          t.state <- state';
+          Option.iter (try_write_t t) resp;
+          data
       | Error (fail, `Response resp) ->
-         let state' =
-           match fail with
-           | `Alert a ->
-              trace (fun f -> f "tls.read_react->alert");
-              `Error (Tls_alert a)
-           | f ->
-              trace (fun f -> f "tls.read_react->error");
-              `Error (Tls_failure f)
-         in
-         t.state <- state';
-         write_t t resp;
-         read_react t
+          let state' =
+            match fail with
+            | `Alert a ->
+                trace (fun f -> f "tls.read_react->alert");
+                `Error (Tls_alert a)
+            | f ->
+                trace (fun f -> f "tls.read_react->error");
+                `Error (Tls_failure f)
+          in
+          t.state <- state';
+          write_t t resp;
+          read_react t
     in
 
     match t.state with

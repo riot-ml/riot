@@ -39,12 +39,20 @@ let priority_to_string = function
 type process_flags = {
   trap_exits : bool Atomic.t;
   priority : priority Atomic.t;
+  is_blocking_proc : bool Atomic.t;
 }
 
-type process_flag = Trap_exit of bool | Priority of priority
+type process_flag =
+  | Trap_exit of bool
+  | Priority of priority
+  | IsBlockingProc of bool
 
 let default_flags () =
-  { trap_exits = Atomic.make false; priority = Atomic.make Normal }
+  {
+    trap_exits = Atomic.make false;
+    priority = Atomic.make Normal;
+    is_blocking_proc = Atomic.make false;
+  }
 
 type t = {
   pid : Pid.t;
@@ -169,6 +177,7 @@ let is_runnable t = Atomic.get t.state = Runnable
 let is_running t = Atomic.get t.state = Running
 let is_finalized t = Atomic.get t.state = Finalized
 let is_main t = Pid.equal (pid t) Pid.main
+let is_blocking_proc t = Atomic.get t.flags.is_blocking_proc
 
 let has_empty_mailbox t =
   Mailbox.is_empty t.save_queue && Mailbox.is_empty t.mailbox
@@ -273,6 +282,10 @@ let rec set_flag t flag =
   | Priority p ->
       let old_flag = Atomic.get t.flags.priority in
       if Atomic.compare_and_set t.flags.priority old_flag p then ()
+      else set_flag t flag
+  | IsBlockingProc b ->
+      let old_flag = Atomic.get t.flags.is_blocking_proc in
+      if Atomic.compare_and_set t.flags.is_blocking_proc old_flag b then ()
       else set_flag t flag
 
 let set_cont t c = t.cont <- Some c

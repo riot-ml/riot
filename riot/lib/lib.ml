@@ -15,7 +15,6 @@ module Process = Process
 module Queue = Queue
 module Ref = Ref
 module Runtime = Runtime_lib
-module SSL = Ssl
 module Store = Key_value_store
 module Stream = Stream
 module Supervisor = Supervisor

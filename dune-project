@@ -35,9 +35,7 @@
   (randomconv (= "0.2.0"))
   (rio (>= "0.0.1"))
   (telemetry (>= "0.0.1"))
-  (tls (= "0.17.5"))
   (uri (>= "4.4.0"))
-  (x509 (and :with-test (>= "0.16.5")))
   dune)
  (tags
   (multicore erlang actor "message-passing" processes)))

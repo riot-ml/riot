@@ -10,3 +10,5 @@ _opam
 .direnv
 result
 .envrc
+dune.lock
+dev-tools.locks

@@ -550,8 +550,6 @@ module IO : sig
     val length : t -> int
     val iter : t -> (iov -> unit) -> unit
     val of_bytes : bytes -> t
-    val from_cstruct : Cstruct.t -> t
-    val into_cstruct : t -> Cstruct.t
     val from_string : string -> t
     val from_buffer : Buffer.t -> t
     val into_string : t -> string
@@ -604,12 +602,6 @@ module IO : sig
     'a Writer.t -> bufs:Iovec.t -> (unit, [> `Closed ]) io_result
 
   val flush : 'a Writer.t -> (unit, [> `Closed ]) io_result
-
-  module Cstruct : sig
-    type t = Cstruct.t
-
-    val to_writer : t -> t Writer.t
-  end
 
   module Bytes : sig
     type t = bytes
@@ -744,35 +736,6 @@ module Net : sig
     val close : t -> unit
     val pp : Format.formatter -> t -> unit
   end
-end
-
-module SSL : sig
-  type 'src t
-
-  exception Tls_alert of Tls.Packet.alert_type
-  exception Tls_failure of Tls.Engine.failure
-
-  val of_server_socket :
-    ?read_timeout:int64 ->
-    ?send_timeout:int64 ->
-    ?config:Tls.Config.server ->
-    Net.Socket.stream_socket ->
-    Net.Socket.stream_socket t
-
-  val of_client_socket :
-    ?read_timeout:int64 ->
-    ?send_timeout:int64 ->
-    ?host:[ `host ] Domain_name.t ->
-    config:Tls.Config.client ->
-    Net.Socket.stream_socket ->
-    Net.Socket.stream_socket t
-
-  val to_reader : 'src t -> 'src t IO.Reader.t
-  val to_writer : 'dst t -> 'dst t IO.Writer.t
-
-  val negotiated_protocol :
-    'src t ->
-    (string option, [> `Inactive_tls_engine | `No_session_data ]) result
 end
 
 module Timer : sig
@@ -971,7 +934,6 @@ end
 
 module Crypto : sig
   module Random : sig
-    val cstruct : int -> Cstruct.t
     val int8 : unit -> int
     val int16 : unit -> int
     val int32 : unit -> int32
@@ -979,7 +941,6 @@ module Crypto : sig
     val int : ?max:int -> unit -> int
     val float : ?max:float -> unit -> float
     val bytes : int -> bytes
-    val bigarray : int -> Cstruct.buffer
     val string : int -> string
     val bytestring : int -> Bytestring.t
     val char : unit -> char

@@ -5,7 +5,6 @@
   global
   logger
   riot_runtime
-  tls
   bytestring
   telemetry
   randomconv

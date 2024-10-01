@@ -9,6 +9,7 @@ module Hashmap = Hashmap
 module IO = Lib_io
 module Logger = Logger_app
 module Message = Message
+module Mutex = Mutex
 module Net = Net
 module Pid = Pid
 module Process = Process

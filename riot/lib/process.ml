@@ -7,12 +7,17 @@ end)
 
 type t = P.t
 type priority = P.priority = High | Normal | Low
-type process_flag = P.process_flag = Trap_exit of bool | Priority of priority
+
+type process_flag = P.process_flag =
+  | Trap_exit of bool
+  | Priority of priority
+  | IsBlockingProc of bool
 
 let pp_flag fmt t =
   match t with
   | Trap_exit b -> Format.fprintf fmt "trap_exit <- %b" b
   | Priority p -> Format.fprintf fmt "priority <- %s" (P.priority_to_string p)
+  | _ -> failwith "TODO"
 
 type exit_reason = P.exit_reason =
   | Normal

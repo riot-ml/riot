@@ -113,6 +113,7 @@ module Process : sig
         (** Processes with a [High] priority will be scheduled before processes
            with a [Normal] priority which will be scheduled before processes
            with a [Low] priority. *)
+    | IsBlockingProc of bool
 
   (* An [exit_reason] describes why a process finished. *)
   type exit_reason =
@@ -224,6 +225,9 @@ val spawn_pinned : (unit -> unit) -> Pid.t
 
 val spawn_link : (unit -> unit) -> Pid.t
 (** Spawns a new process and links it to the current process before returning. *)
+
+val spawn_blocking : (unit -> unit) -> Pid.t
+(** Spawns a new isolated process that does not yield to the Riot scheduler. *)
 
 exception Name_already_registered of string * Pid.t
 

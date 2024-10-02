@@ -12,6 +12,7 @@ type t = {
   idle_mutex : Mutex.t;
   idle_condition : Condition.t;
   currently_stealing : Mutex.t;
+  mutable stop : bool;
 }
 
 type io = {
@@ -26,12 +27,15 @@ type io = {
   mutable calls_send : int;
 }
 
+type blocking = { scheduler : t; domain : unit Domain.t }
+
 type pool = {
   mutable stop : bool;
   mutable status : int;
   io_scheduler : io;
   schedulers : t list;
   processes : Proc_table.t;
+  blocking_schedulers : blocking list Atomic.t;
   mutable proc_count : int;
   registry : Proc_registry.t;
 }
@@ -60,6 +64,7 @@ module Scheduler = struct
       idle_mutex = Mutex.create ();
       idle_condition = Condition.create ();
       currently_stealing = Mutex.create ();
+      stop = false;
     }
 
   let get_current_scheduler, (set_current_scheduler : t -> unit) =
@@ -94,6 +99,10 @@ module Scheduler = struct
         if Scheduler_uid.equal sch.uid (Atomic.get proc.sid) then
           add_to_run_queue sch proc)
       pool.schedulers
+
+  let kickstart_blocking_process pool sch (proc : Process.t) =
+    add_to_run_queue sch proc;
+    pool.schedulers
 
   let handle_receive k pool sch (proc : Process.t) ~(ref : 'a Ref.t option)
       ~timeout ~selector =
@@ -359,6 +368,11 @@ module Scheduler = struct
             awake_process pool linked_proc)
       linked_pids;
 
+    if Process.is_blocking_proc proc then (
+      Log.debug (fun f -> f "Set scheduler.stop to true");
+      sch.stop <- true)
+    else ();
+
     Proc_queue.remove sch.run_queue proc;
     Proc_table.remove pool.processes proc.pid;
     Proc_registry.remove pool.registry proc.pid;
@@ -454,6 +468,7 @@ module Scheduler = struct
     (try
        while true do
          if pool.stop then raise_notrace Exit;
+         if sch.stop then raise_notrace Exit;
 
          Mutex.lock sch.idle_mutex;
          while
@@ -469,6 +484,34 @@ module Scheduler = struct
        done
      with Exit -> ());
     Log.trace (fun f -> f "< exit worker loop")
+end
+
+module Blocking_scheduler = struct
+  (* include Scheduler *)
+  type t = blocking
+
+  let make sch domain = { scheduler = sch; domain }
+
+  let rec add_to_pool pool blocking =
+    let dom_list = Atomic.get pool.blocking_schedulers in
+    if
+      Atomic.compare_and_set pool.blocking_schedulers dom_list
+        (blocking :: dom_list)
+    then ()
+    else add_to_pool pool blocking
+
+  let rec remove_from_pool pool blocking =
+    let cur = Atomic.get pool.blocking_schedulers in
+    let without_removee = List.filter (fun sch -> sch.domain != blocking.domain) cur in
+    if Atomic.compare_and_set pool.blocking_schedulers cur without_removee then
+      ()
+    else remove_from_pool pool blocking
+
+
+  (* Override the handle exit function *)
+  (* let handle_exit_blocking_proc pool sch proc reason = *)
+    (* Scheduler.handle_exit_proc pool sch.scheduler proc reason; *)
+    (* remove_from_pool pool sch *)
 end
 
 include Scheduler
@@ -535,6 +578,24 @@ module Pool = struct
        sockets and handle that as a regular value rather than as a signal. *)
     Sys.set_signal Sys.sigpipe Sys.Signal_ignore
 
+  let spawn_scheduler_on_pool pool (scheduler : t) : unit Domain.t =
+    Stdlib.Domain.spawn (fun () ->
+        setup ();
+        Stdlib.Domain.at_exit (fun () -> Log.warn (fun f -> f "Domain freed"));
+        set_pool pool;
+        Scheduler.set_current_scheduler scheduler;
+        try
+          Scheduler.run pool scheduler ();
+          Log.trace (fun f ->
+              f "<<< shutting down scheduler #%a" Scheduler_uid.pp scheduler.uid)
+        with exn ->
+          Log.error (fun f ->
+              f "Scheduler.run exception: %s due to: %s%!"
+                (Printexc.to_string exn)
+                (Printexc.raw_backtrace_to_string
+                   (Printexc.get_raw_backtrace ())));
+          shutdown pool 1)
+
   let make ?(rnd = Random.State.make_self_init ()) ~domains ~main () =
     setup ();
 
@@ -550,28 +611,13 @@ module Pool = struct
         io_scheduler;
         schedulers = [ main ] @ schedulers;
         processes = Proc_table.create ();
+        blocking_schedulers = Atomic.make [];
         registry = Proc_registry.create ();
       }
     in
-    let spawn (scheduler : t) =
-      Stdlib.Domain.spawn (fun () ->
-          setup ();
-          set_pool pool;
-          Scheduler.set_current_scheduler scheduler;
-          try
-            Scheduler.run pool scheduler ();
-            Log.trace (fun f ->
-                f "<<< shutting down scheduler #%a" Scheduler_uid.pp
-                  scheduler.uid)
-          with exn ->
-            Log.error (fun f ->
-                f "Scheduler.run exception: %s due to: %s%!"
-                  (Printexc.to_string exn)
-                  (Printexc.raw_backtrace_to_string
-                     (Printexc.get_raw_backtrace ())));
-            shutdown pool 1)
-    in
-    Log.debug (fun f -> f "Created %d schedulers" (List.length schedulers));
+    Log.debug (fun f ->
+        f "Created %d schedulers excluding the main scheduler"
+          (List.length schedulers));
 
     let io_thread =
       Stdlib.Domain.spawn (fun () ->
@@ -585,6 +631,16 @@ module Pool = struct
             shutdown pool 2)
     in
 
-    let scheduler_threads = List.map spawn schedulers in
+    let scheduler_threads =
+      List.map (spawn_scheduler_on_pool pool) schedulers
+    in
     (pool, io_thread :: scheduler_threads)
+
+  (** Creates a new blocking scheduler in the pool *)
+  let spawn_blocking_scheduler ?(rnd = Random.State.make_self_init ()) pool =
+    let new_scheduler = Scheduler.make ~rnd () in
+    let domain = spawn_scheduler_on_pool pool new_scheduler in
+    let blocking_sch = Blocking_scheduler.make new_scheduler domain in
+    Blocking_scheduler.add_to_pool pool blocking_sch;
+    blocking_sch
 end

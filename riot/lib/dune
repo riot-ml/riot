@@ -7,7 +7,6 @@
   riot_runtime
   bytestring
   telemetry
-  randomconv
   mirage-crypto
   mirage-crypto-rng
   mirage-crypto-rng.unix))

@@ -32,7 +32,6 @@
   (ocaml (>= "5.1"))
   (odoc (and :with-doc (>= "2.2.2")))
   (ptime (>= "1.1.0"))
-  (randomconv (= "0.2.0"))
   (rio (>= "0.0.1"))
   (telemetry (>= "0.0.1"))
   (uri (>= "4.4.0"))

@@ -747,7 +747,7 @@ module SSL : sig
   val of_server_socket :
     ?read_timeout:int64 ->
     ?send_timeout:int64 ->
-    ?config:Tls.Config.server ->
+    config:Tls.Config.server ->
     Net.Socket.stream_socket ->
     Net.Socket.stream_socket t
 

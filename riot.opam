@@ -10,7 +10,7 @@ tags: ["multicore" "erlang" "actor" "message-passing" "processes"]
 homepage: "https://github.com/riot-ml/riot"
 bug-reports: "https://github.com/riot-ml/riot/issues"
 depends: [
-  "bytestring" {>= "0.0.1"}
+  "bytestring"
   "castore" {with-test & >= "0.0.2"}
   "config" {>= "0.0.1"}
   "gluon" {>= "0.0.1"}

@@ -10,7 +10,7 @@ tags: ["multicore" "erlang" "actor" "message-passing" "processes"]
 homepage: "https://github.com/riot-ml/riot"
 bug-reports: "https://github.com/riot-ml/riot/issues"
 depends: [
-  "bytestring" {>= "0.0.1"}
+  "bytestring"
   "castore" {with-test & >= "0.0.2"}
   "config" {>= "0.0.1"}
   "gluon" {>= "0.0.1"}
@@ -21,8 +21,9 @@ depends: [
   "ocaml" {>= "5.1"}
   "odoc" {with-doc & >= "2.2.2"}
   "ptime" {>= "1.1.0"}
-  "rio" {>= "0.0.1"}
+  "rio"
   "telemetry" {>= "0.0.1"}
+  "tls" {>= "1.0.0"}
   "uri" {>= "4.4.0"}
   "dune" {>= "3.11"}
 ]

@@ -738,6 +738,35 @@ module Net : sig
   end
 end
 
+module SSL : sig
+  type 'src t
+
+  exception Tls_alert of Tls.Packet.alert_type
+  exception Tls_failure of Tls.Engine.failure
+
+  val of_server_socket :
+    ?read_timeout:int64 ->
+    ?send_timeout:int64 ->
+    ?config:Tls.Config.server ->
+    Net.Socket.stream_socket ->
+    Net.Socket.stream_socket t
+
+  val of_client_socket :
+    ?read_timeout:int64 ->
+    ?send_timeout:int64 ->
+    ?host:[ `host ] Domain_name.t ->
+    config:Tls.Config.client ->
+    Net.Socket.stream_socket ->
+    Net.Socket.stream_socket t
+
+  val to_reader : 'src t -> 'src t IO.Reader.t
+  val to_writer : 'dst t -> 'dst t IO.Writer.t
+
+  val negotiated_protocol :
+    'src t ->
+    (string option, [> `Inactive_tls_engine | `No_session_data ]) result
+end
+
 module Timer : sig
   type timer
 

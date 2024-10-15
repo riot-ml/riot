@@ -15,6 +15,17 @@
 
 (license MIT)
 
+(pin
+ (url "git+https://github.com/riot-ml/rio.git")
+ (package (name rio)))
+
+(pin
+ (url "git+https://github.com/riot-ml/bytestring.git")
+ (package (name bytestring)))
+
+
+
+
 (package
  (name riot)
  (synopsis "An actor-model multi-core scheduler for OCaml 5")
@@ -32,8 +43,9 @@
   (ocaml (>= "5.1"))
   (odoc (and :with-doc (>= "2.2.2")))
   (ptime (>= "1.1.0"))
-  (rio (>= "0.0.1"))
+  rio
   (telemetry (>= "0.0.1"))
+  (tls (>= "1.0.0"))
   (uri (>= "4.4.0"))
   dune)
  (tags

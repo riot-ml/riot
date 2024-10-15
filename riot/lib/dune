@@ -7,6 +7,7 @@
   riot_runtime
   bytestring
   telemetry
+  tls
   mirage-crypto
   mirage-crypto-rng
   mirage-crypto-rng.unix))

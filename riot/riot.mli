@@ -921,6 +921,24 @@ module Hashmap : sig
   module Make (B : Base) : Intf with type key = B.key
 end
 
+module Mutex : sig
+  type 'a t
+  type error
+
+  val pp : Format.formatter -> (Format.formatter -> 'a -> unit) -> 'a t -> unit
+  val pp_err : Format.formatter -> error -> unit
+  val create : 'a -> 'a t
+  val drop : 'a t -> unit
+  val lock : 'a t -> ('a -> 'a) -> (unit, error) result
+  val try_lock : 'a t -> ('a -> 'a) -> (unit, error) result
+  val iter : 'a t -> ('a -> unit) -> (unit, error) result
+  val try_iter : 'a t -> ('a -> unit) -> (unit, error) result
+  val get : 'a t -> ('a, error) result
+  val try_get : 'a t -> ('a, error) result
+  val unsafe_get : 'a t -> 'a
+  val unsafe_set : 'a t -> 'a -> unit
+end
+
 module Stream : sig
   type 'v t = 'v Seq.t
 

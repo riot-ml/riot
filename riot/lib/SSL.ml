@@ -130,7 +130,8 @@ module Tls_unix = struct
     | `Active _ -> (
         let n = read_t t t.recv_buf in
         match (t.state, n) with
-        | `Active tls, n -> handle tls (String.of_bytes (Bytes.sub t.recv_buf 0 n))
+        | `Active tls, n ->
+            handle tls (String.of_bytes (Bytes.sub t.recv_buf 0 n))
         | `Error e, _ -> raise e
         | `Eof, _ -> raise End_of_file)
 
@@ -139,7 +140,8 @@ module Tls_unix = struct
       let rlen = String.length data in
       let n = min (Bytes.length dst) rlen in
       StringLabels.blit ~src:data ~src_pos:0 ~dst ~dst_pos:0 ~len:n;
-      t.linger <- (if n < rlen then Some (String.sub data n (rlen - n)) else None);
+      t.linger <-
+        (if n < rlen then Some (String.sub data n (rlen - n)) else None);
       n
     in
 
@@ -246,7 +248,7 @@ module Tls_unix = struct
       (* TODO: This seems like not what we want *)
       let write_owned_vectored t ~bufs =
         single_write t (IO.Iovec.into_string bufs)
-        (* single_write t bufs *)
+      (* single_write t bufs *)
 
       let flush _t = Ok ()
     end in

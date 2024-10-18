@@ -535,7 +535,6 @@ module Pool = struct
        sockets and handle that as a regular value rather than as a signal. *)
     Sys.set_signal Sys.sigpipe Sys.Signal_ignore;
     Printexc.record_backtrace true
-    
 
   let make ?(rnd = Random.State.make_self_init ()) ~domains ~main () =
     setup ();

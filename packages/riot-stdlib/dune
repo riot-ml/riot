@@ -2,6 +2,4 @@
 
 (library
  (public_name riot_stdlib)
- (libraries
-   riot_runtime
-  ))
+ (libraries riot_runtime))

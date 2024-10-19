@@ -1,4 +1,4 @@
-include Lib
+include Riot_stdlib
 
 open struct
   open Riot_runtime

@@ -1,4 +1,6 @@
+(include_subdirs qualified)
+
 (library
  (package riot)
- (name global)
+ (name riot_stdlib)
  (libraries riot_runtime))

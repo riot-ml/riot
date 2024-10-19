@@ -18,4 +18,4 @@ let main () =
       sleep 0.2;
       raise Fail
 
-let () = Riot.run ~workers:1 @@ main
+let () = Riot.run ~config:(Config.make ~workers:1 ()) @@ main

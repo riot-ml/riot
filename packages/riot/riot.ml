@@ -2,6 +2,7 @@ include Riot_stdlib
 
 open struct
   open Riot_runtime
+  module Config = Config
   module Log = Log
   module Core = Core
   module Import = Import
@@ -9,6 +10,8 @@ open struct
   module Scheduler = Scheduler
   module Time = Time
 end
+
+module Config = Config
 
 open Logger.Make (struct
   let namespace = [ "riot" ]
@@ -23,13 +26,10 @@ let shutdown ?(status = 0) () =
 
 let started = ref false
 
-let run ?(rnd = Random.State.make_self_init ()) ?workers main =
+let run ?(config = Config.default ()) main =
   if !started then raise Riot_already_started else started := true;
 
-  let max_workers = Int.max 0 (Stdlib.Domain.recommended_domain_count () - 2) in
-  let workers =
-    match workers with Some w -> Int.min w max_workers | None -> max_workers
-  in
+  let Config.{ workers; rnd; _ } = config in
 
   Log.debug (fun f -> f "Initializing Riot runtime...");
   Printexc.record_backtrace true;
@@ -37,7 +37,7 @@ let run ?(rnd = Random.State.make_self_init ()) ?workers main =
   Scheduler.Uid.reset ();
 
   let sch0 = Scheduler.make ~rnd () in
-  let pool, domains = Scheduler.Pool.make ~main:sch0 ~domains:workers () in
+  let pool, _domains = Scheduler.Pool.make ~main:sch0 ~domains:workers () in
 
   Scheduler.set_current_scheduler sch0;
   Scheduler.Pool.set_pool pool;
@@ -45,8 +45,6 @@ let run ?(rnd = Random.State.make_self_init ()) ?workers main =
   let _pid = _spawn ~pool ~scheduler:sch0 main in
   Scheduler.run pool sch0 ();
 
-  Log.debug (fun f -> f "Riot runtime shutting down...");
-  List.iter Stdlib.Domain.join domains;
   Log.debug (fun f -> f "Riot runtime shutdown");
   Stdlib.exit pool.status
 
@@ -58,16 +56,15 @@ let on_error (error : [ `Msg of string ]) =
   Log.error (fun f -> f "Riot raised an error: %s\n" error_string);
   1
 
-let run_with_status ?(rnd = Random.State.make_self_init ()) ?workers ~on_error
-    main =
-  run ~rnd ?workers (fun _ ->
-      let status =
-        match main () with Ok code -> code | Error reason -> on_error reason
-      in
-      shutdown ~status ())
+let run_with_status ?config ~on_error main =
+  run ?config @@ fun _ ->
+  let status =
+    match main () with Ok code -> code | Error reason -> on_error reason
+  in
+  shutdown ~status ()
 
-let start ?rnd ?workers ~apps () =
-  run ?rnd ?workers @@ fun () ->
+let start ?config ~apps () =
+  run ?config @@ fun () ->
   let child_specs =
     List.map
       (fun (module App : Application.Intf) ->

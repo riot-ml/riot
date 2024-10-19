@@ -53,4 +53,4 @@ let main () =
 
    That behavior _is expected_.
 *)
-let () = Riot.run ~workers:0 @@ main
+let () = Riot.run ~config:(Config.make ~workers:0 ()) @@ main

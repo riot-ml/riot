@@ -47,4 +47,4 @@ let main () =
       sleep 0.1;
       shutdown ~status:1 ()
 
-let () = Riot.run ~workers:0 @@ main
+let () = Riot.run ~config:(Config.make ~workers:0 ()) @@ main

@@ -51,4 +51,4 @@ let main () =
   let _ = List.init 99 (fun _ -> spawn_link acceptor) in
   acceptor ()
 
-let () = Riot.run ~workers:0 @@ main
+let () = Riot.run ~config:(Config.make ~workers:0 ()) @@ main

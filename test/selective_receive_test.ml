@@ -40,4 +40,4 @@ let main () =
       sleep 1.;
       Stdlib.exit 1
 
-let () = Riot.run ~workers:0 @@ main
+let () = Riot.run ~config:(Config.make ~workers:0 ()) @@ main

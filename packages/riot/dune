@@ -1,0 +1,6 @@
+(include_subdirs qualified)
+
+(library
+ (name riot)
+ (public_name riot)
+ (libraries riot_runtime riot_stdlib))

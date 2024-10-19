@@ -1,0 +1,20 @@
+(include_subdirs qualified)
+
+(library
+ (public_name riot_runtime)
+ (libraries
+  bytestring
+  gluon
+  mirage-crypto
+  mirage-crypto-rng
+  mirage-crypto-rng.unix
+  mtime
+  mtime.clock.os
+  ptime
+  ptime.clock.os
+  rio
+  runtime_events
+  telemetry
+  tls
+  unix
+  ))

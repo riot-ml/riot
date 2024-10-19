@@ -29,6 +29,16 @@
  (description
   "Riot is an actor-model multi-core scheduler for OCaml 5. It brings Erlang-style concurrency to the language, where lighweight process communicate via message passing")
  (depends
+  (riot_runtime (= :version))
+  (riot_stdlib (= :version))
+  dune
+  )
+ (tags
+  (multicore erlang actor "message-passing" processes)))
+
+(package
+ (name riot_runtime)
+ (depends
   bytestring 
   (castore (and :with-test (>= "0.0.2")))
   (config (>= "0.0.1"))
@@ -45,5 +55,14 @@
   (tls (>= "1.0.0"))
   (uri (>= "4.4.0"))
   dune)
+ (tags
+  (multicore erlang actor "message-passing" processes)))
+
+(package
+ (name riot_stdlib)
+ (depends
+  (riot_runtime (= :version))
+  dune
+  )
  (tags
   (multicore erlang actor "message-passing" processes)))

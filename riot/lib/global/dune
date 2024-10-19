@@ -1,4 +1,0 @@
-(library
- (package riot)
- (name global)
- (libraries riot_runtime))

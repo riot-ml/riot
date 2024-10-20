@@ -167,6 +167,12 @@ module Process : sig
      we will receive the monitoring message.
   *)
 
+  val register : name:string -> Pid.t -> unit
+  (** [register ~name pid] registers a process by a given name. The name will be
+    uniquely associated to this process and attempting to register the same
+    name twice will result in an exception [Name_already_registered] being
+    raised. *)
+
   val flag : process_flag -> unit
   val is_alive : Pid.t -> bool
 end
@@ -228,10 +234,7 @@ val spawn_link : (unit -> unit) -> Pid.t
 exception Name_already_registered of string * Pid.t
 
 val register : string -> Pid.t -> unit
-(** [register name pid] registers a process by a given name. The name will be
-    uniquely associated to this process and attempting to register the same
-    name twice will result in an exception [Name_already_registered] being
-    raised. *)
+(** [register name pid] is an alias to [Process.register ~name pid] *)
 
 val unregister : string -> unit
 (** [unregister name] frees a name and allows it to be re-registered. If the

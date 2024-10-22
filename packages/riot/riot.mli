@@ -645,8 +645,8 @@ module File : sig
   type rw_file = [ `r | `w ] file
 
   val fd : _ file -> Unix.file_descr
-  val open_read : string -> read_file
-  val open_write : string -> write_file
+  val open_read : ?permissions:int -> string -> read_file
+  val open_write : ?permissions:int -> string -> write_file
   val close : _ file -> unit
   val remove : string -> unit
   val seek : _ file -> off:int -> int

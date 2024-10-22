@@ -49,5 +49,4 @@ let demonitor pid =
   demonitor pid
 
 let is_alive pid = is_process_alive pid
-
 let register ~name pid = register name pid

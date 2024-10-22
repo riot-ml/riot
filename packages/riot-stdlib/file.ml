@@ -9,12 +9,15 @@ type rw_file = [ `w | `r ] file
 let fd t = t.fd
 let base_permissions = 0o640
 
-let do_open path flags =
-  let raw_fd = Unix.openfile path flags base_permissions in
+let do_open ?(permissions = base_permissions) path flags =
+  let raw_fd = Unix.openfile path flags permissions in
   { fd = Fd.make raw_fd; path }
 
-let open_read path = do_open path Unix.[ O_RDONLY ]
-let open_write path = do_open path Unix.[ O_WRONLY; O_CREAT ]
+let open_read ?permissions path = do_open ?permissions path Unix.[ O_RDONLY ]
+
+let open_write ?permissions path =
+  do_open ?permissions path Unix.[ O_WRONLY; O_CREAT ]
+
 let close t = Fd.close t.fd
 let remove path = Unix.unlink path
 let seek t ~off = Fd.seek t.fd off Unix.SEEK_SET

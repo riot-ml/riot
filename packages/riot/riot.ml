@@ -31,7 +31,8 @@ let run ?(config = Config.default ()) main =
 
   let Config.{ workers; rnd; _ } = config in
 
-  Log.debug (fun f -> f "Initializing Riot runtime...");
+  Log.debug (fun f -> f "Initializing Riot runtime...\n%a" Config.pp config);
+
   Printexc.record_backtrace true;
   Core.Pid.reset ();
   Scheduler.Uid.reset ();
@@ -63,20 +64,22 @@ let run_with_status ?config ~on_error main =
   in
   shutdown ~status ()
 
-let start ?config ~apps () =
-  run ?config @@ fun () ->
+let start ?(config = Config.default ()) ~apps () =
+  run ~config @@ fun () ->
   let child_specs =
     List.map
       (fun (module App : Application.Intf) ->
         Supervisor.child_spec App.start ())
       apps
   in
+  let restart_limit = config.supervisor_restart_limit in
+  let restart_period = config.supervisor_restart_period in
   Supervisor.(
     start_supervisor
       {
         strategy = One_for_one;
-        restart_limit = 1;
-        restart_period = 0;
+        restart_limit;
+        restart_period;
         child_specs;
         children = [];
         restarts = [];

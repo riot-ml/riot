@@ -305,10 +305,23 @@ val shutdown : ?status:int -> unit -> unit
 (** Gracefully shuts down the runtime. Any non-yielding process will block this. *)
 
 module Config : sig
-  type t = { rnd : Random.State.t; max_workers : int; workers : int }
+  type t = {
+    rnd : Random.State.t;
+    max_workers : int;
+    workers : int;
+    supervisor_restart_limit : int;
+    supervisor_restart_period : int;
+  }
 
+  val pp : Format.formatter -> t -> unit
   val default : unit -> t
-  val make : ?workers:int -> unit -> t
+
+  val make :
+    ?supervisor_restart_limit:int ->
+    ?supervisor_restart_period:int ->
+    ?workers:int ->
+    unit ->
+    t
 end
 
 val run : ?config:Config.t -> (unit -> unit) -> unit

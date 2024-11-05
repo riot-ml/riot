@@ -44,8 +44,10 @@ let main () =
   let acceptor () =
     match accept_loop () with
     | Ok () -> ()
-    | Error err ->
-        Logger.error (fun f -> f "error: %a" IO.pp_err (Obj.magic err))
+    | Error (`Process_down | `Timeout) ->
+        Logger.error (fun f -> f "error: process down or timeout")
+    | Error (`Net err) ->
+        Logger.error (fun f -> f "error: %a" Gluon.pp_err (Obj.magic err))
   in
 
   let _ = List.init 99 (fun _ -> spawn_link acceptor) in

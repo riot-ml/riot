@@ -1,16 +1,5 @@
 include Riot_stdlib
-
-open struct
-  open Riot_runtime
-  module Config = Config
-  module Log = Log
-  module Core = Core
-  module Import = Import
-  module Util = Util
-  module Scheduler = Scheduler
-  module Time = Time
-end
-
+open Riot_runtime
 module Config = Config
 
 open Logger.Make (struct

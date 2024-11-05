@@ -30,19 +30,25 @@ let exists path =
 
 module Read = struct
   type t = read_file
+  type error = [ `Gluon of Gluon.error ]
 
   let rec read t ?timeout buf =
-    match File.read t.fd buf ~pos:0 ~len:(Rio.Bytes.length buf) with
+    match
+      File.read t.fd buf ~pos:0 ~len:(Rio.Bytes.length buf)
+      |> Result.map_error (fun e -> `Gluon e)
+    with
     | Ok n -> Ok n
-    | Error `Would_block ->
+    | Error (`Gluon (Syscall_would_block _)) ->
         syscall ?timeout "File.read" Interest.readable (File.to_source t.fd)
         @@ fun _ -> read t ?timeout buf
     | Error err -> Error err
 
   let rec read_vectored t bufs =
-    match File.read_vectored t.fd bufs with
+    match
+      File.read_vectored t.fd bufs |> Result.map_error (fun e -> `Gluon e)
+    with
     | Ok n -> Ok n
-    | Error `Would_block ->
+    | Error (`Gluon (Syscall_would_block _)) ->
         syscall "File.read_vectored" Interest.readable (File.to_source t.fd)
         @@ fun _ -> read_vectored t bufs
     | Error err -> Error err
@@ -52,13 +58,16 @@ let to_reader t = Rio.Reader.of_read_src (module Read) t
 
 module Write = struct
   type t = write_file
+  type error = [ `Gluon of Gluon.error ]
 
   let size t = (stat t).st_size
 
   let rec write_owned_vectored t ~bufs =
-    match File.write_vectored t.fd bufs with
+    match
+      File.write_vectored t.fd bufs |> Result.map_error (fun e -> `Gluon e)
+    with
     | Ok n -> Ok n
-    | Error `Would_block ->
+    | Error (`Gluon (Syscall_would_block _)) ->
         syscall "File.write_vectored" Interest.writable (File.to_source t.fd)
         @@ fun _ -> write_owned_vectored t ~bufs
     | Error err -> Error err

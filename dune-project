@@ -16,12 +16,18 @@
 (license MIT)
 
 (pin
- (url "git+https://github.com/riot-ml/rio.git")
- (package (name rio)))
+ (package
+  (name gluon))
+ (url "git+https://github.com/riot-ml/gluon#leostera/expose-bad-uri-without-host"))
 
 (pin
- (url "git+https://github.com/riot-ml/bytestring.git")
- (package (name bytestring)))
+ (package
+  (name rio))
+ (url "git+https://github.com/riot-ml/rio#leostera/remove-gluon-errors"))
+
+(pin
+ (package (name bytestring))
+ (url "git+https://github.com/riot-ml/bytestring.git"))
 
 (package
  (name riot)

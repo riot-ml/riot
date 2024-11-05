@@ -28,7 +28,7 @@ let () =
       sleep 0.2;
       Stdlib.exit 1
   | Error err ->
-      Logger.error (fun f -> f "receive timeout errored: %a" IO.pp_err err);
+      Logger.error (fun f -> f "receive timeout errored: %a" Gluon.pp_err err);
       sleep 0.2;
       Stdlib.exit 1);
 
@@ -41,7 +41,7 @@ let () =
       sleep 0.2;
       Stdlib.exit 1
   | Error err ->
-      Logger.error (fun f -> f "send timeout errored: %a" IO.pp_err err);
+      Logger.error (fun f -> f "send timeout errored: %a" Gluon.pp_err err);
       sleep 0.2;
       Stdlib.exit 1);
 

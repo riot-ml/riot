@@ -542,22 +542,6 @@ module Fd : sig
 end
 
 module IO : sig
-  type io_error =
-    [ `Connection_closed
-    | `Exn of exn
-    | `No_info
-    | `Unix_error of Unix.error
-    | `Noop
-    | `Eof
-    | `Closed
-    | `Process_down
-    | `Timeout
-    | `Would_block ]
-
-  type ('ok, 'err) io_result = ('ok, ([> io_error ] as 'err)) Stdlib.result
-
-  val pp_err : Format.formatter -> [< io_error ] -> unit
-
   module Iovec : sig
     type iov = { ba : bytes; off : int; len : int }
     type t = iov array
@@ -575,51 +559,55 @@ module IO : sig
 
   module type Write = sig
     type t
+    type error
 
-    val write : t -> buf:string -> (int, [> `Closed ]) io_result
-
-    val write_owned_vectored :
-      t -> bufs:Iovec.t -> (int, [> `Closed ]) io_result
-
-    val flush : t -> (unit, [> `Closed ]) io_result
+    val write : t -> buf:string -> (int, error) result
+    val write_owned_vectored : t -> bufs:Iovec.t -> (int, error) result
+    val flush : t -> (unit, error) result
   end
 
   module Writer : sig
-    type 'src write = (module Write with type t = 'src)
-    type 'src t = Writer of ('src write * 'src)
+    type ('src, 'err) write =
+      (module Write with type t = 'src and type error = 'err)
 
-    val of_write_src : 'a write -> 'a -> 'a t
+    type ('src, 'err) t
+
+    val of_write_src : ('src, 'err) write -> 'src -> ('src, 'err) t
   end
 
   module type Read = sig
     type t
+    type error
 
-    val read : t -> ?timeout:int64 -> bytes -> (int, [> `Closed ]) io_result
-    val read_vectored : t -> Iovec.t -> (int, [> `Closed ]) io_result
+    val read : t -> ?timeout:int64 -> bytes -> (int, error) result
+    val read_vectored : t -> Iovec.t -> (int, error) result
   end
 
   module Reader : sig
-    type 'src read = (module Read with type t = 'src)
-    type 'src t = Reader of ('src read * 'src)
+    type ('src, 'err) read =
+      (module Read with type t = 'src and type error = 'err)
 
-    val of_read_src : 'a read -> 'a -> 'a t
-    val empty : unit t
+    type ('src, 'err) t
+
+    val of_read_src : ('src, 'err) read -> 'src -> ('src, 'err) t
+    val empty : (unit, unit) t
   end
 
   val read :
-    'a Reader.t -> ?timeout:int64 -> bytes -> (int, [> `Closed ]) io_result
+    ('a, 'err) Reader.t -> ?timeout:int64 -> bytes -> (int, 'err) result
 
-  val read_vectored : 'a Reader.t -> Iovec.t -> (int, [> `Closed ]) io_result
-  val read_to_end : 'a Reader.t -> buf:Buffer.t -> (int, [> `Closed ]) io_result
-  val write_all : 'a Writer.t -> buf:string -> (unit, [> `Closed ]) io_result
+  val read_vectored : ('a, 'err) Reader.t -> Iovec.t -> (int, 'err) result
+  val read_to_end : ('a, 'err) Reader.t -> buf:Buffer.t -> (int, 'err) result
+  val write : ('src, 'err) Writer.t -> buf:string -> (int, 'err) result
+  val write_all : ('a, 'err) Writer.t -> buf:string -> (unit, 'err) result
 
   val write_owned_vectored :
-    'a Writer.t -> bufs:Iovec.t -> (int, [> `Closed ]) io_result
+    ('a, 'err) Writer.t -> bufs:Iovec.t -> (int, 'err) result
 
   val write_all_vectored :
-    'a Writer.t -> bufs:Iovec.t -> (unit, [> `Closed ]) io_result
+    ('a, 'err) Writer.t -> bufs:Iovec.t -> (unit, 'err) result
 
-  val flush : 'a Writer.t -> (unit, [> `Closed ]) io_result
+  val flush : ('a, 'err) Writer.t -> (unit, 'err) result
 
   module Bytes : sig
     type t = bytes
@@ -637,7 +625,7 @@ module IO : sig
       type t
     end
 
-    val to_writer : t -> Bytes_writer.t Writer.t
+    val to_writer : t -> (Bytes_writer.t, exn) Writer.t
   end
 
   module Buffer : sig
@@ -647,7 +635,7 @@ module IO : sig
     val length : t -> int
     val contents : t -> string
     val to_bytes : t -> bytes
-    val to_writer : t -> t Writer.t
+    val to_writer : t -> (t, exn) Writer.t
   end
 end
 
@@ -664,8 +652,13 @@ module File : sig
   val remove : string -> unit
   val seek : _ file -> off:int -> int
   val stat : string -> Unix.stats
-  val to_reader : read_file -> read_file IO.Reader.t
-  val to_writer : write_file -> write_file IO.Writer.t
+
+  val to_reader :
+    read_file -> (read_file, [ `Gluon of Gluon.error ]) IO.Reader.t
+
+  val to_writer :
+    write_file -> (write_file, [ `Gluon of Gluon.error ]) IO.Writer.t
+
   val exists : string -> bool
 end
 
@@ -675,13 +668,15 @@ module Net : sig
     type tcp_addr = [ `v4 | `v6 ] raw_addr
     type stream_addr
 
-    val get_info : stream_addr -> (stream_addr list, [> `Noop ]) IO.io_result
+    val get_info :
+      stream_addr -> (stream_addr list, [> `Net of Gluon.error ]) result
+
     val ip : stream_addr -> string
     val loopback : tcp_addr
     val of_addr_info : Unix.addr_info -> stream_addr option
     val of_unix : Unix.sockaddr -> stream_addr
-    val of_uri : Uri.t -> (stream_addr, [> `Noop ]) IO.io_result
-    val parse : string -> (stream_addr, [> `Noop ]) IO.io_result
+    val of_uri : Uri.t -> (stream_addr, [> `Net of Gluon.error ]) result
+    val parse : string -> (stream_addr, [> `Net of Gluon.error ]) result
     val port : stream_addr -> int
     val pp : Format.formatter -> stream_addr -> unit
     val tcp : tcp_addr -> int -> stream_addr
@@ -703,32 +698,61 @@ module Net : sig
     type t = Socket.stream_socket
 
     val connect :
-      ?timeout:int64 -> Addr.stream_addr -> (t, [> `Noop ]) IO.io_result
+      ?timeout:int64 ->
+      Addr.stream_addr ->
+      (t, [> `Net of Gluon.error | `Process_down | `Timeout ]) result
 
     val close : t -> unit
     val pp : Format.formatter -> t -> unit
 
     val read :
-      t -> ?pos:int -> ?len:int -> bytes -> (int, [> `Noop ]) IO.io_result
+      t ->
+      ?pos:int ->
+      ?len:int ->
+      bytes ->
+      (int, [> `Net of Gluon.error ]) result
 
-    val read_vectored : t -> IO.Iovec.t -> (int, [> `Noop ]) IO.io_result
+    val read_vectored :
+      t -> IO.Iovec.t -> (int, [> `Net of Gluon.error ]) result
 
     val sendfile :
-      t -> file:Fd.t -> off:int -> len:int -> (int, [> `Noop ]) IO.io_result
+      t ->
+      file:Fd.t ->
+      off:int ->
+      len:int ->
+      (int, [> `Net of Gluon.error ]) result
 
     val write :
-      t -> ?pos:int -> ?len:int -> bytes -> (int, [> `Noop ]) IO.io_result
+      t ->
+      ?pos:int ->
+      ?len:int ->
+      bytes ->
+      (int, [> `Net of Gluon.error ]) result
 
-    val write_vectored : t -> IO.Iovec.t -> (int, [> `Noop ]) IO.io_result
+    val write_vectored :
+      t -> IO.Iovec.t -> (int, [> `Net of Gluon.error ]) result
 
     val receive :
-      ?timeout:int64 -> bufs:IO.Iovec.t -> t -> (int, [> `Noop ]) IO.io_result
+      ?timeout:int64 ->
+      bufs:IO.Iovec.t ->
+      t ->
+      (int, [> `Net of Gluon.error | `Process_down | `Timeout ]) result
 
     val send :
-      ?timeout:int64 -> bufs:IO.Iovec.t -> t -> (int, [> `Noop ]) IO.io_result
+      ?timeout:int64 ->
+      bufs:IO.Iovec.t ->
+      t ->
+      (int, [> `Net of Gluon.error | `Process_down | `Timeout ]) result
 
-    val to_reader : ?timeout:int64 -> t -> t IO.Reader.t
-    val to_writer : ?timeout:int64 -> t -> t IO.Writer.t
+    val to_reader :
+      ?timeout:int64 ->
+      t ->
+      (t, [ `Net of Gluon.error | `Process_down | `Timeout ]) IO.Reader.t
+
+    val to_writer :
+      ?timeout:int64 ->
+      t ->
+      (t, [ `Net of Gluon.error | `Process_down | `Timeout ]) IO.Writer.t
   end
 
   module Tcp_listener : sig
@@ -746,10 +770,15 @@ module Net : sig
     val accept :
       ?timeout:int64 ->
       t ->
-      (Tcp_stream.t * Addr.stream_addr, [> `Noop ]) IO.io_result
+      ( Tcp_stream.t * Addr.stream_addr,
+        [> `Net of Gluon.error | `Process_down | `Timeout ] )
+      result
 
     val bind :
-      ?opts:listen_opts -> port:int -> unit -> (t, [> `Noop ]) IO.io_result
+      ?opts:listen_opts ->
+      port:int ->
+      unit ->
+      (t, [> `Net of Gluon.error ]) result
 
     val close : t -> unit
     val pp : Format.formatter -> t -> unit
@@ -777,8 +806,13 @@ module SSL : sig
     Net.Socket.stream_socket ->
     Net.Socket.stream_socket t
 
-  val to_reader : 'src t -> 'src t IO.Reader.t
-  val to_writer : 'dst t -> 'dst t IO.Writer.t
+  val to_reader :
+    'src t ->
+    ('src t, [ `Net of Gluon.error | `Process_down | `Timeout ]) IO.Reader.t
+
+  val to_writer :
+    'dst t ->
+    ('dst t, [ `Net of Gluon.error | `Process_down | `Timeout ]) IO.Writer.t
 
   val negotiated_protocol :
     'src t ->

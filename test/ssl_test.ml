@@ -54,12 +54,15 @@ let server port socket =
         | Ok bytes ->
             Logger.debug (fun f -> f "Server sent %d bytes" bytes);
             echo ()
-        | Error (`Closed | `Timeout | `Process_down) -> close ()
-        | Error err ->
-            Logger.error (fun f -> f "error %a" IO.pp_err err);
+        | Error (`Net Connection_closed | `Process_down | `Timeout) -> close ()
+        | Error (`Net err) ->
+            Logger.error (fun f -> f "error %a" Gluon.pp_err err);
             close ())
-    | Error err ->
-        Logger.error (fun f -> f "error %a" IO.pp_err err);
+    | Error (`Process_down | `Timeout) ->
+        Logger.error (fun f -> f "error: process down or timeout");
+        close ()
+    | Error (`Net err) ->
+        Logger.error (fun f -> f "error %a" Gluon.pp_err err);
         close ()
   in
   echo ()
@@ -86,11 +89,12 @@ let client server_port main =
     else
       match IO.write_owned_vectored ~bufs writer with
       | Ok bytes -> Logger.debug (fun f -> f "Client sent %d bytes" bytes)
-      | Error (`Timeout | `Process_down | `Closed) ->
+      | Error (`Net Connection_closed | `Process_down | `Timeout) ->
           Logger.debug (fun f -> f "connection closed")
-      | Error (`Unix_error (ENOTCONN | EPIPE)) -> send_loop n
-      | Error err ->
-          Logger.error (fun f -> f "error %a" IO.pp_err err);
+      | Error (`Net (Unix_error { reason = ENOTCONN | EPIPE; _ })) ->
+          send_loop n
+      | Error (`Net err) ->
+          Logger.error (fun f -> f "error %a" Gluon.pp_err err);
           send_loop (n - 1)
   in
   send_loop 10_000;
@@ -101,8 +105,11 @@ let client server_port main =
     | Ok bytes ->
         Logger.debug (fun f -> f "Client received %d bytes" bytes);
         bytes
-    | Error err ->
-        Logger.error (fun f -> f "Error: %a" IO.pp_err err);
+    | Error (`Process_down | `Timeout) ->
+        Logger.error (fun f -> f "error: process down or timeout");
+        0
+    | Error (`Net err) ->
+        Logger.error (fun f -> f "Error: %a" Gluon.pp_err err);
         0
   in
   let len = recv_loop () in

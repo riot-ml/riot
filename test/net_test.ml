@@ -34,13 +34,13 @@ let server port socket =
         | Ok bytes ->
             Logger.debug (fun f -> f "Server sent %d bytes" bytes);
             echo ()
-        | Error (`Closed | `Process_down | `Timeout) -> close ()
-        | Error err ->
-            Logger.error (fun f -> f "error %a" IO.pp_err err);
+        | Error (`Net Connection_closed | `Process_down | `Timeout) -> close ()
+        | Error (`Net err) ->
+            Logger.error (fun f -> f "error %a" Gluon.pp_err err);
             close ())
-    | Error (`Closed | `Timeout | `Process_down) -> close ()
-    | Error err ->
-        Logger.error (fun f -> f "error %a" IO.pp_err err);
+    | Error (`Net Connection_closed | `Process_down | `Timeout) -> close ()
+    | Error (`Net err) ->
+        Logger.error (fun f -> f "error %a" Gluon.pp_err err);
         close ()
   in
   echo ()
@@ -55,11 +55,12 @@ let client server_port main =
     else
       match Net.Tcp_stream.send ~bufs conn with
       | Ok bytes -> Logger.debug (fun f -> f "Client sent %d bytes" bytes)
-      | Error `Closed -> Logger.debug (fun f -> f "connection closed")
-      | Error (`Process_down | `Timeout) -> Logger.debug (fun f -> f "timeout")
-      | Error (`Unix_error (ENOTCONN | EPIPE)) -> send_loop n
-      | Error err ->
-          Logger.error (fun f -> f "error %a" IO.pp_err err);
+      | Error (`Net Connection_closed | `Process_down | `Timeout) ->
+          Logger.debug (fun f -> f "connection closed")
+      | Error (`Net (Unix_error { reason = ENOTCONN | EPIPE; _ })) ->
+          send_loop n
+      | Error (`Net err) ->
+          Logger.error (fun f -> f "error %a" Gluon.pp_err err);
           send_loop (n - 1)
   in
   send_loop 10_000;
@@ -70,11 +71,11 @@ let client server_port main =
     | Ok bytes ->
         Logger.debug (fun f -> f "Client received %d bytes" bytes);
         bytes
-    | Error (`Closed | `Timeout | `Process_down) ->
+    | Error (`Net Connection_closed | `Process_down | `Timeout) ->
         Logger.error (fun f -> f "Server closed the connection");
         0
-    | Error err ->
-        Logger.error (fun f -> f "error %a" IO.pp_err err);
+    | Error (`Net err) ->
+        Logger.error (fun f -> f "error %a" Gluon.pp_err err);
         0
   in
   let len = recv_loop () in

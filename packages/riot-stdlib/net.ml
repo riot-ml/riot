@@ -5,11 +5,23 @@ open Logger.Make (struct
   let namespace = [ "riot"; "net" ]
 end)
 
+let map_err e = Result.map_error (fun e -> `Net e) e
+
 module Socket = Gluon.Net.Socket
-module Addr = Gluon.Net.Addr
+
+module Addr = struct
+  include Gluon.Net.Addr
+
+  let get_info addr = get_info addr |> map_err
+  let of_uri uri = of_uri uri |> map_err
+  let parse str = parse str |> map_err
+end
 
 module Tcp_listener = struct
   include Gluon.Net.Tcp_listener
+
+  let bind ?reuse_addr ?reuse_port ?backlog stream_addr =
+    bind ?reuse_addr ?reuse_port ?backlog stream_addr |> map_err
 
   type listen_opts = {
     reuse_addr : bool;
@@ -36,12 +48,12 @@ module Tcp_listener = struct
     let this = self () in
     let rec accept_loop t =
       trace (fun f -> f "Socket is Accepting client at fd=%a" Fd.pp t);
-      match accept t with
+      match accept t |> map_err with
       | Ok (conn, addr) ->
           trace (fun f ->
               f "Accepted client %a / %a" Addr.pp addr Socket.pp conn);
           Ok (conn, addr)
-      | Error `Would_block ->
+      | Error (`Net (Syscall_would_block _)) ->
           trace (fun f ->
               f "Socket not ready, %a is retrying at fd=%a" Pid.pp this Fd.pp t);
           syscall "accept" Interest.(add readable writable) (to_source t)
@@ -66,6 +78,12 @@ end
 module Tcp_stream = struct
   include Gluon.Net.Tcp_stream
 
+  let read t ?pos ?len bytes = read t ?pos ?len bytes |> map_err
+  let read_vectored t iovec = read_vectored t iovec |> map_err
+  let write t ?pos ?len bytes = write t ?pos ?len bytes |> map_err
+  let write_vectored t iovec = write_vectored t iovec |> map_err
+  let sendfile t ~file ~off ~len = sendfile t ~file ~off ~len |> map_err
+
   let close t =
     let this = self () in
     trace (fun f -> f "Process %a: Closing socket fd=%a" Pid.pp this Fd.pp t);
@@ -82,14 +100,14 @@ module Tcp_stream = struct
   let connect ?timeout addr =
     let rec connect_loop addr =
       trace (fun f -> f "Attempting to connect to %a" Addr.pp addr);
-      match connect addr with
+      match connect addr |> map_err with
       | Ok (`Connected t) ->
           trace (fun f -> f "Connected to %a" Addr.pp addr);
           Ok t
       | Ok (`In_progress t) ->
           trace (fun f -> f "In_progress %a" Addr.pp addr);
           syscall "connect" Interest.(writable) (to_source t) @@ fun () -> Ok t
-      | Error `Would_block ->
+      | Error (`Net (Syscall_would_block _)) ->
           yield ();
           connect_loop addr
       | Error err -> Error err
@@ -104,7 +122,7 @@ module Tcp_stream = struct
     | Ok len ->
         trace (fun f -> f "received: %d octets from %a" len Socket.pp t);
         Ok len
-    | Error `Would_block ->
+    | Error (`Net (Syscall_would_block _)) ->
         trace (fun f -> f "waiting on %a to receive" Socket.pp t);
         syscall ?timeout "receive" Interest.readable (to_source t) @@ fun () ->
         receive ?timeout ~bufs t
@@ -116,23 +134,21 @@ module Tcp_stream = struct
     | Ok bytes ->
         trace (fun f -> f "sent: %d" (Rio.Iovec.length bufs));
         Ok bytes
-    | Error `Would_block ->
+    | Error (`Net (Syscall_would_block _)) ->
         trace (fun f -> f "retrying");
         syscall ?timeout "send" Interest.writable (to_source t) @@ fun () ->
         send ?timeout ~bufs t
     | Error err -> Error err
 
   let pp_err fmt = function
+    | `Net err -> Gluon.pp_err fmt err
     | `Timeout -> Format.fprintf fmt "Timeout"
     | `Process_down -> Format.fprintf fmt "Process_down"
-    | `System_limit -> Format.fprintf fmt "System_limit"
-    | `Closed -> Format.fprintf fmt "Closed"
-    | `Unix_error err ->
-        Format.fprintf fmt "Unix_error(%s)" (Unix.error_message err)
 
   let to_reader ?timeout:global_timeout t =
     let module Read = struct
       type nonrec t = t
+      type error = [ `Net of Gluon.error | `Process_down | `Timeout ]
 
       let read t ?timeout buf =
         let timeout =
@@ -147,6 +163,7 @@ module Tcp_stream = struct
   let to_writer ?timeout t =
     let module Write = struct
       type nonrec t = t
+      type error = [ `Net of Gluon.error | `Process_down | `Timeout ]
 
       let write_owned_vectored t ~bufs = send ?timeout ~bufs t
 

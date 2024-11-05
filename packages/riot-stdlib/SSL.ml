@@ -40,9 +40,11 @@ module IO = Rio
 
 let ( let* ) = Result.bind
 
+type error = [ `Net of Gluon.error | `Process_down | `Timeout ]
+
 type 'src t = {
-  writer : 'src IO.Writer.t;
-  reader : 'src IO.Reader.t;
+  writer : ('src, error) IO.Writer.t;
+  reader : ('src, error) IO.Reader.t;
   mutable state : [ `Active of Tls.Engine.state | `Eof | `Error of exn ];
   mutable linger : string option;
   recv_buf : bytes;
@@ -52,10 +54,14 @@ exception Tls_alert of Tls.Packet.alert_type
 exception Tls_failure of Tls.Engine.failure
 
 module Tls_unix = struct
-  exception Read_error of Rio.io_error
-  exception Write_error of Rio.io_error
+  exception Read_error of error
+  exception Write_error of error
 
-  let err_to_str err = Format.asprintf "%a" Rio.pp_err err
+  let err_to_str err =
+    match err with
+    | `Process_down -> "Process down"
+    | `Timeout -> "Process timeout"
+    | `Net err -> Format.asprintf "%a" Gluon.pp_err err
 
   let read_t t dst =
     let src = IO.Bytes.with_capacity (Bytes.length dst) in
@@ -64,7 +70,7 @@ module Tls_unix = struct
         trace (fun f -> f "read_t: %d/%d" len (Bytes.length dst));
         BytesLabels.blit ~src ~src_pos:0 ~dst ~dst_pos:0 ~len;
         len
-    | Error (`Closed | `Eof) ->
+    | Error (`Net Connection_closed) ->
         trace (fun f -> f "read_t: 0/%d" (Bytes.length dst));
         raise End_of_file
     | Error err ->
@@ -224,10 +230,11 @@ module Tls_unix = struct
     in
     drain_handshake t
 
-  let to_reader : type src. src t -> src t IO.Reader.t =
+  let to_reader : type src. src t -> (src t, error) IO.Reader.t =
    fun t ->
     let module Read = struct
       type nonrec t = src t
+      type nonrec error = error
 
       let read t ?timeout:_ dst =
         match single_read t dst with
@@ -238,10 +245,11 @@ module Tls_unix = struct
     end in
     IO.Reader.of_read_src (module Read) t
 
-  let to_writer : type src. src t -> src t IO.Writer.t =
+  let to_writer : type src. src t -> (src t, error) IO.Writer.t =
    fun t ->
     let module Write = struct
       type nonrec t = src t
+      type nonrec error = error
 
       let write t ~buf = single_write t buf
 

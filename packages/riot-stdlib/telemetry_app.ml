@@ -25,5 +25,6 @@ module Dispatcher = struct
 end
 
 let start () = Dispatcher.start_link ()
+
 let emit = Dispatcher.emit
 let attach = Telemetry.attach

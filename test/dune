@@ -205,3 +205,9 @@
  (name terminate_when_main_terminates_test)
  (modules terminate_when_main_terminates_test)
  (libraries riot))
+
+(test
+ (package riot)
+ (name concurrent_file_reads)
+ (modules concurrent_file_reads)
+ (libraries riot))

@@ -667,6 +667,14 @@ module File : sig
   val to_reader : read_file -> read_file IO.Reader.t
   val to_writer : write_file -> write_file IO.Writer.t
   val exists : string -> bool
+
+  val write : ?permissions:int -> string -> content:string -> (unit, [> `Noop ]) IO.io_result
+  val read_to_string : 
+string ->
+( string,
+  [> `File_not_found of string
+  ] )
+IO.io_result
 end
 
 module Net : sig

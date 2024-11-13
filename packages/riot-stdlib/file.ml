@@ -50,6 +50,15 @@ end
 
 let to_reader t = Rio.Reader.of_read_src (module Read) t
 
+let read_to_string path =
+  if not (exists path) then Error (`File_not_found path)
+  else
+    let file = open_read path in
+    let reader = to_reader file in
+    let buf = Buffer.create 512 in
+    let* _ = Rio.read_to_end reader ~buf in
+    Ok (Buffer.contents buf)
+
 module Write = struct
   type t = write_file
 
@@ -64,10 +73,14 @@ module Write = struct
     | Error err -> Error err
 
   let write t ~buf =
-    let bufs = Rio.Iovec.from_string buf in
-    write_owned_vectored t ~bufs
+    File.write t.fd ~pos:0 ~len:(String.length buf) (Bytes.unsafe_of_string buf)
 
   let flush _t = Ok ()
 end
 
 let to_writer t = Rio.Writer.of_write_src (module Write) t
+
+let write ?permissions path ~content:buf =
+  let file = open_write ?permissions path in
+  let dst = to_writer file in
+  Rio.write_all dst ~buf

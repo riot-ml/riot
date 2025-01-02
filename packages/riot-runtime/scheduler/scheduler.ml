@@ -285,10 +285,10 @@ module Scheduler = struct
           Log.trace (fun f ->
               f "Process %a: yielding" Pid.pp (Process.pid proc));
           k Yield
-      | effect ->
+      | eff ->
           Log.trace (fun f ->
               f "Process %a: unhandled effect" Pid.pp (Process.pid proc));
-          k (Reperform effect)
+          k (Reperform eff)
     in
     { perform }
 
